@@ -40,8 +40,8 @@
 **Identificado em:** Sprint 1, Fase 3 (durante validação manual de login)
 **Onde:** `src/app/(public)/login/actions.ts`
 **Por quê:** Em Next.js 15, quando uma Server Action chama `supabase.auth.signInWithPassword`, o cookie de sessão é setado mas não é legível por chamadas subsequentes de `auth.getUser()` na mesma execução. `getCurrentUser()` (que internamente chama `auth.getUser()`) retorna null mesmo após login bem-sucedido, gerando falso positivo de "usuário não encontrado".
-**Solução adotada:** ler `role` direto de `data.user.app_metadata.role` retornado pelo `signInWithPassword`, em vez de roundtrip adicional via `getCurrentUser()`. O Auth Hook (`custom_jwt_claims`) já injeta `role` no `app_metadata` no momento da geração do JWT.
-**Lição:** Em Server Actions de auth, prefira ler dados do retorno direto da chamada de auth ao invés de fazer queries subsequentes. `getCurrentUser()` continua válido em Server Components de rotas protegidas (request seguinte, com cookie estabelecido).
+**Solução adotada:** decodificar o `data.session.access_token` retornado pelo `signInWithPassword` para ler o `role` dos custom claims do JWT. O Auth Hook (`custom_jwt_claims`) injeta `role` no **payload do JWT** (campo `claims`), não em `app_metadata` — `app_metadata` é `raw_app_meta_data`, campo separado que o hook nunca escreve.
+**Lição:** O hook escreve em `event.claims` (payload JWT), não em `app_metadata`. Para ler custom claims no mesmo request do login, decodifique o `access_token` com `Buffer.from(token.split('.')[1], 'base64url')`. `getCurrentUser()` continua válido em Server Components de rotas protegidas (request seguinte, com cookie já estabelecido).
 **Esforço para resolver definitivamente:** N/A — solução adotada é a recomendada pelo padrão Supabase + Next.js.
 **Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 3.
 

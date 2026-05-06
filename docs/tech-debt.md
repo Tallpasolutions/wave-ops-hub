@@ -36,6 +36,15 @@
 **Esforço estimado:** Resolvido.
 **Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 1 (validação).
 
+### 005 — Next.js 15 Server Actions: cookies recém-setados não são lidos na mesma execução
+**Identificado em:** Sprint 1, Fase 3 (durante validação manual de login)
+**Onde:** `src/app/(public)/login/actions.ts`
+**Por quê:** Em Next.js 15, quando uma Server Action chama `supabase.auth.signInWithPassword`, o cookie de sessão é setado mas não é legível por chamadas subsequentes de `auth.getUser()` na mesma execução. `getCurrentUser()` (que internamente chama `auth.getUser()`) retorna null mesmo após login bem-sucedido, gerando falso positivo de "usuário não encontrado".
+**Solução adotada:** ler `role` direto de `data.user.app_metadata.role` retornado pelo `signInWithPassword`, em vez de roundtrip adicional via `getCurrentUser()`. O Auth Hook (`custom_jwt_claims`) já injeta `role` no `app_metadata` no momento da geração do JWT.
+**Lição:** Em Server Actions de auth, prefira ler dados do retorno direto da chamada de auth ao invés de fazer queries subsequentes. `getCurrentUser()` continua válido em Server Components de rotas protegidas (request seguinte, com cookie estabelecido).
+**Esforço para resolver definitivamente:** N/A — solução adotada é a recomendada pelo padrão Supabase + Next.js.
+**Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 3.
+
 ### Template
 
 ```

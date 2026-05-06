@@ -45,6 +45,15 @@
 **Esforço para resolver definitivamente:** N/A — solução adotada é a recomendada pelo padrão Supabase + Next.js.
 **Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 3.
 
+### 006 — Route groups com paths colidentes em Next.js App Router
+**Identificado em:** Sprint 1, Fase 3 (validação manual)
+**Onde:** `src/app/(admin)/dashboard/page.tsx` vs `src/app/(manager)/dashboard/page.tsx`
+**Por quê:** Route groups (pastas com parênteses) NÃO criam segmento de URL no Next.js App Router. Múltiplos groups com mesmo path interno colidem em URL única, gerando build error.
+**Solução adotada:** path explícito por portal: admin usa `/admin/dashboard`, manager usa `/dashboard`, technician usa `/profile`. Mesmo com subdomain isolando o acesso, o roteador Next.js precisa de paths únicos no nível de filesystem.
+**Lição:** ao criar route groups, garantir que cada group tem paths únicos OU paths explicitamente diferentes na estrutura de pastas. Não confiar em subdomain pra "isolar" rotas em Next.js.
+**Esforço para resolver definitivamente:** Já resolvido.
+**Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 3.
+
 ### Template
 
 ```

@@ -56,9 +56,9 @@ Implementar isolamento multi-tenant via subdomínio + RLS, autenticação comple
 
 ### 5. Portal Tallpa Admin (`admin.tallpa.com.br`)
 
-- [ ] Layout dedicado `app/(admin)/layout.tsx`
+- [ ] Layout dedicado `app/(admin)/admin/layout.tsx`
 - [ ] Sidebar com navegação: Dashboard, Tenants, Usuários, Auditoria
-- [ ] `/(admin)/dashboard` — placeholder com lista de tenants e contadores básicos
+- [ ] `/(admin)/admin/dashboard` — placeholder com lista de tenants e contadores básicos
 - [ ] `/(admin)/tenants` — listar, criar, editar, suspender
 - [ ] `/(admin)/tenants/new` — formulário com slug, nome, brand_path, plano
 - [ ] `/(admin)/tenants/[slug]` — drill-down (placeholder, completar nas próximas sprints)

@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Operacional · Wave Telecom · Abril/2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #050814;
+    --bg-1: #0A0F22;
+    --bg-2: #0D1530;
+    --line: rgba(255,255,255,0.06);
+    --line-strong: rgba(255,255,255,0.10);
+    --text: #FFFFFF;
+    --text-2: #9AA3BD;
+    --text-3: #5A6385;
+    --cyan: #00D4FF;
+    --blue: #1E6BFF;
+    --grad: linear-gradient(135deg, #00D4FF 0%, #1E6BFF 100%);
+    --grad-soft: linear-gradient(135deg, rgba(0,212,255,0.18) 0%, rgba(30,107,255,0.10) 100%);
+    --green: #2EE6A8;
+    --amber: #FFB547;
+    --red: #FF5470;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', -apple-system, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(0,212,255,0.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 30%, rgba(30,107,255,0.07), transparent 60%),
+      var(--bg);
+    min-height: 100vh;
+    padding: 32px 28px 64px;
+  }
+
+  .wrap { max-width: 1440px; margin: 0 auto; }
+
+  /* ====== HEADER ====== */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--grad);
+    display: grid;
+    place-items: center;
+    font-family: 'Poppins';
+    font-weight: 800;
+    font-size: 20px;
+    color: #051127;
+    box-shadow: 0 8px 32px rgba(0,212,255,0.25);
+  }
+
+  .brand-text { display: flex; flex-direction: column; }
+  .brand-text .name {
+    font-family: 'Poppins';
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .brand-text .sub {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 2px;
+  }
+
+  .title-block { flex: 1; padding: 0 32px; min-width: 280px; }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan);
+  }
+  h1 {
+    font-family: 'Poppins';
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: var(--text-2);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .meta {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .meta-item { text-align: right; }
+  .meta-item .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-3);
+    margin-bottom: 4px;
+  }
+  .meta-item .val {
+    font-family: 'JetBrains Mono';
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  /* ====== KPI STRIP ====== */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .kpi {
+    background: linear-gradient(180deg, var(--bg-1) 0%, rgba(13,21,48,0.6) 100%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--grad);
+    opacity: 0.7;
+  }
+  .kpi:hover { border-color: var(--line-strong); }
+
+  .kpi-label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .kpi-value {
+    font-family: 'Poppins';
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .kpi-value .currency {
+    font-size: 14px;
+    color: var(--text-2);
+    margin-right: 4px;
+    font-weight: 500;
+  }
+  .kpi-value.gradient {
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .kpi-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-2);
+  }
+  .pill {
+    font-family: 'JetBrains Mono';
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  .pill.green { background: rgba(46,230,168,0.12); color: var(--green); }
+  .pill.amber { background: rgba(255,181,71,0.12); color: var(--amber); }
+  .pill.red { background: rgba(255,84,112,0.13); color: var(--red); }
+  .pill.cyan { background: rgba(0,212,255,0.12); color: var(--cyan); }
+
+  /* ====== GRID ====== */
+  .row {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .row.r-2 { grid-template-columns: 2fr 1fr; }
+  .row.r-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .row.r-12 { grid-template-columns: 1fr; }
+  .row.r-21 { grid-template-columns: 2fr 1fr; }
+  .row.r-side { grid-template-columns: 1.4fr 1fr; }
+
+  /* ====== CARD ====== */
+  .card {
+    background: linear-gradient(180deg, var(--bg-1) 0%, rgba(10,15,34,0.4) 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px 24px;
+    position: relative;
+  }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 18px;
+    gap: 12px;
+  }
+  .card-title {
+    font-family: 'Poppins';
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.2px;
+  }
+  .card-sub {
+    color: var(--text-3);
+    font-size: 11px;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .card-tag {
+    background: var(--grad-soft);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--cyan);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+
+  /* ====== CHART HOSTS ====== */
+  .chart-host { position: relative; height: 280px; }
+  .chart-host.tall { height: 340px; }
+  .chart-host.short { height: 220px; }
+
+  /* ====== TABLE ====== */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-3);
+    text-align: left;
+    padding: 0 12px 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+  }
+  th.right { text-align: right; }
+  td {
+    padding: 13px 12px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  td.right { text-align: right; font-family: 'JetBrains Mono'; font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .rank-num {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono';
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-2);
+    margin-right: 10px;
+  }
+  .rank-num.gold { background: var(--grad); color: #051127; }
+
+  .bar-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 999px;
+    overflow: hidden;
+    min-width: 60px;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--grad);
+    border-radius: 999px;
+  }
+  .bar-fill.amber { background: linear-gradient(90deg, #FFB547, #FF8A47); }
+  .bar-fill.red { background: linear-gradient(90deg, #FF5470, #FF1F47); }
+  .bar-fill.green { background: linear-gradient(90deg, #2EE6A8, #1EB47C); }
+
+  .bar-num {
+    font-family: 'JetBrains Mono';
+    font-size: 11px;
+    color: var(--text-2);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .tec-name { font-weight: 600; }
+  .tec-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; font-family: 'JetBrains Mono'; }
+
+  /* ====== CITY ROWS ====== */
+  .city-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 90px;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .city-row:last-child { border-bottom: none; }
+  .city-name { font-weight: 600; font-size: 13px; }
+  .city-bar-wrap {
+    grid-column: 1 / 4;
+    height: 5px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .city-bar { height: 100%; background: var(--grad); }
+  .city-meta {
+    grid-column: 1 / 4;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-3);
+    font-family: 'JetBrains Mono';
+  }
+
+  /* ====== MOTIVO LIST ====== */
+  .motivo {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 11px 0;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .motivo:last-child { border-bottom: none; }
+  .motivo-name {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .motivo-bar {
+    grid-column: 1 / 3;
+    height: 4px;
+    background: rgba(255,84,112,0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .motivo-bar-fill { height: 100%; background: linear-gradient(90deg, #FF5470, #FF8A47); }
+  .motivo-count {
+    font-family: 'JetBrains Mono';
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+    background: rgba(255,84,112,0.10);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* ====== INSIGHT BOX ====== */
+  .insight {
+    background: linear-gradient(135deg, rgba(255,84,112,0.06), rgba(255,84,112,0.02));
+    border: 1px solid rgba(255,84,112,0.15);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-2);
+  }
+  .insight strong { color: var(--text); font-weight: 700; }
+  .insight.ok {
+    background: linear-gradient(135deg, rgba(46,230,168,0.06), rgba(46,230,168,0.02));
+    border-color: rgba(46,230,168,0.15);
+  }
+
+  /* ====== DONUT WRAPPER ====== */
+  .donut-wrap { position: relative; }
+  .donut-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .donut-center .num {
+    font-family: 'Poppins';
+    font-weight: 700;
+    font-size: 28px;
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .donut-center .lbl {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .legend-list { margin-top: 14px; }
+  .legend-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .legend-item:last-child { border-bottom: none; }
+  .legend-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+  .legend-mono {
+    font-family: 'JetBrains Mono';
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .legend-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* ====== FOOTER ====== */
+  .footer {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-3);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .footer-brand .logo { width: 26px; height: 26px; font-size: 13px; border-radius: 6px; }
+
+  /* ====== RESPONSIVE ====== */
+  @media (max-width: 1280px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 900px) {
+    body { padding: 20px 16px 40px; }
+    h1 { font-size: 22px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .row.r-2, .row.r-3, .row.r-21, .row.r-side { grid-template-columns: 1fr; }
+    .header { flex-direction: column; align-items: flex-start; }
+    .title-block { padding: 0; }
+    .meta { width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============== HEADER ============== -->
+  <header class="header">
+    <div class="brand">
+      <div class="logo">T</div>
+      <div class="brand-text">
+        <span class="name">TALLPA SOLUTIONS</span>
+        <span class="sub">Operational Intelligence</span>
+      </div>
+    </div>
+    <div class="title-block">
+      <span class="eyebrow">Wave Telecom · Mensal</span>
+      <h1>Painel Operacional de Ordens de Serviço</h1>
+      <p class="subtitle">Visão consolidada de produtividade, finanças e performance da equipe técnica · Abril/2026</p>
+    </div>
+    <div class="meta">
+      <div class="meta-item">
+        <div class="lbl">Período</div>
+        <div class="val">01 — 30 ABR 2026</div>
+      </div>
+      <div class="meta-item">
+        <div class="lbl">Atualizado</div>
+        <div class="val">Tempo real</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============== KPI STRIP ============== -->
+  <section class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Total de OSs</div>
+      <div class="kpi-value gradient">857</div>
+      <div class="kpi-foot"><span class="pill cyan">28,6/dia</span> média diária</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Valor Total Recebido</div>
+      <div class="kpi-value"><span class="currency">R$</span>87.869<span style="font-size:18px;color:var(--text-2);">,47</span></div>
+      <div class="kpi-foot"><span class="pill green">+R$ 2,9k/dia</span> arrecadação</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Ticket Médio por OS</div>
+      <div class="kpi-value"><span class="currency">R$</span>102,53</div>
+      <div class="kpi-foot"><span class="pill cyan">Externa R$ 157</span> · Interna R$ 46</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Taxa de Finalização</div>
+      <div class="kpi-value">69,4<span style="font-size:18px;color:var(--text-2);">%</span></div>
+      <div class="kpi-foot"><span class="pill green">595 OSs</span> com sucesso</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Improdutividade</div>
+      <div class="kpi-value">12,8<span style="font-size:18px;color:var(--text-2);">%</span></div>
+      <div class="kpi-foot"><span class="pill amber">110 OSs</span> sem produção</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Equipe Ativa</div>
+      <div class="kpi-value">8</div>
+      <div class="kpi-foot"><span class="pill cyan">11 cidades</span> atendidas</div>
+    </div>
+  </section>
+
+  <!-- ============== ROW: TIMELINE ============== -->
+  <section class="row r-12">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Volume Diário e Arrecadação</div>
+          <div class="card-sub">Operação consolidada · Abril/2026</div>
+        </div>
+        <span class="card-tag">30 dias</span>
+      </div>
+      <div class="chart-host"><canvas id="timeline"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ============== ROW: TIPO DE OS + TIPO ATENDIMENTO ============== -->
+  <section class="row r-21">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Tipos de Ordem de Serviço</div>
+          <div class="card-sub">Volume, ticket médio e taxa de finalização</div>
+        </div>
+        <span class="card-tag">13 categorias</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Tipo de OS</th>
+            <th class="right">Qtd</th>
+            <th>Distribuição</th>
+            <th class="right">Ticket Médio</th>
+            <th class="right">Valor Total</th>
+            <th class="right">Taxa Finalização</th>
+          </tr>
+        </thead>
+        <tbody id="finalidades-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Tipo de Atendimento</div>
+          <div class="card-sub">Externo vs Interno</div>
+        </div>
+      </div>
+      <div class="donut-wrap">
+        <div class="chart-host short"><canvas id="tipoAtendimento"></canvas></div>
+        <div class="donut-center">
+          <div class="num">857</div>
+          <div class="lbl">Total OSs</div>
+        </div>
+      </div>
+      <div class="legend-list">
+        <div class="legend-item">
+          <div>
+            <span class="legend-dot" style="background:linear-gradient(135deg,#00D4FF,#1E6BFF)"></span>
+            <strong>Externo</strong>
+            <div class="legend-sub" style="margin-left:20px">437 OSs · ticket R$ 157,15</div>
+          </div>
+          <span class="legend-mono" style="color:var(--cyan)">R$ 68.674</span>
+        </div>
+        <div class="legend-item">
+          <div>
+            <span class="legend-dot" style="background:rgba(255,255,255,0.18)"></span>
+            <strong>Interno</strong>
+            <div class="legend-sub" style="margin-left:20px">420 OSs · ticket R$ 45,70</div>
+          </div>
+          <span class="legend-mono">R$ 19.196</span>
+        </div>
+      </div>
+      <div class="insight ok">
+        <span style="color:var(--green);font-weight:700;">▲</span>
+        <div><strong>Atendimento Externo gera 78%</strong> da receita com volume similar — oportunidade clara de priorização.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== ROW: RANKING TÉCNICOS ============== -->
+  <section class="row r-12">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Ranking de Técnicos · Performance Operacional</div>
+          <div class="card-sub">Volume executado, valor gerado e taxa de sucesso</div>
+        </div>
+        <span class="card-tag">8 técnicos</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32%">Técnico</th>
+            <th class="right">OSs</th>
+            <th>Carga de trabalho</th>
+            <th class="right">Valor Gerado</th>
+            <th class="right">Ticket Médio</th>
+            <th class="right">Taxa Sucesso</th>
+            <th class="right">Improdutivas</th>
+          </tr>
+        </thead>
+        <tbody id="tecnicos-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============== ROW: 2 RANKINGS LADO A LADO ============== -->
+  <section class="row r-2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Top Técnicos por Valor Gerado</div>
+          <div class="card-sub">Receita arrecadada no período</div>
+        </div>
+      </div>
+      <div class="chart-host"><canvas id="tecValor"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Atenção · OSs Não Finalizadas</div>
+          <div class="card-sub">Ranking por volume de não-conclusão</div>
+        </div>
+        <span class="card-tag" style="background:rgba(255,84,112,0.10);border-color:rgba(255,84,112,0.2);color:var(--red)">262 totais</span>
+      </div>
+      <div id="naoFinalizadas"></div>
+    </div>
+  </section>
+
+  <!-- ============== ROW: CIDADES + MOTIVOS ============== -->
+  <section class="row r-side">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Distribuição Geográfica</div>
+          <div class="card-sub">Volume e arrecadação por cidade</div>
+        </div>
+        <span class="card-tag">11 cidades</span>
+      </div>
+      <div id="cidades-body"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Motivos de Não-Conclusão</div>
+          <div class="card-sub">Top causas operacionais</div>
+        </div>
+      </div>
+      <div id="motivos-body"></div>
+      <div class="insight">
+        <span style="color:var(--red);font-weight:700;">●</span>
+        <div><strong>37% das não-conclusões são "cliente ausente"</strong> — confirmação prévia ativa pode recuperar até 96 OSs/mês.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== ROW: PROBLEMAS REPORTADOS ============== -->
+  <section class="row r-3">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Problemas Reportados</div>
+          <div class="card-sub">Categorização do suporte técnico</div>
+        </div>
+      </div>
+      <div class="chart-host short"><canvas id="problemas"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Indicadores de Qualidade</div>
+          <div class="card-sub">Saúde operacional do mês</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;margin-top:6px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px;">
+            <span>Taxa de Finalização</span>
+            <span class="legend-mono" style="color:var(--green)">69,4%</span>
+          </div>
+          <div class="bar-track" style="height:8px;"><div class="bar-fill green" style="width:69.4%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px;">
+            <span>Atendimento Externo (alta receita)</span>
+            <span class="legend-mono" style="color:var(--cyan)">51,0%</span>
+          </div>
+          <div class="bar-track" style="height:8px;"><div class="bar-fill" style="width:51%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px;">
+            <span>Improdutividade</span>
+            <span class="legend-mono" style="color:var(--amber)">12,8%</span>
+          </div>
+          <div class="bar-track" style="height:8px;"><div class="bar-fill amber" style="width:12.8%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);margin-bottom:6px;">
+            <span>OSs Rejeitadas</span>
+            <span class="legend-mono" style="color:var(--red)">4,0%</span>
+          </div>
+          <div class="bar-track" style="height:8px;"><div class="bar-fill red" style="width:4%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg, rgba(0,212,255,0.08), rgba(30,107,255,0.04));border-color:rgba(0,212,255,0.18);">
+      <div class="card-head">
+        <div>
+          <div class="card-title" style="color:var(--cyan)">Resumo Executivo</div>
+          <div class="card-sub">Highlights de Abril/2026</div>
+        </div>
+      </div>
+      <ul style="list-style:none;padding:0;margin-top:6px;display:flex;flex-direction:column;gap:14px;">
+        <li style="display:flex;gap:10px;font-size:12.5px;line-height:1.55;color:var(--text-2);">
+          <span style="color:var(--cyan);font-weight:800;">01</span>
+          <span><strong style="color:var(--text);">R$ 87,8 mil arrecadados</strong> em 857 OSs, com pico de produtividade no dia 15 (49 OSs).</span>
+        </li>
+        <li style="display:flex;gap:10px;font-size:12.5px;line-height:1.55;color:var(--text-2);">
+          <span style="color:var(--cyan);font-weight:800;">02</span>
+          <span><strong style="color:var(--text);">Brusque concentra 38% do volume</strong> e R$ 33,6k em receita — cidade mais estratégica.</span>
+        </li>
+        <li style="display:flex;gap:10px;font-size:12.5px;line-height:1.55;color:var(--text-2);">
+          <span style="color:var(--cyan);font-weight:800;">03</span>
+          <span><strong style="color:var(--text);">Top 4 técnicos respondem por 70%</strong> do volume — distribuição assimétrica que pode ser otimizada.</span>
+        </li>
+        <li style="display:flex;gap:10px;font-size:12.5px;line-height:1.55;color:var(--text-2);">
+          <span style="color:var(--cyan);font-weight:800;">04</span>
+          <span><strong style="color:var(--text);">Suporte Fibra é 46% das OSs</strong>, mas Instalação PF/PJ tem o maior ticket médio (R$ 134).</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============== FOOTER ============== -->
+  <footer class="footer">
+    <div class="footer-brand">
+      <div class="logo">T</div>
+      <div>
+        <div style="color:var(--text);font-weight:700;font-family:Poppins;">Tallpa Solutions</div>
+        <div style="margin-top:2px;">Inteligência Operacional · BI · Automação · ERPs Customizados</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div>Dashboard gerado em 05/05/2026 · Dados extraídos do sistema operacional</div>
+      <div style="color:var(--text-2);margin-top:4px;font-family:'JetBrains Mono';">tallpa.solutions</div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+const DATA = {
+  daily: [{"dia":1,"qtd":34,"valor":3584.34,"finalizadas":26},{"dia":2,"qtd":42,"valor":4324.99,"finalizadas":33},{"dia":3,"qtd":29,"valor":2924,"finalizadas":22},{"dia":4,"qtd":12,"valor":1575.84,"finalizadas":11},{"dia":5,"qtd":5,"valor":495.54,"finalizadas":4},{"dia":6,"qtd":32,"valor":1468.88,"finalizadas":15},{"dia":7,"qtd":33,"valor":3161.9,"finalizadas":25},{"dia":8,"qtd":39,"valor":3821.07,"finalizadas":27},{"dia":9,"qtd":26,"valor":2952.65,"finalizadas":18},{"dia":10,"qtd":42,"valor":4869.81,"finalizadas":28},{"dia":11,"qtd":20,"valor":2226.57,"finalizadas":14},{"dia":12,"qtd":11,"valor":1470.11,"finalizadas":8},{"dia":13,"qtd":23,"valor":2107.8,"finalizadas":16},{"dia":14,"qtd":23,"valor":2498.44,"finalizadas":14},{"dia":15,"qtd":49,"valor":4559.7,"finalizadas":32},{"dia":16,"qtd":26,"valor":2601.59,"finalizadas":13},{"dia":17,"qtd":30,"valor":3475,"finalizadas":22},{"dia":18,"qtd":22,"valor":2537.15,"finalizadas":19},{"dia":19,"qtd":10,"valor":954.05,"finalizadas":8},{"dia":20,"qtd":36,"valor":4731.74,"finalizadas":29},{"dia":21,"qtd":31,"valor":4241.63,"finalizadas":25},{"dia":22,"qtd":34,"valor":3461.29,"finalizadas":21},{"dia":23,"qtd":32,"valor":3455.62,"finalizadas":24},{"dia":24,"qtd":34,"valor":3513.59,"finalizadas":27},{"dia":25,"qtd":30,"valor":3393.29,"finalizadas":22},{"dia":26,"qtd":16,"valor":756.64,"finalizadas":6},{"dia":27,"qtd":33,"valor":3507.5,"finalizadas":23},{"dia":28,"qtd":39,"valor":3780.25,"finalizadas":31},{"dia":29,"qtd":36,"valor":1470.88,"finalizadas":12},{"dia":30,"qtd":28,"valor":3947.61,"finalizadas":20}],
+  finalidades: [{"nome":"Suporte Fibra","qtd":397,"valor_total":39805.7,"valor_medio":100.27,"finalizadas":287,"taxa":72.3},{"nome":"Instalação Fibra PF","qtd":178,"valor_total":23677.93,"valor_medio":133.02,"finalizadas":118,"taxa":66.3},{"nome":"Mudança de Endereço","qtd":124,"valor_total":14607.17,"valor_medio":117.80,"finalizadas":75,"taxa":60.5},{"nome":"Venda Externa","qtd":44,"valor_total":1380.82,"valor_medio":31.38,"finalizadas":35,"taxa":79.5},{"nome":"Cabeamento/2º Ponto","qtd":39,"valor_total":3160.96,"valor_medio":81.05,"finalizadas":33,"taxa":84.6},{"nome":"Cabeamento Fibra","qtd":18,"valor_total":1660.95,"valor_medio":92.28,"finalizadas":12,"taxa":66.7},{"nome":"Suporte Condomínio","qtd":14,"valor_total":650.22,"valor_medio":46.44,"finalizadas":6,"taxa":42.9},{"nome":"Troca Equipamentos","qtd":13,"valor_total":478.92,"valor_medio":36.84,"finalizadas":11,"taxa":84.6},{"nome":"Retirada","qtd":11,"valor_total":313.24,"valor_medio":28.48,"finalizadas":8,"taxa":72.7},{"nome":"Instalação Fibra PJ","qtd":10,"valor_total":1441.06,"valor_medio":144.11,"finalizadas":7,"taxa":70.0},{"nome":"Suporte Geral","qtd":7,"valor_total":692.5,"valor_medio":98.93,"finalizadas":3,"taxa":42.9}],
+  tecnicos: [{"nome":"Douglas Ribeiro","total_os":190,"valor_total":20087.18,"valor_medio":105.72,"finalizadas":138,"nao_finalizadas":52,"improdutivas":18,"taxa_sucesso":72.6},{"nome":"Daniel Orlando Soares","total_os":147,"valor_total":16388.68,"valor_medio":111.49,"finalizadas":110,"nao_finalizadas":37,"improdutivas":18,"taxa_sucesso":74.8},{"nome":"Marcelo Cesar Vieira","total_os":139,"valor_total":15640.07,"valor_medio":112.52,"finalizadas":95,"nao_finalizadas":44,"improdutivas":19,"taxa_sucesso":68.3},{"nome":"Edson de Siqueira Garcez","total_os":128,"valor_total":13543.0,"valor_medio":105.80,"finalizadas":99,"nao_finalizadas":29,"improdutivas":11,"taxa_sucesso":77.3},{"nome":"Carlos Henrique Subtil Rodrigues","total_os":83,"valor_total":7138.11,"valor_medio":86.00,"finalizadas":46,"nao_finalizadas":37,"improdutivas":16,"taxa_sucesso":55.4},{"nome":"Juliano Chaves de Souza","total_os":82,"valor_total":7048.60,"valor_medio":85.96,"finalizadas":53,"nao_finalizadas":29,"improdutivas":11,"taxa_sucesso":64.6},{"nome":"Roni Nunes Marrane","total_os":45,"valor_total":3203.51,"valor_medio":71.19,"finalizadas":25,"nao_finalizadas":20,"improdutivas":12,"taxa_sucesso":55.6},{"nome":"Jean Daves Robertes","total_os":43,"valor_total":4820.32,"valor_medio":112.10,"finalizadas":29,"nao_finalizadas":14,"improdutivas":5,"taxa_sucesso":67.4}],
+  cidades: [{"nome":"Brusque","qtd":325,"valor":33587.35},{"nome":"Bombinhas","qtd":210,"valor":23209.71},{"nome":"Tijucas","qtd":157,"valor":16044.50},{"nome":"Porto Belo","qtd":114,"valor":11273.38},{"nome":"Balneário Piçarras","qtd":26,"valor":1486.31},{"nome":"Penha","qtd":12,"valor":1424.00},{"nome":"Navegantes","qtd":7,"valor":293.20},{"nome":"Canelinha","qtd":2,"valor":312.80},{"nome":"Gov. Celso Ramos","qtd":2,"valor":31.96},{"nome":"São João Batista","qtd":1,"valor":206.26},{"nome":"Nova Trento","qtd":1,"valor":0.00}],
+  motivos: [{"nome":"Cliente ausente","qtd":96},{"nome":"Sem tempo (operacional)","qtd":26},{"nome":"Chuva no local","qtd":23},{"nome":"OS criada incorreta","qtd":20},{"nome":"Sem viabilidade (cliente)","qtd":15},{"nome":"APR impedida","qtd":15},{"nome":"Sem viabilidade (Unetvale)","qtd":13},{"nome":"Cliente reagendou","qtd":17}],
+  problemas: [{"nome":"Sem Conexão","qtd":332},{"nome":"Lentidão","qtd":29},{"nome":"Ordem de Serviço","qtd":23},{"nome":"Quedas","qtd":18},{"nome":"Não Passa Banda","qtd":2}]
+};
+
+// ===== Helpers =====
+const fmt = n => n.toLocaleString('pt-BR');
+const fmtBRL = n => 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const fmtBRLk = n => n >= 1000 ? 'R$ ' + (n/1000).toFixed(1) + 'k' : 'R$ ' + n.toFixed(0);
+const pct = n => n.toFixed(1) + '%';
+
+// ===== Chart.js Defaults =====
+Chart.defaults.font.family = "'Manrope', sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#5A6385';
+Chart.defaults.plugins.legend.display = false;
+
+// ===== TIMELINE CHART =====
+(function(){
+  const ctx = document.getElementById('timeline').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 280);
+  grad.addColorStop(0, 'rgba(0,212,255,0.32)');
+  grad.addColorStop(1, 'rgba(0,212,255,0)');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: DATA.daily.map(d => d.dia.toString().padStart(2, '0')),
+      datasets: [
+        {
+          label: 'OSs',
+          data: DATA.daily.map(d => d.qtd),
+          borderColor: '#00D4FF',
+          backgroundColor: grad,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#00D4FF',
+          pointBorderColor: '#051127',
+          pointBorderWidth: 2,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Valor (R$)',
+          data: DATA.daily.map(d => d.valor),
+          borderColor: '#1E6BFF',
+          borderDash: [4, 4],
+          borderWidth: 2,
+          fill: false,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#1E6BFF',
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        tooltip: {
+          backgroundColor: '#0A0F22',
+          borderColor: 'rgba(255,255,255,0.10)',
+          borderWidth: 1,
+          padding: 12,
+          titleFont: {family: 'Poppins', weight: 700, size: 12},
+          bodyFont: {family: 'JetBrains Mono', size: 11},
+          callbacks: {
+            title: (items) => 'Dia ' + items[0].label + ' · Abril',
+            label: (item) => {
+              if (item.datasetIndex === 0) return ' ' + item.parsed.y + ' OSs';
+              return ' ' + fmtBRL(item.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#5A6385' }
+        },
+        y: {
+          position: 'left',
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#5A6385', callback: v => v + ' OS' },
+          title: { display: false }
+        },
+        y1: {
+          position: 'right',
+          grid: { display: false },
+          ticks: { color: '#5A6385', callback: v => 'R$ ' + (v/1000).toFixed(1) + 'k' }
+        }
+      }
+    }
+  });
+})();
+
+// ===== TIPO ATENDIMENTO DONUT =====
+(function(){
+  const ctx = document.getElementById('tipoAtendimento').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Externo', 'Interno'],
+      datasets: [{
+        data: [437, 420],
+        backgroundColor: [
+          (() => {
+            const g = ctx.createLinearGradient(0, 0, 200, 200);
+            g.addColorStop(0, '#00D4FF');
+            g.addColorStop(1, '#1E6BFF');
+            return g;
+          })(),
+          'rgba(255,255,255,0.10)'
+        ],
+        borderColor: '#0A0F22',
+        borderWidth: 4,
+        cutout: '72%'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        tooltip: {
+          backgroundColor: '#0A0F22',
+          borderColor: 'rgba(255,255,255,0.10)',
+          borderWidth: 1,
+          padding: 12,
+          titleFont: {family: 'Poppins', weight: 700},
+          bodyFont: {family: 'JetBrains Mono'}
+        }
+      }
+    }
+  });
+})();
+
+// ===== TIPOS DE OS TABLE =====
+(function(){
+  const tbody = document.getElementById('finalidades-body');
+  const max = Math.max(...DATA.finalidades.map(f => f.qtd));
+  DATA.finalidades.forEach((f, i) => {
+    const rank = (i + 1).toString().padStart(2, '0');
+    const taxaCls = f.taxa >= 75 ? 'green' : f.taxa >= 60 ? 'cyan' : 'amber';
+    const taxaColor = f.taxa >= 75 ? 'var(--green)' : f.taxa >= 60 ? 'var(--cyan)' : 'var(--amber)';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>
+          <span class="rank-num ${i < 3 ? 'gold' : ''}">${rank}</span>
+          <strong>${f.nome}</strong>
+        </td>
+        <td class="right">${f.qtd}</td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-track"><div class="bar-fill" style="width:${(f.qtd/max*100).toFixed(1)}%"></div></div>
+            <span class="bar-num">${(f.qtd/857*100).toFixed(1)}%</span>
+          </div>
+        </td>
+        <td class="right">${fmtBRL(f.valor_medio)}</td>
+        <td class="right" style="color:var(--cyan)">${fmtBRL(f.valor_total)}</td>
+        <td class="right" style="color:${taxaColor}">${pct(f.taxa)}</td>
+      </tr>
+    `);
+  });
+})();
+
+// ===== TÉCNICOS TABLE =====
+(function(){
+  const tbody = document.getElementById('tecnicos-body');
+  const max = Math.max(...DATA.tecnicos.map(t => t.total_os));
+  DATA.tecnicos.forEach((t, i) => {
+    const rank = (i + 1).toString().padStart(2, '0');
+    const taxaCls = t.taxa_sucesso >= 70 ? 'var(--green)' : t.taxa_sucesso >= 60 ? 'var(--cyan)' : 'var(--amber)';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>
+          <span class="rank-num ${i < 3 ? 'gold' : ''}">${rank}</span>
+          <strong class="tec-name">${t.nome}</strong>
+          <div class="tec-sub" style="margin-left:32px">${t.finalizadas} finalizadas · ${t.nao_finalizadas} não-finalizadas</div>
+        </td>
+        <td class="right" style="font-size:14px;font-weight:700;">${t.total_os}</td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-track"><div class="bar-fill" style="width:${(t.total_os/max*100).toFixed(1)}%"></div></div>
+            <span class="bar-num">${(t.total_os/857*100).toFixed(1)}%</span>
+          </div>
+        </td>
+        <td class="right" style="color:var(--cyan);font-weight:600;">${fmtBRL(t.valor_total)}</td>
+        <td class="right">${fmtBRL(t.valor_medio)}</td>
+        <td class="right" style="color:${taxaCls}">${pct(t.taxa_sucesso)}</td>
+        <td class="right" style="color:var(--amber)">${t.improdutivas}</td>
+      </tr>
+    `);
+  });
+})();
+
+// ===== TÉCNICOS POR VALOR (HORIZONTAL BAR) =====
+(function(){
+  const sorted = [...DATA.tecnicos].sort((a, b) => b.valor_total - a.valor_total);
+  const ctx = document.getElementById('tecValor').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 600, 0);
+  grad.addColorStop(0, '#00D4FF');
+  grad.addColorStop(1, '#1E6BFF');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(t => t.nome.split(' ').slice(0, 2).join(' ')),
+      datasets: [{
+        data: sorted.map(t => t.valor_total),
+        backgroundColor: grad,
+        borderRadius: 6,
+        borderSkipped: false,
+        barThickness: 18
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        tooltip: {
+          backgroundColor: '#0A0F22',
+          borderColor: 'rgba(255,255,255,0.10)',
+          borderWidth: 1,
+          padding: 12,
+          titleFont: {family: 'Poppins', weight: 700},
+          bodyFont: {family: 'JetBrains Mono'},
+          callbacks: { label: (item) => ' ' + fmtBRL(item.parsed.x) }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#5A6385', callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#9AA3BD', font: {size: 12, weight: 500} }
+        }
+      }
+    }
+  });
+})();
+
+// ===== NÃO FINALIZADAS =====
+(function(){
+  const sorted = [...DATA.tecnicos].sort((a, b) => b.nao_finalizadas - a.nao_finalizadas);
+  const max = Math.max(...sorted.map(t => t.nao_finalizadas));
+  const host = document.getElementById('naoFinalizadas');
+  sorted.forEach((t, i) => {
+    const taxaNaoFinal = (t.nao_finalizadas / t.total_os * 100).toFixed(1);
+    host.insertAdjacentHTML('beforeend', `
+      <div style="padding:11px 0;border-bottom:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="rank-num">${(i+1).toString().padStart(2,'0')}</span>
+            <strong style="font-size:13px;">${t.nome.split(' ').slice(0,2).join(' ')}</strong>
+            <span style="font-size:10px;color:var(--text-3);font-family:'JetBrains Mono';">de ${t.total_os} OSs</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span class="legend-mono" style="color:var(--text-2);">${taxaNaoFinal}%</span>
+            <span style="font-family:'JetBrains Mono';font-weight:700;font-size:14px;color:var(--red);background:rgba(255,84,112,0.10);padding:3px 10px;border-radius:6px;">${t.nao_finalizadas}</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill red" style="width:${(t.nao_finalizadas/max*100).toFixed(1)}%"></div></div>
+      </div>
+    `);
+  });
+})();
+
+// ===== CIDADES =====
+(function(){
+  const max = DATA.cidades[0].qtd;
+  const host = document.getElementById('cidades-body');
+  DATA.cidades.forEach((c, i) => {
+    host.insertAdjacentHTML('beforeend', `
+      <div style="padding:13px 0;border-bottom:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="rank-num ${i < 3 ? 'gold' : ''}">${(i+1).toString().padStart(2,'0')}</span>
+            <strong style="font-size:13px;">${c.nome}</strong>
+          </div>
+          <div style="display:flex;gap:14px;align-items:center;font-family:'JetBrains Mono';">
+            <span style="color:var(--text-2);font-size:11px;">${c.qtd} OSs</span>
+            <span style="color:var(--cyan);font-weight:600;font-size:12px;">${fmtBRLk(c.valor)}</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(c.qtd/max*100).toFixed(1)}%"></div></div>
+      </div>
+    `);
+  });
+})();
+
+// ===== MOTIVOS =====
+(function(){
+  const max = DATA.motivos[0].qtd;
+  const total = DATA.motivos.reduce((s, m) => s + m.qtd, 0);
+  const host = document.getElementById('motivos-body');
+  DATA.motivos.forEach((m, i) => {
+    const ptcExtra = (m.qtd/total*100).toFixed(1);
+    host.insertAdjacentHTML('beforeend', `
+      <div class="motivo">
+        <div>
+          <div class="motivo-name">${m.nome}</div>
+          <div style="font-size:10px;color:var(--text-3);font-family:'JetBrains Mono';margin-top:3px;">${ptcExtra}% das não-conclusões</div>
+        </div>
+        <div class="motivo-count">${m.qtd}</div>
+        <div class="motivo-bar"><div class="motivo-bar-fill" style="width:${(m.qtd/max*100).toFixed(1)}%"></div></div>
+      </div>
+    `);
+  });
+})();
+
+// ===== PROBLEMAS REPORTADOS =====
+(function(){
+  const ctx = document.getElementById('problemas').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0, '#00D4FF');
+  grad.addColorStop(1, '#1E6BFF');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.problemas.map(p => p.nome),
+      datasets: [{
+        data: DATA.problemas.map(p => p.qtd),
+        backgroundColor: grad,
+        borderRadius: 6,
+        borderSkipped: false,
+        barThickness: 32
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        tooltip: {
+          backgroundColor: '#0A0F22',
+          borderColor: 'rgba(255,255,255,0.10)',
+          borderWidth: 1,
+          padding: 12,
+          titleFont: {family: 'Poppins', weight: 700},
+          bodyFont: {family: 'JetBrains Mono'},
+          callbacks: { label: (item) => ' ' + item.parsed.y + ' OSs' }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#9AA3BD', font: {size: 11} }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#5A6385' }
+        }
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

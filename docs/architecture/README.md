@@ -1,0 +1,38 @@
+# Architecture Decision Records (ADRs)
+
+Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR é numerado, datado e tem status (Proposto, Aceito, Rejeitado, Substituído).
+
+**Regra:** antes de fazer qualquer mudança que conflite com um ADR, propor um novo ADR substituindo/atualizando o anterior.
+
+## Lista
+
+| Número | Título | Status |
+|---|---|---|
+| [ADR-001](./ADR-001-stack.md) | Stack Tecnológica | Aceito |
+| [ADR-002](./ADR-002-multi-tenant.md) | Arquitetura Multi-Tenant | Aceito |
+| [ADR-003](./ADR-003-os-visit-modeling.md) | Modelagem de OSs e Visitas | Aceito |
+| [ADR-004](./ADR-004-lpu-rule-engine.md) | Motor de Regras LPU | Aceito |
+| [ADR-005](./ADR-005-auth.md) | Autenticação e Autorização | Aceito |
+| [ADR-006](./ADR-006-etl.md) | Estratégia de Ingestão (ETL) | Aceito |
+
+## Template para novos ADRs
+
+```markdown
+# ADR-NNN — Título
+
+**Status:** Proposto | Aceito | Rejeitado | Substituído por ADR-XXX
+**Data:** YYYY-MM-DD
+**Decisores:** Nome(s)
+
+## Contexto
+O que motiva esta decisão? Qual o problema?
+
+## Decisão
+O que foi decidido?
+
+## Considerados e rejeitados
+Outras opções avaliadas e por que não foram escolhidas.
+
+## Consequências
+Positivas e negativas/trade-offs aceitos.
+```

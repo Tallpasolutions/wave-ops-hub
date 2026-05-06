@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Backgrounds */
+    --bg: #050814;           /* Fundo principal absoluto */
+    --bg-1: #0A0F22;         /* Fundo de cards (gradiente top) */
+    --bg-2: #0D1530;         /* Fundo de cards (gradiente bottom) */
+
+    /* Borders */
+    --line: rgba(255, 255, 255, 0.06);
+    --line-strong: rgba(255, 255, 255, 0.10);
+
+    /* Text */
+    --text: #FFFFFF;          /* Texto principal */
+    --text-2: #9AA3BD;        /* Texto secundário (subtítulos, descrições) */
+    --text-3: #5A6385;        /* Texto terciário (labels, eyebrows) */
+
+    /* Brand */
+    --cyan: #00D4FF;
+    --blue: #1E6BFF;
+    --grad: linear-gradient(135deg, #00D4FF 0%, #1E6BFF 100%);
+    --grad-soft: linear-gradient(135deg, rgba(0,212,255,0.18) 0%, rgba(30,107,255,0.10) 100%);
+
+    /* Status / Semantic */
+    --green: #2EE6A8;         /* Sucesso, finalizado */
+    --amber: #FFB547;         /* Atenção, improdutiva */
+    --red: #FF5470;           /* Erro, não finalizado */
+    
+    /* Fonts (will be overridden by Next.js fonts via CSS vars) */
+    --font-body: 'Manrope', -apple-system, sans-serif;
+    --font-display: 'Poppins', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Radius */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 16px;
+    --radius-full: 999px;
+    
+    /* Shadows */
+    --shadow-glow-cyan: 0 8px 32px rgba(0, 212, 255, 0.25);
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.20);
+  }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(0,212,255,0.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 30%, rgba(30,107,255,0.07), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "wave-ops-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma operacional multi-tenant para gestão de OSs e payouts. Tallpa Solutions.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx supabase/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "drizzle-orm": "latest",
+    "postgres": "latest",
+    "zod": "^3.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "recharts": "^2.0.0",
+    "lucide-react": "latest",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "tailwind-merge": "latest",
+    "xlsx": "latest",
+    "@react-pdf/renderer": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.0.0",
+    "autoprefixer": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.0.0",
+    "prettier-plugin-tailwindcss": "latest",
+    "drizzle-kit": "latest",
+    "vitest": "^2.0.0",
+    "@vitejs/plugin-react": "latest",
+    "@playwright/test": "latest",
+    "tsx": "latest",
+    "husky": "^9.0.0",
+    "lint-staged": "latest"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

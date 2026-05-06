@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 56" fill="none">
+  <!-- PLACEHOLDER — substituir pela logo oficial da Wave Telecom -->
+  <rect x="2" y="2" width="52" height="52" rx="12" fill="#FFFFFF"/>
+  <text x="28" y="40" text-anchor="middle"
+        font-family="Poppins, sans-serif" font-weight="800" font-size="26"
+        fill="#051127">W</text>
+  <text x="68" y="38"
+        font-family="Poppins, sans-serif" font-weight="700" font-size="22"
+        fill="#FFFFFF" letter-spacing="-0.5">wave</text>
+</svg>

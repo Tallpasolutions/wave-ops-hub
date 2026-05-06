@@ -26,6 +26,16 @@
 **Esforço estimado:** Resolvido.
 **Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 2.
 
+### 003 — tailwind.config.ts: require() não funciona em contexto ESM
+**Identificado em:** Sprint 1, Fase 1 (descoberto durante validação manual)
+**Onde:** `tailwind.config.ts` linha de `plugins`
+**Por quê:** Next.js 15 + arquivo `.ts` operam em ESM. `require()` é sintaxe CommonJS, lança ReferenceError em runtime quando o Tailwind tenta processar a config para rotas que usam plugins.
+**Solução adotada:** import ESM no topo do arquivo (`import tailwindcssAnimate from "tailwindcss-animate"`) e referência direta em `plugins`.
+**Lição:** Em `tailwind.config.ts` (TypeScript) sempre use `import` no topo. `require()` só funciona em `tailwind.config.js` (CommonJS).
+**Impacto se não resolver:** N/A — já resolvido.
+**Esforço estimado:** Resolvido.
+**Quando idealmente resolver:** Já resolvido em Sprint 1, Fase 1 (validação).
+
 ### Template
 
 ```

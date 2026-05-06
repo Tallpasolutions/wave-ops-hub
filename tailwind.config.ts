@@ -1,6 +1,8 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 const config: Config = {
+  darkMode: ["class"], // exigido pelo shadcn mesmo em dark-only; sem efeito visual (nunca toggled)
   content: [
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
@@ -13,7 +15,41 @@ const config: Config = {
         mono: ["var(--font-mono)"],
       },
       colors: {
-        background: "var(--bg)",
+        /* shadcn semantic — referenciam as vars shadcn (que apontam pros tokens Tallpa) */
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        primary: {
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
+        },
+        secondary: {
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
+        },
+        destructive: {
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
+        },
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
+        },
+        popover: {
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
+        },
+        card: {
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
+        },
+        /* Tallpa raw — mantidos para uso direto em componentes customizados */
         "bg-1": "var(--bg-1)",
         "bg-2": "var(--bg-2)",
         line: "var(--line)",
@@ -36,11 +72,16 @@ const config: Config = {
         card: "var(--shadow-card)",
       },
       borderRadius: {
-        sm: "var(--radius-sm)",
-        md: "var(--radius-md)",
-        lg: "var(--radius-lg)",
-        xl: "var(--radius-xl)",
-        full: "var(--radius-full)",
+        // shadcn padrão — relação proporcional interna esperada por componentes shadcn
+        lg: "var(--radius)", // 10px
+        md: "calc(var(--radius) - 2px)", // 8px
+        sm: "calc(var(--radius) - 4px)", // 6px
+        // Tallpa específico — nomes não conflitantes para componentes customizados
+        "tallpa-sm": "var(--radius-sm)", // 6px
+        "tallpa-md": "var(--radius-md)", // 10px
+        "tallpa-lg": "var(--radius-lg)", // 14px
+        "tallpa-xl": "var(--radius-xl)", // 16px
+        "tallpa-full": "var(--radius-full)", // 999px
       },
       spacing: {
         1: "4px",
@@ -54,7 +95,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

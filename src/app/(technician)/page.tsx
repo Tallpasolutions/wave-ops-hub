@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { ClipboardList, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Início' }
-import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 const fmtBRL = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

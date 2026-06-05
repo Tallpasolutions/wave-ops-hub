@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { CreateUserForm } from './_components/CreateUserForm'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UserNewPage() {
   const supabase = await createSupabaseServerClient()
   const { data: tenants } = await supabase

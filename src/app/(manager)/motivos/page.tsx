@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { ReasonCategoria } from '@/db/schema'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Motivos' }
 
 type ReasonRow = {

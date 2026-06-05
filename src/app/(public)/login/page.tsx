@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { LoginForm } from './LoginForm'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Entrar' }
 
 export default function LoginPage() {

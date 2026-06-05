@@ -9,6 +9,8 @@ export const metadata: Metadata = { title: 'Ordens de Serviço' }
 import { parsePeriod } from '../_lib/period'
 import { EmptyState } from '@/components/EmptyState'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   searchParams: Promise<{ mes?: string; finalidade?: string; cidade?: string }>
 }

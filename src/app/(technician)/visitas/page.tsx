@@ -10,6 +10,8 @@ import { parsePeriod, buildPeriodOptions } from '../_lib/period'
 import { PeriodSelector } from '../_components/PeriodSelector'
 import { Suspense } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 interface PageProps {
   searchParams: Promise<{ mes?: string }>
 }

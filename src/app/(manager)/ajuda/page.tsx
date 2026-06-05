@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { LogIn, FileUp, ScrollText, Tag, CalendarCheck, HardHat, HelpCircle } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Central de Ajuda' }
 
 const GUIDES = [

@@ -5,6 +5,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { OverridePayoutForm } from './_components/OverridePayoutForm'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   params: Promise<{ id: string }>
 }

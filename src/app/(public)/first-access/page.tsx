@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { FirstAccessForm } from './FirstAccessForm'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Primeiro Acesso' }
 
 export default function FirstAccessPage() {

@@ -8,6 +8,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Detalhe do Pagamento' }
 import { Button } from '@/components/ui/button'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   params: Promise<{ id: string }>
 }

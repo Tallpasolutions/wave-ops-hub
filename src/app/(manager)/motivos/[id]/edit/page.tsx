@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { ReasonCategoria } from '@/db/schema'
 import { EditReasonForm } from './_components/EditReasonForm'
 
+export const dynamic = 'force-dynamic'
+
 type ReasonDetail = {
   id: string
   motivo_original: string

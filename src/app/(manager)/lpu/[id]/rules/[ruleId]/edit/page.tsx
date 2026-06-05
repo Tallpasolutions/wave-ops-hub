@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { EditRuleForm } from './_components/EditRuleForm'
 import type { LpuRuleNarrowed } from '@/lib/lpu'
 
+export const dynamic = 'force-dynamic'
+
 type Props = { params: Promise<{ id: string; ruleId: string }> }
 
 export default async function EditRulePage({ params }: Props) {

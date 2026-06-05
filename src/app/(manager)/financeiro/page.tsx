@@ -13,6 +13,8 @@ import {
 } from './_lib/queries'
 import { FinanceiroChart } from './_components/FinanceiroChart'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   searchParams: Promise<{ mes?: string }>
 }

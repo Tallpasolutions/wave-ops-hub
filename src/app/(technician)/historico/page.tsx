@@ -8,6 +8,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Histórico' }
 import { HistoricoChart } from './_components/HistoricoChart'
 
+export const dynamic = 'force-dynamic'
+
 const fmtBRL = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 

@@ -11,6 +11,8 @@ import { detectConflicts } from '@/lib/lpu'
 import type { LpuRuleNarrowed } from '@/lib/lpu'
 import { activateLpu, deactivateLpuRule, duplicateLpuRule } from '../actions'
 
+export const dynamic = 'force-dynamic'
+
 function formatVigencia(inicio: string, fim: string | null): string {
   const start = new Date(inicio + 'T00:00:00').toLocaleDateString('pt-BR')
   if (!fim) return `${start} → vigente`

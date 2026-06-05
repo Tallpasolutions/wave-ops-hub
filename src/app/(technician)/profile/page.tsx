@@ -9,6 +9,8 @@ import { EditProfileForm } from './_components/EditProfileForm'
 import { ChangePasswordForm } from './_components/ChangePasswordForm'
 import { markAllNotificationsRead } from '@/app/notifications/actions'
 
+export const dynamic = 'force-dynamic'
+
 function maskCpf(cpf: string | null): string {
   if (!cpf) return '—'
   const digits = cpf.replace(/\D/g, '')

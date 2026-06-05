@@ -10,6 +10,8 @@ import type { UploadStatus } from '@/db/schema'
 import { LinkTechnicianForm } from './LinkTechnicianForm'
 import { deleteUpload, reprocessUpload, rerunUpload } from '../actions'
 
+export const dynamic = 'force-dynamic'
+
 type UploadDetail = {
   id: string
   file_name: string

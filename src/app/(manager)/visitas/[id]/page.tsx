@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   params: Promise<{ id: string }>
 }

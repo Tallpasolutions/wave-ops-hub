@@ -9,6 +9,8 @@ import type { LpuRuleNarrowed, ReasonForPayout, SimVisit } from '@/lib/lpu'
 import { activateLpu } from '../../actions'
 import { parsePeriod, buildPeriodOptions } from '../../../_lib/period'
 
+export const dynamic = 'force-dynamic'
+
 // ── Helpers de display ────────────────────────────────────────────────────────
 
 function formatBRL(value: number): string {

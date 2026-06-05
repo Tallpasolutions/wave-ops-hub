@@ -4,6 +4,8 @@ import { ArrowLeft } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 type AuditRecord = {
   id: string
   visit_id: string

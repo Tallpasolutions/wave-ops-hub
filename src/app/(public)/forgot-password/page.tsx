@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Recuperar Senha' }
 
 export default function ForgotPasswordPage() {

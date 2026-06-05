@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({ params }: { params: Promise<{ osNum: string }> }): Promise<Metadata> {
   const { osNum } = await params
   return { title: `OS ${osNum}` }

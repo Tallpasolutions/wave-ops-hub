@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/table'
 import { toggleTechnicianAtivo } from './actions'
 
+export const dynamic = 'force-dynamic'
+
 type TechnicianRow = {
   id: string
   nome_completo: string

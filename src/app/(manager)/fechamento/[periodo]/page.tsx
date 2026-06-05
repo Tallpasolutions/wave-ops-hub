@@ -17,6 +17,8 @@ import {
 } from '../actions'
 import { ReopenForm } from './_components/ReopenForm'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   params: Promise<{ periodo: string }>
   searchParams: Promise<{ error?: string }>

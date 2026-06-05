@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/table'
 import type { UploadStatus } from '@/db/schema'
 
+export const dynamic = 'force-dynamic'
+
 type UploadRow = {
   id: string
   file_name: string

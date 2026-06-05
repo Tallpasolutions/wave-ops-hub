@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser, canManageTechnicians } from '@/lib/auth'
 import { CreateTechnicianForm } from './_components/CreateTechnicianForm'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TecnicosNewPage({
   searchParams,
 }: {

@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { ResetPasswordForm } from './ResetPasswordForm'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Redefinir Senha' }
 
 export default function ResetPasswordPage() {

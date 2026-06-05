@@ -8,6 +8,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'LPUs' }
 import { Button } from '@/components/ui/button'
 
+export const dynamic = 'force-dynamic'
+
 function StatusBadge({ ativa }: { ativa: boolean }) {
   if (ativa) {
     return (

@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/table'
 import { toggleTenantAtivo } from './actions'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TenantsPage() {
   const supabase = await createSupabaseServerClient()
   const { data: tenants } = await supabase

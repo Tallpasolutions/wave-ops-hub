@@ -17,6 +17,8 @@ import {
 import { toggleUserAtivo, sendPasswordResetManager } from './actions'
 import type { AppRole } from '@/lib/auth/types'
 
+export const dynamic = 'force-dynamic'
+
 type UserRow = {
   id: string
   email: string

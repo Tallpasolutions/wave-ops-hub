@@ -9,6 +9,8 @@ export const metadata: Metadata = { title: 'Perfil do Técnico' }
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../../../_lib/period'
 
+export const dynamic = 'force-dynamic'
+
 type Props = {
   params: Promise<{ id: string }>
   searchParams: Promise<{ mes?: string }>

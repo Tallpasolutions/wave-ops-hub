@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = { title: 'Fechamentos' }
 
 type ClosingStatus = 'aberto' | 'aguardando_aprovacao' | 'aprovado' | 'pago' | 'reaberto'

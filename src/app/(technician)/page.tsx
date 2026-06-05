@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Início' }
 
 const fmtBRL = (n: number) =>

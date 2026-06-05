@@ -1,5 +1,7 @@
 import { UploadForm } from './UploadForm'
 
+export const dynamic = 'force-dynamic'
+
 export default function NewUploadPage() {
   return (
     <div className="p-4 lg:p-8">

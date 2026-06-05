@@ -89,9 +89,13 @@ Finalizar testes, ajustes visuais, documentação para Wave, deploy em produçã
 - [x] Vercel Analytics + Speed Insights integrados (`@vercel/analytics`, `@vercel/speed-insights`) em `src/app/layout.tsx`
 - [x] Deploy no Vercel — projeto `Tallpasolutions/wave-ops-hub` conectado e publicado
 - [x] Domínio `wave.tallpa.com.br` apontando para Vercel via CNAME no Cloudflare (DNS-only)
+- [x] Domínio `admin.tallpa.com.br` configurado no Vercel + Cloudflare
+- [x] Node.js fixado em `20.x` no `package.json` (engines) e no painel Vercel
 - [x] Backups: Supabase PITR habilitado (Settings → Add-ons → Point in Time Recovery)
 - [x] Alertas: Vercel Monitoring configurado — e-mail `jhonicleyton@gmail.com` para Error Rate > 5/hora
 - [x] Guia de backups e alertas criado em `docs/manual-steps/backups-e-alertas.md`
+- [x] Portal técnico: valores exibidos em pontos (`pts`) em vez de BRL — conversão 1:1 (R$ 1,00 = 1 pt)
+- [x] Git Flow documentado no `CLAUDE.md` (seção 5) — branches obrigatórias, nunca push direto em `main`
 
 ---
 

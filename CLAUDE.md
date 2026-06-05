@@ -87,7 +87,61 @@ Sempre, em ordem:
 
 ---
 
-## 5. Regras absolutas — NUNCA FAÇA
+## 5. Git Flow — obrigatório em produção
+
+O projeto está **em produção** desde 2026-06-05. A branch `main` está protegida — qualquer push direto pode quebrar o sistema ao vivo.
+
+### Regra absoluta
+
+❌ **Não commitar nem fazer push direto em `main`.** Toda alteração de código passa por uma branch e PR, sem exceção.
+
+### Fluxo obrigatório
+
+```bash
+# 1. Partir sempre do main atualizado
+git checkout main && git pull origin main
+
+# 2. Criar branch com nome descritivo
+git checkout -b feat/nome-da-feature
+# ou fix/descricao-do-bug
+# ou chore/descricao
+# ou docs/descricao
+
+# 3. Desenvolver + commits na branch
+git add <arquivos> && git commit -m "feat: ..."
+
+# 4. Push da branch
+git push origin feat/nome-da-feature
+
+# 5. Abrir PR no GitHub → base: main
+# 6. Revisar, aprovar e fazer merge pelo GitHub
+```
+
+### Convenção de nomes de branch
+
+| Prefixo | Quando usar |
+|---|---|
+| `feat/` | Nova funcionalidade |
+| `fix/` | Correção de bug |
+| `chore/` | Manutenção, dependências, configuração |
+| `docs/` | Somente documentação |
+| `refactor/` | Refatoração sem mudança de comportamento |
+
+### O que Claude faz nesse fluxo
+
+Ao receber uma tarefa de código, Claude:
+1. Cria a branch a partir de `main`
+2. Desenvolve e commita na branch
+3. Faz push da branch
+4. Informa o nome da branch para o usuário abrir o PR no GitHub
+
+Claude **nunca** faz push direto em `main` enquanto o projeto estiver em produção.
+
+---
+
+## 6. Regras absolutas — NUNCA FAÇA
+
+❌ **Não commitar nem fazer push direto em `main` enquanto o projeto estiver em produção.** Todo código vai por branch + PR. Ver seção 5 — Git Flow.
 
 ❌ **Não modificar schema de banco direto no painel Supabase.** Toda alteração é uma migration numerada em `supabase/migrations/`.
 
@@ -160,6 +214,8 @@ Também: `redirect` deve ser importado estaticamente no topo do arquivo (`import
 ✅ **Atualiza o glossário** se introduziu novo termo de domínio.
 
 ✅ **Roda `pnpm db:generate`** sempre que mudar schema Drizzle, e commita a migration gerada.
+
+✅ **Cria branch antes de qualquer alteração de código.** `git checkout -b feat/nome` a partir de `main` atualizado. Ver seção 5.
 
 ✅ **Usa Conventional Commits:** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `style:`.
 

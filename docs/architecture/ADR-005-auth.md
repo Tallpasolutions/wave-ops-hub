@@ -1,6 +1,6 @@
 # ADR-005 — Autenticação e Autorização
 
-**Status:** Aceito
+**Status:** Aceito (atualizado 2026-05-30 — ver adendos)
 **Data:** 2026-05-05
 **Decisores:** Jhoni Cleyton (Tallpa)
 
@@ -40,13 +40,15 @@ Quando o usuário se autentica, o JWT contém:
 {
   "sub": "<user_id>",
   "email": "...",
-  "role": "tenant_manager",
+  "app_role": "tenant_manager",
   "tenant_id": "<uuid>",
   "technician_id": "<uuid|null>"
 }
 ```
 
-`role` e `tenant_id` são adicionados via [Supabase Auth Hook](https://supabase.com/docs/guides/auth/auth-hooks) que lê da tabela `users` ao gerar o token.
+**ATENÇÃO:** o campo é `app_role`, não `role`. O campo `role` é reservado pelo PostgREST para executar `SET ROLE` no PostgreSQL — sobrescrevê-lo com nossos roles de negócio causava `role "tenant_owner" does not exist` em todas as queries. Corrigido em `supabase/migrations/0004_fix_jwt_app_role_claim.sql`.
+
+`app_role` e `tenant_id` são adicionados via [Supabase Auth Hook](https://supabase.com/docs/guides/auth/auth-hooks) que lê da tabela `users` ao gerar o token.
 
 `technician_id` (preenchido apenas para `tenant_technician`) permite RLS filtrar dados pelo técnico específico.
 
@@ -162,6 +164,20 @@ Para técnicos, o gestor pode opcionalmente **definir uma senha inicial** ao cad
 - Tempo de sessão: 7 dias (Supabase default)
 - Refresh automático via SDK
 - Logout limpa cookies e revoga refresh token
+
+---
+
+## Adendos (Sprint 1, 2026-05-30)
+
+### Login via client-side (`createBrowserClient`)
+
+O formulário de login usa `createBrowserClient` de `@supabase/ssr` em vez de uma Server Action. Motivo: `@supabase/ssr` v0.10.2 acumula cookies internamente e os flush via `onAuthStateChange` (assíncrono). Em Server Actions, `redirect()` lança `NEXT_REDIRECT` e encerra a execução imediatamente — o callback assíncrono nunca dispara e os cookies nunca chegam ao browser.
+
+O `createBrowserClient` escreve em `document.cookie` diretamente, sem depender de resposta HTTP. Após o login, `window.location.href` faz navegação completa para o dashboard, garantindo que Server Components leiam os cookies já presentes no browser.
+
+### Session exchange cross-subdomain em localhost
+
+Browsers rejeitam `domain=.localhost`. Para `tallpa_owner` logando de um subdomain de tenant, o login client-side seta cookies em `wave.localhost`. Em seguida, redirecionamos para `admin.localhost/auth/callback?access_token=...&refresh_token=...`, onde o Route Handler usa `response.cookies.set()` para escrever os cookies no contexto de `admin.localhost`. Em produção (`.tallpa.com.br`), o cookie compartilhado elimina esse exchange.
 
 ---
 

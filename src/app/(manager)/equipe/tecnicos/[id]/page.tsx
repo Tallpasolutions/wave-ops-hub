@@ -1,0 +1,280 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { ArrowLeft, ClipboardList } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { EmptyState } from '@/components/EmptyState'
+import { getCurrentUser } from '@/lib/auth'
+
+export const metadata: Metadata = { title: 'Perfil do Técnico' }
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { parsePeriod } from '../../../_lib/period'
+
+type Props = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ mes?: string }>
+}
+
+const isSuccess = (sucesso: string | null) =>
+  sucesso?.trim().toLowerCase().startsWith('sim') ?? false
+
+function formatBRL(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function maskCpf(cpf: string | null): string {
+  if (!cpf) return '—'
+  const digits = cpf.replace(/\D/g, '')
+  if (digits.length !== 11) return cpf
+  return `${digits.slice(0, 3)}.***.***.${digits.slice(9)}`
+}
+
+function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm text-[var(--text)]">{value ?? '—'}</p>
+    </div>
+  )
+}
+
+export default async function TechnicianProfilePage({ params, searchParams }: Props) {
+  const { id } = await params
+  const { mes } = await searchParams
+  const { start, end, label: periodoLabel } = parsePeriod(mes)
+
+  const user = await getCurrentUser()
+  if (!user) notFound()
+
+  const supabase = await createSupabaseServerClient()
+
+  const [{ data: tech }, { data: visitsRaw }, { data: payoutsRaw }] = await Promise.all([
+    supabase
+      .from('technicians')
+      .select('id, nome_completo, email, cpf, celular, codigo_unetvale, ativo, data_admissao, observacoes')
+      .eq('id', id)
+      .eq('tenant_id', user.tenantId!)
+      .single(),
+    supabase
+      .from('service_visits')
+      .select('id, os_num, data_execucao, sucesso, finalidade, cidade, valor_recebido_unetvale, reasons(motivo_normalizado, motivo_original)')
+      .eq('tenant_id', user.tenantId!)
+      .eq('tecnico_id', id)
+      .gte('data_execucao', start)
+      .lt('data_execucao', end)
+      .order('data_execucao', { ascending: false })
+      .limit(50),
+    supabase
+      .from('payouts')
+      .select('status, valor_calculado, valor_override, valor_deixado_na_mesa, service_visits!inner(data_execucao)')
+      .eq('tenant_id', user.tenantId!)
+      .eq('technician_id', id)
+      .gte('service_visits.data_execucao', start)
+      .lt('service_visits.data_execucao', end),
+  ])
+
+  if (!tech) notFound()
+
+  const visits = visitsRaw ?? []
+  const payouts = payoutsRaw ?? []
+
+  // KPIs do período
+  const totalVisitas = visits.length
+  const visitasResolvidas = visits.filter((v) => isSuccess(v.sucesso)).length
+  const taxaSucesso = totalVisitas > 0 ? Math.round((visitasResolvidas / totalVisitas) * 100) : 0
+
+  const PAID_STATUSES = new Set(['approved', 'paid', 'override', 'pending_review', 'pending'])
+  const totalPago = payouts
+    .filter((p) => PAID_STATUSES.has(p.status))
+    .reduce((sum, p) => {
+      const v = p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado ?? 0)
+      return sum + (isNaN(v) ? 0 : v)
+    }, 0)
+
+  const totalDeixadoNaMesa = payouts.reduce(
+    (sum, p) => sum + Number(p.valor_deixado_na_mesa ?? 0),
+    0,
+  )
+
+  return (
+    <div className="p-4 lg:p-8">
+      {/* Breadcrumb */}
+      <Link
+        href="/equipe/tecnicos"
+        className="mb-4 inline-flex items-center gap-1.5 text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+      >
+        <ArrowLeft size={14} />
+        Técnicos
+      </Link>
+
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-[var(--text)]">{tech.nome_completo}</h1>
+          <p className="mt-1 text-sm text-[var(--text-3)]">{tech.email}</p>
+        </div>
+        <span
+          className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+            tech.ativo
+              ? 'bg-[rgba(46,230,168,0.12)] text-[var(--green)]'
+              : 'bg-[rgba(255,84,112,0.13)] text-[var(--red)]'
+          }`}
+        >
+          {tech.ativo ? 'Ativo' : 'Inativo'}
+        </span>
+      </div>
+
+      {/* Dados cadastrais */}
+      <div className="mb-8 grid grid-cols-2 gap-6 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-5 lg:grid-cols-4">
+        <InfoItem label="CPF" value={<span className="font-mono">{maskCpf(tech.cpf)}</span>} />
+        <InfoItem
+          label="Celular"
+          value={<span className="font-mono">{tech.celular ?? '—'}</span>}
+        />
+        <InfoItem
+          label="Cód. Unetvale"
+          value={<span className="font-mono">{tech.codigo_unetvale ?? '—'}</span>}
+        />
+        <InfoItem
+          label="Admissão"
+          value={
+            tech.data_admissao
+              ? new Date(tech.data_admissao).toLocaleDateString('pt-BR')
+              : '—'
+          }
+        />
+        {tech.observacoes && (
+          <div className="col-span-2 lg:col-span-4">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+              Observações
+            </p>
+            <p className="mt-0.5 text-sm text-[var(--text-2)]">{tech.observacoes}</p>
+          </div>
+        )}
+      </div>
+
+      {/* KPIs do período */}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+            Visitas
+          </p>
+          <p className="mt-1 text-2xl font-bold text-[var(--text)]">{totalVisitas}</p>
+          <p className="text-xs text-[var(--text-3)]">{periodoLabel}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+            Taxa de sucesso
+          </p>
+          <p className="mt-1 text-2xl font-bold text-[var(--green)]">{taxaSucesso}%</p>
+          <p className="text-xs text-[var(--text-3)]">
+            {visitasResolvidas} de {totalVisitas}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+            A pagar
+          </p>
+          <p className="mt-1 text-2xl font-bold text-[var(--cyan)]">{formatBRL(totalPago)}</p>
+          <p className="text-xs text-[var(--text-3)]">payouts pendentes/aprovados</p>
+        </div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+            Deixado na mesa
+          </p>
+          <p
+            className={`mt-1 text-2xl font-bold ${
+              totalDeixadoNaMesa > 0 ? 'text-[var(--red)]' : 'text-[var(--text-3)]'
+            }`}
+          >
+            {formatBRL(totalDeixadoNaMesa)}
+          </p>
+          <p className="text-xs text-[var(--text-3)]">falhas atribuíveis ao técnico</p>
+        </div>
+      </div>
+
+      {/* Tabela de visitas */}
+      <div>
+        <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+          Visitas no período
+        </p>
+        {visits.length === 0 ? (
+          <EmptyState
+            icon={ClipboardList}
+            title="Nenhuma visita registrada"
+            description="Este técnico não tem visitas no período selecionado."
+          />
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+            <table className="w-full">
+              <thead className="bg-[var(--bg-1)]">
+                <tr>
+                  {['Data', 'OS', 'Finalidade', 'Cidade', 'Resultado', ''].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--line)] bg-[var(--bg)]">
+                {visits.map((v) => {
+                  const reason = v.reasons as unknown as {
+                    motivo_normalizado: string | null
+                    motivo_original: string
+                  } | null
+                  const success = isSuccess(v.sucesso)
+                  return (
+                    <tr key={v.id} className="transition-colors hover:bg-white/[0.02]">
+                      <td className="px-4 py-3 text-sm text-[var(--text-3)]">
+                        {new Date(v.data_execucao).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm font-semibold text-[var(--text)]">
+                        <Link
+                          href={`/oss/${v.os_num}`}
+                          className="hover:text-[var(--cyan)] transition-colors"
+                        >
+                          {v.os_num}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-2)]">
+                        {v.finalidade ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-3)]">
+                        {v.cidade ?? '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs font-medium ${
+                            success ? 'text-[var(--green)]' : 'text-[var(--text-3)]'
+                          }`}
+                        >
+                          {success
+                            ? 'Resolvida'
+                            : reason
+                              ? (reason.motivo_normalizado ?? reason.motivo_original)
+                              : (v.sucesso ?? '—')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/visitas/${v.id}`}
+                          className="text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+                        >
+                          Detalhe →
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

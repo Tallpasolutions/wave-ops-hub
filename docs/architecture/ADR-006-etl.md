@@ -1,6 +1,6 @@
 # ADR-006 — Estratégia de Ingestão (ETL)
 
-**Status:** Aceito
+**Status:** Aceito (atualizado 2026-05-31 — ver adendos de implementação)
 **Data:** 2026-05-05
 **Decisores:** Jhoni Cleyton (Tallpa)
 
@@ -90,7 +90,7 @@ export const RawRowSchema = z.object({
   Contrato: z.string().nullable().optional(),
   Finalidade: z.string(),
   Massiva: z.string().nullable().optional(),
-  TipoAtendimento: z.enum(['Externo', 'Interno']),
+  TipoAtendimento: z.enum(['Externo', 'Interno']).nullable().optional(), // ← ver adendo
   Cat1: z.string().nullable().optional(),
   Cat2: z.string().nullable().optional(),
   Cat3: z.string().nullable().optional(),
@@ -124,7 +124,7 @@ export type RawRow = z.infer<typeof RawRowSchema>;
 
 ### Mapeamento de colunas
 
-A planilha usa nomes com encoding latino-1 (`Usu·rio`, `T cnicos`, etc.). O parser detecta o encoding e converte para UTF-8, depois mapeia para nomes canônicos:
+A planilha usa nomes com encoding latino-1 garbled (`Usu·rio`, `TÈcnico`, etc.). **Não usamos chardet/iconv-lite** — arquivos XLSX são ZIP+XML e intrinsecamente UTF-8. Os headers garbled surgem quando o software que gerou a planilha original escreveu bytes latin-1 e o XLSX os re-embutiu sem conversão. A solução é mapear todas as variantes possíveis via `COLUMN_MAP`:
 
 ```typescript
 // src/lib/etl/column-mapping.ts
@@ -132,13 +132,14 @@ export const COLUMN_MAP: Record<string, keyof RawRow> = {
   'Data': 'Data',
   'Inicio': 'Inicio',
   'OS': 'OS',
-  'Usu·rio': 'Usuario',
+  'Usuario': 'Usuario',
   'Usuário': 'Usuario',
-  // ... todas as variações
+  'Usu·rio': 'Usuario',         // garbled latin-1
   'Tipo de atendimento': 'TipoAtendimento',
-  'TÈcnico': 'Tecnico',
+  'Tecnico': 'Tecnico',
   'Técnico': 'Tecnico',
-  // ...
+  'TÈcnico': 'Tecnico',         // garbled latin-1
+  // ... ~40 entradas no total cobrindo todas as variantes
 };
 ```
 
@@ -241,6 +242,154 @@ Upload concluído em 4.2s
 ⚠️ 1 motivo novo precisa classificação:
   - "Cliente sem energia elétrica" — [classificar]
 ```
+
+---
+
+## Adendos (Sprint 2, 2026-05-31)
+
+### Split em dois Server Actions: `prepareUpload` + `processUpload`
+
+O fluxo do ADR previa um único ponto de entrada no Server Action. Em implementação, foi dividido em dois:
+
+1. **`prepareUpload(fileName, fileHash)`** — verificação de duplicata (pelo `file_hash` calculado no browser), criação do registro em `uploads`, retorno da signed URL para PUT direto no Storage. Roda **antes** do upload do arquivo.
+2. **`processUpload(uploadId)`** — processamento ETL. Atualmente stub que marca `processing` e retorna `{ok:true}`. Será substituído em Etapa 4 pelo ingestor real.
+
+Justificativa: separar a criação do registro da ingestão permite que o browser faça o PUT diretamente no Storage via signed URL sem passar pelo servidor Next.js (sem limite de payload do Server Action).
+
+### File hash calculado no browser, não no servidor
+
+O `file_hash` (SHA-256 do binário) é calculado **no browser** via `crypto.subtle.digest('SHA-256', arrayBuffer)` antes de chamar `prepareUpload`. Isso permite verificar duplicatas sem fazer upload do arquivo.
+
+O servidor confia nesse hash — não recomputa. Isso é aceitável porque o hash serve apenas para deduplicação de upload, não como assinatura de integridade.
+
+### `TipoAtendimento` tornado nullable no schema Zod
+
+O ADR documentava `TipoAtendimento: z.enum(['Externo', 'Interno'])` (obrigatório). Em implementação, foi alterado para `.nullable().optional()` porque a planilha real da Wave pode ter esse campo vazio em algumas visitas. A coluna no banco aceita NULL. O normalizer converte valor inválido/ausente para `null`.
+
+### Encoding via COLUMN_MAP, sem lib de detecção
+
+O ADR mencionava "detecta o encoding" como possibilidade. Em implementação, confirmou-se que XLSX (ZIP+XML) é intrinsecamente UTF-8 — os headers garbled são bytes latin-1 embutidos incorretamente pelo software originador. Nenhuma lib de detecção foi necessária. O `COLUMN_MAP` cobre todas as variantes observadas na planilha real.
+
+### `NormalizedRow` inclui `clienteUsuario` e `contrato`
+
+Esses campos (`Usuario` e `Contrato` da planilha) pertencem à tabela `service_orders`, não `service_visits`. Foram incluídos em `NormalizedRow` para que a Etapa 4 possa criar/atualizar a `service_order` correspondente ao processar cada visita. Em `service_visits` esses campos não existem.
+
+### Storage bucket em migration SQL separada
+
+O bucket `uploads` e suas políticas RLS foram declarados em `supabase/migrations/0006_storage_bucket.sql` e **aplicados manualmente no Supabase SQL Editor (dev — 2026-05-31)**. Deve ser reaplicado em staging e produção quando esses ambientes forem criados. Path pattern: `<tenant_id>/<year>/<month>/<uuid>-<filename>`.
+
+---
+
+## Adendos (Sprint 5 — validação com planilha real, 2026-06-01)
+
+### Ingestor reescrito: row-by-row → batch
+
+O ingestor original em `ingestor.ts` usava `upsertVisit()` chamada sequencialmente para cada linha, gerando ~1700 round-trips ao Supabase para uma planilha de 857 linhas. Em produção, isso causava timeout do Server Action e o upload ficava travado em `processing` com contadores zerados.
+
+**Abordagem reescrita:**
+1. Uma query `SELECT` carrega todas as visitas existentes do tenant para o período em um único round-trip
+2. As visitas são indexadas em um `Map` em memória pela chave `visitKey(osNum, dataExecucao, tecnicoId, tecnicoRaw)`
+3. Cada linha da planilha é classificada em `toInsert` ou `toUpdate` por lookup no Map (sem IO)
+4. `INSERT` em batches de 200 linhas (constante `BATCH_INSERT_SIZE`)
+5. `UPDATE` em paralelo com concorrência máxima de 30 (constante `BATCH_UPDATE_CONCURRENCY`)
+
+Resultado esperado: planilha de 857 linhas processa em 5–15 segundos em vez de minutos.
+
+### `status: 'processing'` definido imediatamente ao iniciar
+
+Antes de rodar o ingestor, `processUpload` marca o upload como `status = 'processing'`. Isso garante que:
+- A UI do gestor mostra estado intermediário correto (não fica em `pending` eternamente)
+- O Server Action de recuperação `reprocessUpload` pode detectar uploads travados
+
+### Três ações de recuperação para uploads problemáticos
+
+Em `src/app/(manager)/uploads/actions.ts`:
+
+| Ação | Quando usar | O que faz |
+|---|---|---|
+| `rerunUpload(uploadId)` | Upload com erros de schema ou processamento | Baixa o arquivo do Storage e roda o ingestor completo novamente |
+| `reprocessUpload(uploadId)` | Upload preso em `pending`/`processing`/`failed` mas visitas já foram inseridas | Conta visitas no banco e corrige `status`/contadores sem re-rodar o ingestor |
+| `deleteUpload(uploadId)` | Upload com status `failed` que deve ser removido | Remove do Storage e da tabela `uploads` (apenas `failed` — nunca `success`) |
+
+### Mapeamento de colunas: lookup case-insensitive com normalização
+
+O `COLUMN_MAP` original usava lookup direto por string. Em produção, a planilha real da Wave tem:
+- Colunas com `?` no final: `Sucesso?`, `Condomínio?`, `Possui outras fibras entrando?`
+- Variantes com encoding garbled: `TÈcnico`, `ExplicaÁ„o do valor`, `ObservaÁıes`
+- Nomes com capitalização diferente
+
+**Solução implementada em `parser.ts`:**
+```typescript
+function normalizeKey(key: string): string {
+  return key
+    .replace(/ /g, ' ')   // non-breaking spaces → regular spaces
+    .trim()
+    .replace(/\?+$/, '')  // remove "?" no final
+    .trim()
+    .toLowerCase()
+}
+
+// NORMALIZED_MAP é construído uma vez ao carregar o módulo
+const NORMALIZED_MAP: Map<string, keyof RawRow> = new Map(
+  Object.entries(COLUMN_MAP).map(([k, v]) => [normalizeKey(k), v]),
+)
+```
+
+O `parser.ts` usa `NORMALIZED_MAP` ao mapear headers, não o `COLUMN_MAP` diretamente. Isso elimina falhas silenciosas por case ou `?` no final.
+
+### Nomes de colunas reais da planilha Wave (validados em abril/2026)
+
+Adições ao `COLUMN_MAP` descobertas na validação:
+
+```typescript
+'Cat 1': 'Cat1',                                 // com espaço (não 'Cat1')
+'Cat 2': 'Cat2',
+'Cat 3': 'Cat3',
+'TÈcnicos': 'NumTecnicos',                       // número de técnicos, garbled
+'ExplicaÁ„o do valor': 'ExplicacaoValor',        // garbled latin-1
+'Faixa de drop': 'FaixaDrop',                    // com artigo "de"
+'ObservaÁıes': 'Observacoes',                    // garbled
+'Subterr‚neo/AÈreo': 'SubterraneoAereo',         // garbled
+'Possui outras fibras entrando': 'OutrasFibras',  // texto completo sem "?"
+'Motivo troca': 'MotivoTroca',
+```
+
+### Schema Zod: `Cidade` e `Valor` tornados nullable/com default
+
+O schema original tinha:
+```typescript
+Cidade: z.string(),          // obrigatório — falha em rows sem cidade
+Valor: z.coerce.number(),    // falha com célula vazia ou "-"
+```
+
+**Corrigido para:**
+```typescript
+Cidade: z.string().nullable().optional(),
+Valor: z.preprocess(
+  (v) => {
+    if (v === null || v === undefined || v === '' || v === '-') return 0
+    const n = Number(v)
+    return isNaN(n) ? 0 : n
+  },
+  z.number().default(0),
+),
+```
+
+A planilha real tem linhas sem cidade (improdutivas) e células de valor vazias ou com traço.
+
+### `sucesso` e comparação case-sensitive
+
+O campo `Sucesso` da planilha vem com letra maiúscula: `"Sim"`, `"Sim Instalado"`, `"Não"`, etc. **Toda comparação de sucesso no código deve usar:**
+```typescript
+const isSuccess = (v: { sucesso: string | null }) =>
+  v.sucesso?.trim().toLowerCase().startsWith('sim') ?? false
+```
+
+Comparação direta `=== 'Sim'` não captura `"Sim Instalado"` e similares. Comparação `=== 'sim'` (lowercase) nunca casa porque o valor armazenado preserva o case original da planilha. Ver detalhe em `docs/domain/01-os-e-visitas.md`.
+
+### Nomes de colunas do banco: usar exatamente o snake_case do schema
+
+Quando referenciar colunas do banco em queries TypeScript (Supabase client), usar o nome exato conforme definido em `0001_initial_schema.sql`. O campo do técnico é `tecnico_id` (não `technician_id`, não `technicianId`). Erros de nome silenciosos causam queries que retornam resultados vazios sem erro visível.
 
 ---
 

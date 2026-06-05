@@ -121,6 +121,32 @@ Sempre, em ordem:
 
 ❌ **Não exponha service role key, JWT secret ou qualquer credencial em código client-side.** Toda chamada que precisa de elevação roda em Server Action.
 
+❌ **Não rodar `pnpm db:push` neste projeto.** O SQL em `supabase/migrations/*.sql` é a fonte de verdade do schema do banco. Os schemas Drizzle existem APENAS para type safety em queries TypeScript. Para mudanças futuras de schema: criar nova migration SQL numerada (ex: `0002_add_xyz.sql`) e aplicar manualmente via Supabase SQL Editor ou Supabase CLI. O comando `pnpm db:generate` pode ser usado pra gerar sugestões de SQL a partir de mudanças no schema Drizzle, mas a saída deve ser revisada e movida manualmente para `supabase/migrations/`.
+
+❌ **Não setar `updatedAt` manualmente em UPDATE queries.** O banco tem um trigger `set_updated_at()` que dispara automaticamente em todo UPDATE. Setar manualmente é redundante e pode mascarar bugs. Se precisar do timestamp atualizado após um UPDATE, use cláusula RETURNING ou faça SELECT depois.
+
+❌ **Não referenciar colunas do banco com nomes errados.** Sempre use o snake_case exato definido em `supabase/migrations/0001_initial_schema.sql`. O campo do técnico é `tecnico_id` (português), NÃO `technician_id` (inglês). Erros de nome em queries Supabase/PostgREST falham **silenciosamente** — retornam resultado vazio sem nenhum erro visível.
+
+❌ **Não comparar o campo `sucesso` com string literal direta.** O valor é armazenado exatamente como vem da planilha (`"Sim"`, `"Sim Instalado"`, variantes futuras). Sempre use o padrão:
+```typescript
+const isSuccess = (v: { sucesso: string | null }) =>
+  v.sucesso?.trim().toLowerCase().startsWith('sim') ?? false
+```
+Comparar com `=== 'Sim'` perde variantes. Comparar com `=== 'sim'` nunca casa (banco preserva maiúscula).
+
+❌ **Não colocar `redirect()` dentro de `try-catch` em Server Actions.** Em Next.js 15, `redirect()` lança um erro especial internamente. Se estiver dentro de um `try-catch`, o catch captura o erro e o `redirect()` não acontece — o Next.js então redireciona para a página de login como fallback. Padrão obrigatório:
+```typescript
+export async function minhaAction(id: string): Promise<void> {
+  try {
+    // operações
+  } catch {
+    // swallow — o redirect abaixo deve sempre executar
+  }
+  redirect('/destino')  // SEMPRE fora do try-catch
+}
+```
+Também: `redirect` deve ser importado estaticamente no topo do arquivo (`import { redirect } from 'next/navigation'`), nunca dentro da função.
+
 ---
 
 ## 6. Sempre faça
@@ -181,7 +207,15 @@ Resolução por subdomínio em middleware. Toda tabela tem `tenant_id`. RLS por 
 
 ---
 
-## 10. Validação cruzada com Gemini
+## 10. Idioma de comunicação
+
+**Toda comunicação com o usuário é em português brasileiro.** Isso inclui: respostas no chat, resumos de tarefas, descrições de erros, mensagens de commit, comentários em PRs, e qualquer texto que o usuário veja diretamente.
+
+Código usa inglês (nomes de variáveis, funções, tipos, constantes, comentários técnicos internos) — esse é o padrão da stack. Mas tudo que o Claude escreve para o usuário ler é em PT-BR, sem exceção.
+
+---
+
+## 11. Validação cruzada com Gemini
 
 Para cada sprint, o plano de implementação é validado pelo Gemini antes do início da execução. Use o checklist em [`docs/validation/gemini-checklist.md`](./docs/validation/gemini-checklist.md).
 

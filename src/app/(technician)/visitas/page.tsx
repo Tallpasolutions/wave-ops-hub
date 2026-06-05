@@ -1,0 +1,179 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { EmptyState } from '@/components/EmptyState'
+import { getCurrentUser } from '@/lib/auth'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+
+export const metadata: Metadata = { title: 'Minhas Visitas' }
+import { parsePeriod, buildPeriodOptions } from '../_lib/period'
+import { PeriodSelector } from '../_components/PeriodSelector'
+import { Suspense } from 'react'
+
+interface PageProps {
+  searchParams: Promise<{ mes?: string }>
+}
+
+const fmtBRL = (n: number) =>
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtDate = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return `${d}/${m}/${y}`
+}
+
+type Payout = {
+  visit_id: string
+  valor_calculado: number | null
+  valor_override: number | null
+  valor_deixado_na_mesa: number | null
+  status: string | null
+}
+
+export default async function VisitasPage({ searchParams }: PageProps) {
+  const user = await getCurrentUser()
+  if (!user) redirect('/login')
+  if (!user.technicianId || !user.tenantId) redirect('/profile')
+
+  const { mes } = await searchParams
+  const { start, end, label: periodLabel } = parsePeriod(mes)
+  const periodOptions = buildPeriodOptions()
+  const currentMes = mes ?? periodOptions[0].value
+
+  const supabase = await createSupabaseServerClient()
+
+  const [visitsRes, reasonsRes] = await Promise.all([
+    supabase
+      .from('service_visits')
+      .select('id, os_num, data_execucao, finalidade, sucesso, improdutiva, valor_recebido_unetvale, reason_id')
+      .eq('tenant_id', user.tenantId)
+      .eq('technician_id', user.technicianId)
+      .gte('data_execucao', start)
+      .lt('data_execucao', end)
+      .order('data_execucao', { ascending: false }),
+
+    supabase
+      .from('reasons')
+      .select('id, motivo_normalizado')
+      .eq('tenant_id', user.tenantId),
+  ])
+
+  const visits = visitsRes.data ?? []
+  const reasons = reasonsRes.data ?? []
+
+  const reasonMap = new Map(reasons.map((r) => [r.id as string, r.motivo_normalizado as string]))
+
+  // Payouts para as visitas do período
+  const visitIds = visits.map((v) => v.id as string)
+  let payouts: Payout[] = []
+  if (visitIds.length > 0) {
+    const { data } = await supabase
+      .from('payouts')
+      .select('visit_id, valor_calculado, valor_override, valor_deixado_na_mesa, status')
+      .in('visit_id', visitIds)
+    payouts = (data ?? []) as Payout[]
+  }
+  const payoutMap = new Map(payouts.map((p) => [p.visit_id, p]))
+
+  return (
+    <div className="mx-auto max-w-md px-4 py-5">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-xl font-bold text-[var(--text)]">Minhas Visitas</h1>
+          <p className="mt-0.5 text-[12px] capitalize text-[var(--text-2)]">{periodLabel}</p>
+        </div>
+        <Suspense>
+          <PeriodSelector options={periodOptions} selected={currentMes} />
+        </Suspense>
+      </div>
+
+      {visits.length === 0 ? (
+        <EmptyState
+          variant="card"
+          icon={Clock}
+          title={`Nenhuma visita em ${periodLabel}`}
+          description="Suas execuções do período aparecerão aqui."
+        />
+      ) : (
+        <div className="space-y-3">
+          {visits.map((v) => {
+            const sucesso = (v.sucesso as string)?.toLowerCase().startsWith('s')
+            const improdutiva = v.improdutiva as boolean
+            const payout = payoutMap.get(v.id as string)
+            const valorPayout =
+              payout?.valor_override ?? payout?.valor_calculado ?? null
+            const deixadoNaMesa = payout?.valor_deixado_na_mesa ?? 0
+
+            // Cor da borda
+            let borderColor = 'border-[var(--line)]'
+            if (sucesso) borderColor = 'border-l-[var(--green)] border-l-2'
+            else if (improdutiva && payout?.status === 'approved')
+              borderColor = 'border-l-[var(--amber)] border-l-2'
+            else if (!sucesso) borderColor = 'border-l-[var(--red)] border-l-2'
+
+            const motivo = v.reason_id ? reasonMap.get(v.reason_id as string) : null
+
+            return (
+              <div
+                key={v.id as string}
+                className={`rounded-xl border bg-[var(--bg-1)] p-4 ${borderColor}`}
+              >
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-mono text-[11px] text-[var(--text-3)]">
+                      OS #{v.os_num}
+                    </span>
+                    <p className="mt-0.5 text-[13px] font-semibold text-[var(--text)]">
+                      {(v.finalidade as string) ?? '—'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {sucesso ? (
+                      <CheckCircle2 size={16} className="text-[var(--green)]" />
+                    ) : (
+                      <XCircle size={16} className="text-[var(--red)]" />
+                    )}
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        sucesso ? 'text-[var(--green)]' : 'text-[var(--red)]'
+                      }`}
+                    >
+                      {sucesso ? 'Finalizada' : improdutiva ? 'Improdutiva' : 'Não concluída'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-[var(--text-3)]">
+                    {fmtDate(v.data_execucao as string)}
+                  </span>
+                  <div className="text-right">
+                    {valorPayout !== null && (
+                      <span
+                        className={`font-mono text-[13px] font-bold ${
+                          sucesso ? 'text-[var(--green)]' : 'text-[var(--text-2)]'
+                        }`}
+                      >
+                        {fmtBRL(valorPayout)}
+                      </span>
+                    )}
+                    {deixadoNaMesa > 0 && (
+                      <p className="mt-0.5 font-mono text-[10px] text-[var(--red)]">
+                        -{fmtBRL(deixadoNaMesa)} na mesa
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {motivo && (
+                  <p className="mt-2 rounded-md bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-[var(--text-3)]">
+                    {motivo}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

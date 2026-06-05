@@ -1,17 +1,24 @@
-import React from "react";
+import Image from 'next/image'
+import { cn } from '@/lib/utils'
 
 interface TenantLogoProps {
-  variant?: "full" | "mark" | "white";
-  className?: string;
+  brandPath?: string
+  variant?: 'full' | 'mark' | 'white'
+  className?: string
 }
 
-export function TenantLogo({ variant: _variant = "full", className = "" }: TenantLogoProps) {
-  // Placeholder para o "T" gradiente da Tallpa
+export function TenantLogo({ brandPath = 'tallpa', variant = 'mark', className }: TenantLogoProps) {
+  const file = variant === 'white' ? 'logo-white.svg' : variant === 'full' ? 'logo.svg' : 'logo-mark.svg'
+
   return (
-    <div
-      className={`flex h-[42px] w-[42px] items-center justify-center rounded-[10px] bg-grad text-xl font-extrabold text-[#051127] shadow-glow-cyan font-display ${className}`}
-    >
-      T
+    <div className={cn('flex h-[42px] w-[42px] items-center justify-center', className)}>
+      <Image
+        src={`/brands/${brandPath}/${file}`}
+        alt="Logo"
+        width={42}
+        height={42}
+        className="object-contain"
+      />
     </div>
-  );
+  )
 }

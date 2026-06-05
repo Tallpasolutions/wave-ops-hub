@@ -1,0 +1,47 @@
+import { z } from 'zod'
+
+export const RawRowSchema = z.object({
+  Data: z.coerce.date(),
+  Inicio: z.coerce.date(),
+  OS: z.coerce.number().int().positive(),
+  Usuario: z.string().nullable().optional(),
+  Contrato: z.string().nullable().optional(),
+  Finalidade: z.string(),
+  Massiva: z.string().nullable().optional(),
+  TipoAtendimento: z.enum(['Externo', 'Interno']).nullable().optional(),
+  Cat1: z.string().nullable().optional(),
+  Cat2: z.string().nullable().optional(),
+  Cat3: z.string().nullable().optional(),
+  Cidade: z.string().nullable().optional(),
+  Condominio: z.string().nullable().optional(),
+  Sucesso: z.string(),
+  Improdutiva: z.string().nullable().optional(),
+  Agendada: z.string().nullable().optional(),
+  TrocadoDrop: z.string().nullable().optional(),
+  MotivoTroca: z.string().nullable().optional(),
+  SubterraneoAereo: z.string().nullable().optional(),
+  Agregada: z.string().nullable().optional(),
+  Rejeitada: z.string().nullable().optional(),
+  NumTecnicos: z.coerce.number().int().nullable().optional(),
+  Validada: z.string().nullable().optional(),
+  Garantia: z.string().nullable().optional(),
+  Valor: z.preprocess(
+    (v) => {
+      if (v === null || v === undefined || v === '' || v === '-') return 0
+      const n = Number(v)
+      return isNaN(n) ? 0 : n
+    },
+    z.number().default(0),
+  ),
+  ExplicacaoValor: z.string().nullable().optional(),
+  DropUsado: z.coerce.number().nullable().optional(),
+  FaixaDrop: z.string().nullable().optional(),
+  ConectoresUsados: z.coerce.number().nullable().optional(),
+  Observacoes: z.string().nullable().optional(),
+  CategoriaInterna: z.string().nullable().optional(),
+  OutrasFibras: z.string().nullable().optional(),
+  QuantasFibras: z.coerce.number().nullable().optional(),
+  Tecnico: z.string(),
+})
+
+export type RawRow = z.infer<typeof RawRowSchema>

@@ -14,6 +14,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-004](./ADR-004-lpu-rule-engine.md) | Motor de Regras LPU | Aceito |
 | [ADR-005](./ADR-005-auth.md) | Autenticação e Autorização | Aceito |
 | [ADR-006](./ADR-006-etl.md) | Estratégia de Ingestão (ETL) | Aceito |
+| [ADR-007](./ADR-007-payouts-fechamento.md) | Arquitetura de Payouts e Fechamento Mensal | Aceito |
 
 ## Template para novos ADRs
 

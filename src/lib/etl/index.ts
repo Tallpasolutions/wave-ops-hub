@@ -1,0 +1,7 @@
+export { run } from './ingestor'
+export { parseXlsx } from './parser'
+export { computeContentHash } from './content-hash'
+export { matchTechnician, matchReason } from './matchers'
+export { normalize } from './normalizer'
+export type { IngestResult, IngestCounts, IngestWarning, IngestError, NormalizedRow } from './types'
+export type { RawRow } from './schemas'

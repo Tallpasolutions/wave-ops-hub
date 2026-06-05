@@ -4,46 +4,62 @@
 
 @layer base {
   :root {
-    /* Backgrounds */
-    --bg: #050814;           /* Fundo principal absoluto */
-    --bg-1: #0A0F22;         /* Fundo de cards (gradiente top) */
-    --bg-2: #0D1530;         /* Fundo de cards (gradiente bottom) */
+    /* ── Tallpa tokens ────────────────────────────────── */
+    --bg: #050814;
+    --bg-1: #0A0F22;
+    --bg-2: #0D1530;
 
-    /* Borders */
     --line: rgba(255, 255, 255, 0.06);
     --line-strong: rgba(255, 255, 255, 0.10);
 
-    /* Text */
-    --text: #FFFFFF;          /* Texto principal */
-    --text-2: #9AA3BD;        /* Texto secundário (subtítulos, descrições) */
-    --text-3: #5A6385;        /* Texto terciário (labels, eyebrows) */
+    --text: #FFFFFF;
+    --text-2: #9AA3BD;
+    --text-3: #5A6385;
 
-    /* Brand */
     --cyan: #00D4FF;
     --blue: #1E6BFF;
     --grad: linear-gradient(135deg, #00D4FF 0%, #1E6BFF 100%);
     --grad-soft: linear-gradient(135deg, rgba(0,212,255,0.18) 0%, rgba(30,107,255,0.10) 100%);
 
-    /* Status / Semantic */
-    --green: #2EE6A8;         /* Sucesso, finalizado */
-    --amber: #FFB547;         /* Atenção, improdutiva */
-    --red: #FF5470;           /* Erro, não finalizado */
-    
-    /* Fonts (will be overridden by Next.js fonts via CSS vars) */
+    --green: #2EE6A8;
+    --amber: #FFB547;
+    --red: #FF5470;
+
     --font-body: 'Manrope', -apple-system, sans-serif;
     --font-display: 'Poppins', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    /* Radius */
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
     --radius-xl: 16px;
     --radius-full: 999px;
-    
-    /* Shadows */
+
     --shadow-glow-cyan: 0 8px 32px rgba(0, 212, 255, 0.25);
     --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.20);
+
+    /* ── shadcn semantic layer → Tallpa tokens ────────── */
+    /* App é dark-only: sem .dark {} block                */
+    --background: var(--bg);
+    --foreground: var(--text);
+    --card: var(--bg-1);
+    --card-foreground: var(--text);
+    --popover: var(--bg-1);
+    --popover-foreground: var(--text);
+    --primary: var(--cyan);
+    --primary-foreground: #051127;
+    --secondary: var(--bg-2);
+    --secondary-foreground: var(--text);
+    --muted: var(--bg-2);
+    --muted-foreground: var(--text-2);
+    --accent: var(--bg-2);
+    --accent-foreground: var(--text);
+    --destructive: var(--red);
+    --destructive-foreground: var(--text);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--cyan);
+    --radius: var(--radius-md);
   }
 
   body {
@@ -53,5 +69,11 @@
       var(--bg);
     color: var(--text);
     min-height: 100vh;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }

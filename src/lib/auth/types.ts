@@ -4,11 +4,13 @@ export type AppRole =
   | 'tenant_manager'
   | 'tenant_technician'
 
-// Claims customizadas que o Auth Hook injeta no JWT ao gerar o token
+// Claims customizadas que o Auth Hook injeta no JWT ao gerar o token.
+// Usamos 'app_role' (não 'role') porque 'role' é reservado pelo PostgREST
+// para fazer SET ROLE no PostgreSQL — sobrescrever causaria "role does not exist".
 export interface AuthClaims {
   sub: string                    // auth.uid() — igual ao id em public.users
   email: string
-  role: AppRole
+  app_role: AppRole
   tenant_id: string | null       // null para tallpa_owner
   technician_id: string | null   // preenchido apenas para tenant_technician
   aud: string

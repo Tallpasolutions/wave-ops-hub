@@ -61,29 +61,34 @@ CREATE TABLE payouts (
 ```
 pending_calculation
         ↓
-   ┌────┴─────────────────────────┐
-   ↓                ↓              ↓
-pending      pending_review   no_rule_match
-                                 conflict
-                          pending_classification
+   ┌────┴──────────────────────────────────┐
+   ↓                    ↓                  ↓
+pending_review     no_rule_match        conflict
+   ↓           pending_classification
+   │    (gestor resolve → recalculate → pending_review)
    ↓
-approved (após fechamento aprovado)
+ pending  ← solicitarAprovacao() move pending_review → pending
    ↓
-paid (após registro de pagamento)
+approved  ← aprovarFechamento()
+   ↓
+  paid    ← marcarComoPago()
+
+Lateral a qualquer estado (exceto approved/paid):
+   → override  ← gestor edita valor manualmente
 ```
 
 | Status | Significado | Próxima ação |
 |---|---|---|
-| `pending_calculation` | Aguardando match engine rodar | Automático |
-| `pending_review` | Calculado, aguardando inclusão em fechamento | Aguardar fim do mês |
-| `pending` | Em fechamento aberto | Aguardar aprovação |
-| `approved` | Aprovado para pagamento | Efetuar pagamento |
-| `paid` | Pagamento registrado | Final |
-| `no_rule_match` | Nenhuma regra LPU aplica | Gestor cria/ajusta regra |
-| `pending_classification` | Motivo de não-conclusão pendente classificação | Gestor classifica motivo |
-| `conflict` | Múltiplas regras com mesma prioridade casaram | Gestor ajusta prioridades |
-| `contestado` | (Fase 2) Técnico contestou | Gestor revisa |
-| `override` | Gestor alterou valor manualmente | Aprovar normalmente |
+| `pending_calculation` | Aguardando match engine rodar | Automático — recalculate-batch |
+| `pending_review` | Calculado, aguardando inclusão em fechamento | Aguardar `solicitarAprovacao` |
+| `pending` | Incluído em fechamento aguardando aprovação | Aguardar `aprovarFechamento` |
+| `approved` | Aprovado para pagamento | Gestor executa pagamento externo |
+| `paid` | Pagamento registrado | Estado final imutável |
+| `no_rule_match` | Nenhuma regra LPU aplica | Gestor cria/ajusta regra → recálculo automático |
+| `pending_classification` | Motivo não classificado ainda | Gestor classifica em /motivos → recálculo automático |
+| `conflict` | Múltiplas regras com mesma prioridade casaram | Gestor ajusta prioridades em /lpu → recálculo |
+| `override` | Gestor alterou valor manualmente | Segue fluxo normal para aprovação |
+| `contestado` | (Fase 2) Técnico contestou | Gestor revisa — não implementado no MVP |
 
 ### Override manual
 
@@ -102,15 +107,20 @@ O valor **efetivo** sempre é: `COALESCE(valor_override, valor_calculado)`.
 
 Recálculo é automático e disparado por:
 
-1. **Ingestão de upload** — recalcula payouts de visitas inseridas/atualizadas
-2. **Mudança de LPU vigente** — recalcula payouts pendentes do período coberto
-3. **Classificação de motivo** — recalcula payouts que estavam `pending_classification` para esse motivo
-4. **Vinculação manual de técnico** — recalcula payouts da visita anteriormente sem técnico
-5. **Manual** — gestor clica "Recalcular pendentes" no painel
+1. **Ingestão de upload** — `processUpload` chama `recalculatePendingPayouts(tenantId, supabase)` após ingestão bem-sucedida
+2. **Ativação de nova LPU** — `activateLpu` chama `recalculatePendingPayouts` sem filtro (nova LPU pode afetar todos os períodos abertos)
+3. **Classificação de motivo** — `updateReason` chama `recalculatePendingPayouts` após classificar o motivo
+4. **Vinculação manual de técnico** — `linkTechnicianRaw` chama `recalculatePendingPayouts` com IDs das visitas vinculadas
 
-**Importante:** Recálculo NÃO afeta payouts com `status IN ('approved', 'paid')`. Esses estão "trancados" para preservar histórico financeiro.
+A função `recalculatePendingPayouts` (`src/lib/payouts/recalculate-batch.ts`):
+- Busca visitas pendentes (sem payout `approved`/`paid`)
+- Calcula via `buildPayoutUpsert` para cada visita
+- Faz upsert em `payouts` com `ON CONFLICT visit_id → UPDATE`
+- Cria `monthly_closing` do período se não existir (idempotente)
 
-Para forçar recálculo de aprovado, gestor precisa primeiro **reabrir o fechamento** (ação auditada).
+**Invariante crítica:** Recálculo NUNCA afeta payouts com `status IN ('approved', 'paid')`. Esses estão travados para preservar histórico financeiro.
+
+Para forçar recálculo de aprovado, gestor precisa primeiro **reabrir o fechamento** (ação auditada com motivo obrigatório de 20 chars).
 
 ---
 
@@ -177,11 +187,11 @@ Se houver pendências, o sistema mostra a lista e bloqueia até resolução.
 
 Apenas `tenant_owner` ou `tenant_manager` (e `tallpa_owner` em caso de suporte). Ação:
 
-1. Sistema move todos os payouts `pending` do período para `approved`
-2. Sistema preenche `closing_id` em cada payout
+1. Calcula totais via `buildClosingTotals()` → grava em `monthly_closing` (`total_a_pagar`, `total_visitas`)
+2. Move todos os payouts `pending` do período para `approved`, preenchendo `closing_id`, `approved_by`, `approved_at`
 3. Fecha o `monthly_closing` (`status = 'aprovado'`, `aprovado_por`, `aprovado_em`)
-4. Gera relatório PDF/Excel para download
-5. Notifica todos os técnicos: "Seu pagamento de abril foi aprovado: R$ X.XXX"
+4. INSERT em `notifications` para cada técnico com payout aprovado
+5. Relatórios ficam disponíveis por demanda via route handlers — não gerados automaticamente na aprovação
 
 ### Marcação de pagamento
 

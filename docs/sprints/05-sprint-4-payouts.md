@@ -1,7 +1,7 @@
 # Sprint 4 — Payouts e Fechamento Mensal
 
 **Duração estimada:** 1 semana
-**Status:** Pendente
+**Status:** Concluída (2026-06-01)
 **Pré-requisitos:** Sprint 3 concluída
 
 ---
@@ -214,4 +214,27 @@ CREATE TABLE notifications (
 
 ## Anotações pós-sprint
 
-_(preencher ao concluir)_
+**Concluída em 2026-06-01.**
+
+### O que foi entregue
+
+- **Etapa 1**: Schemas Drizzle para `payouts`, `monthly_closings`, `notifications` e `payouts_audit`. GRANTs já existentes em `0005_grant_permissions.sql` — sem migration adicional.
+- **Etapa 2**: Lib `src/lib/payouts/` completa com `calculate.ts`, `recalculate-batch.ts`, `closing.ts`, `reports.tsx` e `index.ts`. 14 testes unitários.
+- **Etapa 3**: Recálculo automático wirereado nos 4 pontos: `processUpload`, `activateLpu`, `updateReason`, `linkTechnicianRaw`.
+- **Etapa 4**: Telas `/payouts`, `/payouts/[id]` e `/payouts/[id]/override` com sidebar atualizada.
+- **Etapa 5**: Lifecycle completo de fechamento — `solicitarAprovacao`, `aprovarFechamento`, `marcarComoPago`, `reabrirFechamento` — com telas `/fechamento` e `/fechamento/[periodo]`.
+- **Etapa 6**: Route handlers de export — Excel (`/export/excel`), PDF consolidado (`/export/pdf`), PDF individual por técnico (`/export/pdf/[tecnicoId]`).
+
+### Decisões tomadas em execução
+
+- `recalculatePendingPayouts` sem filtro de `visitIds` após ingestão (IngestResult não expõe IDs) — aceitável pois payouts locked são ignorados.
+- `PayoutStatus` da lib LPU vs. DB: importado como `DbPayoutStatus` em `types.ts` para evitar colisão.
+- Buffer Node.js → `BodyInit`: convertido via `new Uint8Array(buffer)` nos route handlers.
+- PDF consolidado usa `visitDetails: []` (vazio) para cada técnico — suficiente para o layout de resumo.
+
+### O que ficou fora (Escopo OUT)
+
+- Notificação por e-mail/WhatsApp
+- Contestação de payouts pelos técnicos
+- Integração PIX
+- "Deixado na mesa" no portal do técnico (toggle de config)

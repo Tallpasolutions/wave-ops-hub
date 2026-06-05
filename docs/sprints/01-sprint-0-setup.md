@@ -1,7 +1,7 @@
 # Sprint 0 — Setup
 
 **Duração estimada:** 1 semana
-**Status:** Parcialmente concluída (fundação técnica local validada; pendências: infra Supabase, Vercel, primitivos UI)
+**Status:** Concluída (infra local + dev Supabase prontos; GitHub/Vercel/staging pendentes mas não bloqueadores)
 **Pré-requisitos:** nenhum
 
 ---
@@ -56,11 +56,14 @@ Estabelecer toda a fundação técnica do projeto: repositório, CI/CD, ambiente
 
 ### 4. Supabase
 
-- [ ] Criar 2 projetos Supabase: `wave-ops-hub-dev` e `wave-ops-hub-staging`
-- [ ] Configurar Auth (email/password ativo, magic link desativado)
-- [ ] Criar bucket `uploads` no Storage com policies (cada tenant tem pasta própria)
+- [x] Criar projeto Supabase dev (`wave-ops-hub-dev` ou equivalente)
+- [x] Configurar Auth (email/password ativo)
+- [x] Migration 0001 aplicada no dev
+- [x] Auth Hook configurado (Authentication → Hooks → Custom Access Token → `public.custom_jwt_claims`)
 - [x] Configurar `.env.example` com todas as variáveis necessárias
 - [x] Configurar `.env.local` (não commitado) com creds dev
+- [ ] Criar projeto Supabase staging
+- [ ] Criar bucket `uploads` no Storage com policies
 
 ### 5. Drizzle
 
@@ -80,13 +83,10 @@ Estabelecer toda a fundação técnica do projeto: repositório, CI/CD, ambiente
 - [x] Configurar fonts via `next/font` (Manrope, Poppins, JetBrains Mono)
 - [x] Configurar `tailwind.config.ts` extendendo cores e fontes dos tokens
 - [x] Criar componente `<TenantLogo />` (com placeholder gradient T)
-- [ ] Criar primitivos básicos em `src/components/ui/` (movido para Sprint 1):
-  - `Button`
-  - `Input`
-  - `Label`
-  - `Card`
-  - `Pill`
-  - `Skeleton`
+- [x] Criar primitivos básicos em `src/components/ui/` (instalados via shadcn no Sprint 1):
+  - `Button` ✅, `Input` ✅, `Label` ✅, `Card` ✅, `Badge` ✅
+  - `Select` ✅, `DropdownMenu` ✅, `Form` ✅, `Table` ✅, `Separator` ✅
+  - `Pill`, `Skeleton` (pendentes — criar quando necessário)
 
 ### 7. Layout shell
 

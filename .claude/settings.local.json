@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dlx:*)",
+      "Bash(ls /Users/jhonicleyton/Desktop/wave-ops-hub/next.config*)"
+    ]
+  }
+}

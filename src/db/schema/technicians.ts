@@ -1,13 +1,67 @@
-import { pgTable, uuid, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  boolean,
+  timestamp,
+  date,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 
-export const technicians = pgTable("technicians", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
-  userId: uuid("user_id"), // Pode estar vinculado a um auth.users
-  name: varchar("name", { length: 255 }).notNull(),
-  document: varchar("document", { length: 50 }), // CPF/CNPJ
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+/**
+ * Tabela `technicians` — técnicos de campo.
+ *
+ * Espelha exatamente a migration 0001_initial_schema.sql.
+ * A relação com `users` é inversa: `users.technician_id → technicians.id`.
+ * Não existe `user_id` nesta tabela.
+ */
+export const technicians = pgTable(
+  "technicians",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    nomeCompleto: text("nome_completo").notNull(),
+    email: text("email").notNull(),
+    cpf: text("cpf"),
+    celular: text("celular"),
+    codigoUnetvale: text("codigo_unetvale"),
+    ativo: boolean("ativo").notNull().default(true),
+    dataAdmissao: date("data_admissao"),
+    observacoes: text("observacoes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("uq_technicians_tenant_email").on(
+      table.tenantId,
+      table.email,
+    ),
+    uniqueIndex("uq_technicians_tenant_cpf").on(table.tenantId, table.cpf),
+    uniqueIndex("uq_technicians_tenant_codigo").on(
+      table.tenantId,
+      table.codigoUnetvale,
+    ),
+    index("idx_technicians_tenant")
+      .on(table.tenantId)
+      .where(sql`ativo = true`),
+    index("idx_technicians_nome_normalizado").on(
+      table.tenantId,
+      sql`lower(immutable_unaccent(nome_completo))`,
+    ),
+  ],
+);
+
+/** Tipo inferido de um technician — SELECT */
+export type Technician = typeof technicians.$inferSelect;
+
+/** Tipo inferido de um technician — INSERT */
+export type NewTechnician = typeof technicians.$inferInsert;

@@ -77,11 +77,11 @@ Cada execução individual de uma OS por um técnico em um momento específico. 
 | `tecnico_raw` | TEXT | Nome bruto da planilha (preservado pra auditoria) |
 | `finalidade` | TEXT | Replicado de service_orders (snapshot) |
 | `tipo_atendimento` | TEXT | `Externo` \| `Interno` |
-| `cidade` | TEXT | |
-| `sucesso` | TEXT | `Sim` ou string do motivo de não-conclusão |
+| `cidade` | TEXT | **Nullable** — algumas linhas da planilha podem não ter cidade preenchida |
+| `sucesso` | TEXT | Valor bruto da planilha — pode ser `"Sim"`, `"Sim Instalado"`, `"Não"`, ou qualquer string de motivo. **NUNCA comparar com `=== 'Sim'`** — ver aviso abaixo |
 | `reason_id` | UUID | FK reasons (NULL se sucesso=Sim) |
 | `improdutiva` | BOOLEAN | Marcação da Wave |
-| `valor_recebido_unetvale` | NUMERIC | Coluna `Valor` da planilha |
+| `valor_recebido_unetvale` | NUMERIC | Coluna `Valor` da planilha. **Nullable/zero** — improdutivas podem ter valor 0 ou NULL |
 | `drop_usado` | NUMERIC | Metragem de drop (quando aplicável) |
 | `faixa_drop` | TEXT | |
 | `conectores_usados` | INTEGER | |
@@ -102,6 +102,20 @@ Cada execução individual de uma OS por um técnico em um momento específico. 
 | `observacoes` | TEXT | |
 | `content_hash` | TEXT | SHA-256 dos campos relevantes |
 | `created_at`, `updated_at` | TIMESTAMPTZ | |
+
+### ⚠️ Aviso crítico: comparação do campo `sucesso`
+
+O campo `sucesso` é armazenado **exatamente como vem da planilha da Unetvale**, com capital `S` e possíveis variações como `"Sim Instalado"`. **NUNCA compare diretamente com `=== 'Sim'`** — isso não captura `"Sim Instalado"` e qualquer variante futura.
+
+**Padrão obrigatório em todo o código:**
+```typescript
+const isSuccess = (v: { sucesso: string | null }) =>
+  v.sucesso?.trim().toLowerCase().startsWith('sim') ?? false
+```
+
+Este padrão foi validado com dados reais da planilha Wave de abril/2026. Qualquer comparação diferente vai subnotificar visitas finalizadas nos KPIs.
+
+---
 
 **Constraint de idempotência:**
 ```sql

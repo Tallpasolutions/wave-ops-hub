@@ -54,8 +54,8 @@ cp .env.example .env.local
 # 3. Inicie Supabase local (opcional para dev offline)
 pnpm supabase start
 
-# 4. Rode migrations
-pnpm db:push
+# 4. Aplique migrations manualmente via Supabase SQL Editor ou Supabase CLI
+#    (pnpm db:push foi removido — veja seção "Comandos disponíveis")
 
 # 5. Seed inicial
 pnpm db:seed
@@ -86,8 +86,9 @@ pnpm format           # Prettier
 pnpm typecheck        # tsc --noEmit
 pnpm test             # Vitest (unit)
 pnpm test:e2e         # Playwright (E2E)
-pnpm db:generate      # Drizzle: gera migration de mudanças no schema
-pnpm db:push          # Drizzle: aplica migrations
+pnpm db:generate      # Drizzle: gera SQL sugerido a partir de mudanças no schema TS (revisar antes de usar)
+# pnpm db:push — REMOVIDO PROPOSITALMENTE. O SQL em supabase/migrations/ é a fonte de verdade.
+#                Aplique migrations manualmente via Supabase SQL Editor ou Supabase CLI.
 pnpm db:seed          # Popula banco com dados iniciais
 pnpm db:studio        # Drizzle Studio (UI do banco)
 ```
@@ -153,7 +154,19 @@ wave-ops-hub/
 
 ## Status atual
 
-🟡 **Em PRD** — Especificação concluída, implementação pendente. Veja [`docs/sprints/00-roadmap.md`](./docs/sprints/00-roadmap.md).
+🟡 **Sprint 6 em andamento** — Polish, ajustes de UX, testes E2E e preparação para deploy em produção.
+
+| Sprint | Status | Entrega |
+|--------|--------|---------|
+| 0 — Setup | ✅ Concluída | Stack, identidade visual, schema |
+| 1 — Auth + Multi-tenant | ✅ Concluída | Login, roles, subdomain routing, RLS |
+| 2 — ETL | ✅ Concluída | Upload de planilha, ingestor, deduplicação, auditoria |
+| 3 — LPU + Motivos | ✅ Concluída | Motor de regras, simulação de LPU |
+| 4 — Payouts | ✅ Concluída | Cálculo automático, override, fechamento, exports |
+| 5 — Portais | ✅ Concluída | Dashboard manager, portal técnico, financeiro, skeletons |
+| 6 — Polish | 🟡 Em andamento | Testes E2E, Lighthouse, deploy `wave.tallpa.com.br` |
+
+Veja o roadmap completo em [`docs/sprints/00-roadmap.md`](./docs/sprints/00-roadmap.md).
 
 ---
 

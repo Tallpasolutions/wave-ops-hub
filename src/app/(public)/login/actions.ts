@@ -24,7 +24,7 @@ export async function signIn(_prevState: { error: string | null }, formData: For
     const payload = JSON.parse(
       Buffer.from(data.session.access_token.split('.')[1], 'base64url').toString()
     )
-    role = payload.role as AppRole | undefined
+    role = payload.app_role as AppRole | undefined
   } catch {
     return { error: 'Sessão inválida. Tente novamente.' }
   }
@@ -35,6 +35,22 @@ export async function signIn(_prevState: { error: string | null }, formData: For
 
   const headerStore = await headers()
   const subdomain = headerStore.get('x-subdomain') ?? 'wave'
+
+  // tallpa_owner logando de um subdomain de tenant precisa cruzar para admin.localhost.
+  // Browsers rejeitam domain=.localhost, então usamos session exchange via URL:
+  // o callback seta a sessão no contexto correto de admin.localhost.
+  if (role === 'tallpa_owner' && subdomain !== 'admin') {
+    const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost'
+    const isLocal = ROOT === 'localhost'
+    const port = isLocal ? ':3000' : ''
+    const scheme = isLocal ? 'http' : 'https'
+    const params = new URLSearchParams({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      next: '/admin/dashboard',
+    })
+    redirect(`${scheme}://admin.${ROOT}${port}/auth/callback?${params}`)
+  }
 
   redirect(buildPostLoginUrl(role, subdomain))
 }

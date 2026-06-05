@@ -18,6 +18,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     data: { user: authUser },
     error: authError,
   } = await supabase.auth.getUser()
+
   if (authError || !authUser) return null
 
   const { data: user, error } = await supabase
@@ -25,7 +26,6 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     .select('id, email, nome_completo, role, tenant_id, technician_id, ativo')
     .eq('id', authUser.id)
     .single()
-
   if (error || !user) return null
 
   // Usuário desativado não tem acesso — verificação em app além do RLS

@@ -57,15 +57,29 @@ Item individual da LPU. Define condições (finalidade + tipo atendimento + cida
 ### Payout
 Valor calculado a ser pago ao técnico por **uma visita específica**. Cada visita tem zero ou um payout. O payout é calculado automaticamente pelo motor de regras a partir da LPU vigente na data da visita.
 
-**Estados de um payout:**
-- `pendente` — calculado, aguardando inclusão em fechamento
-- `aprovado` — incluído em fechamento mensal aprovado
-- `pago` — pagamento efetivado (registro de baixa)
-- `contestado` — técnico discorda (fase 2)
-- `override` — gestor alterou o valor manualmente (precisa motivo)
+**Estados de um payout (10 estados):**
+
+| Status | Significado |
+|---|---|
+| `pending_calculation` | Aguardando o match engine calcular |
+| `pending_review` | Calculado, aguardando inclusão em fechamento |
+| `pending` | Em fechamento aberto, aguardando aprovação |
+| `approved` | Aprovado para pagamento |
+| `paid` | Pagamento registrado — estado final |
+| `no_rule_match` | Nenhuma regra LPU se aplica |
+| `pending_classification` | Motivo da visita pendente classificação pelo gestor |
+| `conflict` | Múltiplas regras com mesma prioridade casaram |
+| `override` | Gestor alterou o valor manualmente (motivo obrigatório) |
+| `contestado` | (Fase 2) Técnico contestou o valor — não implementado no MVP |
 
 ### Fechamento mensal
-Consolidação dos payouts de um mês para aprovação e pagamento. Apenas `tenant_owner` ou `tenant_manager` podem aprovar. Após aprovado, gera relatório financeiro consolidado.
+Consolidação dos payouts de um mês para aprovação e pagamento. Criado automaticamente pelo sistema ao calcular o primeiro payout de um período. Apenas `tenant_owner` ou `tenant_manager` podem aprovar.
+
+**Lifecycle:** `aberto` → `aguardando_aprovacao` → `aprovado` → `pago`
+
+Estado especial `reaberto`: gestor pode reabrir um fechamento aprovado (não pago) para corrigir payouts. Exige motivo obrigatório de mínimo 20 caracteres. Payouts `paid` nunca são revertidos — apenas `approved` volta para `pending`.
+
+Relatórios (Excel consolidado, PDF consolidado, PDF individual por técnico) ficam disponíveis para download a partir do estado `aprovado`.
 
 ### Margem (interno Tallpa, opcional para tenant)
 Diferença entre o valor recebido (Unetvale → Wave) e o valor pago (Wave → técnico). Calculada por OS, por técnico, por tipo, por cidade.

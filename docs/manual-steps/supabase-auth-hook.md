@@ -54,12 +54,14 @@ No SQL Editor do Supabase, autenticado como o usuário logado:
 
 ```sql
 SELECT
-  auth.jwt() ->> 'role'           AS role,
+  auth.jwt() ->> 'app_role'       AS app_role,
   auth.jwt() ->> 'tenant_id'      AS tenant_id,
   auth.jwt() ->> 'technician_id'  AS technician_id;
 ```
 
 Deve retornar os valores do usuário logado, não NULL.
+
+**ATENÇÃO:** o campo é `app_role`, não `role`. O campo `role` é reservado pelo PostgREST. Ver migration `0004_fix_jwt_app_role_claim.sql`.
 
 **Opção B — Via browser (DevTools):**
 
@@ -70,7 +72,7 @@ Deve retornar os valores do usuário logado, não NULL.
 4. Cole em https://jwt.io
 5. No payload, verifique:
    {
-     "role": "tallpa_owner",
+     "app_role": "tallpa_owner",
      "tenant_id": null,        ← null para tallpa_owner
      "technician_id": null,
      ...
@@ -91,10 +93,10 @@ export default async function CheckJwtPage() {
 
 ### Critério de aprovação
 
-- [ ] `role` no JWT corresponde ao role cadastrado em `public.users`
+- [ ] `app_role` no JWT corresponde ao role cadastrado em `public.users`
 - [ ] `tenant_id` no JWT corresponde ao tenant_id do usuário (null para tallpa_owner)
 - [ ] `tenant_technician` tem `technician_id` preenchido
-- [ ] A query SQL `auth.jwt() ->> 'role'` retorna o role correto
+- [ ] A query SQL `auth.jwt() ->> 'app_role'` retorna o role correto
 - [ ] `SELECT * FROM public.users` retorna dados do tenant do usuário logado, não de outros tenants
 
 ---

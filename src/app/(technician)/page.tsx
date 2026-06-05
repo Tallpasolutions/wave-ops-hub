@@ -9,8 +9,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Início' }
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtPts = (n: number) =>
+  `${Math.round(n).toLocaleString('pt-BR')} pts`
 
 function currentMonthBounds() {
   const now = new Date()
@@ -147,13 +147,13 @@ export default async function TechnicianHomePage() {
           }}
         >
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--cyan)]">
-            A receber este mês
+            Seus pontos este mês
           </p>
           <p className="mt-2 font-display text-3xl font-bold text-[var(--text)]">
-            {fmtBRL(aReceber)}
+            {fmtPts(aReceber)}
           </p>
           <p className="mt-1 text-[12px] text-[var(--text-2)]">
-            {myMonthPayouts.length} pagamento{myMonthPayouts.length !== 1 ? 's' : ''} pendente
+            {myMonthPayouts.length} pontuação{myMonthPayouts.length !== 1 ? 's' : ''} pendente
             {myMonthPayouts.length !== 1 ? 's' : ''} de aprovação
           </p>
         </div>
@@ -176,7 +176,7 @@ export default async function TechnicianHomePage() {
             </div>
           </div>
           <span className="font-mono text-[14px] font-bold text-[var(--red)]">
-            {fmtBRL(deixadoNaMesa)}
+            {fmtPts(deixadoNaMesa)}
           </span>
         </div>
       )}

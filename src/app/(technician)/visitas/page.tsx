@@ -16,8 +16,8 @@ interface PageProps {
   searchParams: Promise<{ mes?: string }>
 }
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtPts = (n: number) =>
+  `${Math.round(n).toLocaleString('pt-BR')} pts`
 const fmtDate = (iso: string) => {
   const [y, m, d] = iso.slice(0, 10).split('-')
   return `${d}/${m}/${y}`
@@ -155,12 +155,12 @@ export default async function VisitasPage({ searchParams }: PageProps) {
                           sucesso ? 'text-[var(--green)]' : 'text-[var(--text-2)]'
                         }`}
                       >
-                        {fmtBRL(valorPayout)}
+                        {fmtPts(valorPayout)}
                       </span>
                     )}
                     {deixadoNaMesa > 0 && (
                       <p className="mt-0.5 font-mono text-[10px] text-[var(--red)]">
-                        -{fmtBRL(deixadoNaMesa)} na mesa
+                        -{fmtPts(deixadoNaMesa)} na mesa
                       </p>
                     )}
                   </div>

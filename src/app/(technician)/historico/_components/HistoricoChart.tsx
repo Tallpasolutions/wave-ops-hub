@@ -11,10 +11,10 @@ interface Props {
   data: MonthData[]
 }
 
-const fmtBRLk = (n: number) =>
-  n >= 1000 ? `R$ ${(n / 1000).toFixed(1)}k` : `R$ ${n.toFixed(0)}`
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtPtsk = (n: number) =>
+  n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n.toFixed(0)}`
+const fmtPts = (n: number) =>
+  `${Math.round(n).toLocaleString('pt-BR')} pts`
 
 export function HistoricoChart({ data }: Props) {
   return (
@@ -31,7 +31,7 @@ export function HistoricoChart({ data }: Props) {
           tick={{ fontSize: 10, fill: '#5A6385', fontFamily: 'Manrope' }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={fmtBRLk}
+          tickFormatter={fmtPtsk}
           width={52}
         />
         <Tooltip
@@ -42,7 +42,7 @@ export function HistoricoChart({ data }: Props) {
             padding: '10px 14px',
           }}
           itemStyle={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#9AA3BD' }}
-          formatter={(value: number) => [fmtBRL(value), 'Receita']}
+          formatter={(value: number) => [fmtPts(value), 'Pontos']}
         />
         <Line
           type="monotone"

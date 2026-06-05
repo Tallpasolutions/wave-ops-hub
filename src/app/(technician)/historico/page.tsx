@@ -10,8 +10,8 @@ import { HistoricoChart } from './_components/HistoricoChart'
 
 export const dynamic = 'force-dynamic'
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtPts = (n: number) =>
+  `${Math.round(n).toLocaleString('pt-BR')} pts`
 
 function sixMonthBounds() {
   const now = new Date()
@@ -102,7 +102,7 @@ export default async function HistoricoPage() {
           {/* Gráfico comparativo */}
           <div className="mb-4 rounded-2xl border border-[var(--line)] bg-[var(--bg-1)] p-4">
             <p className="mb-3 font-display text-[14px] font-semibold text-[var(--text)]">
-              Receita por mês
+              Pontos por mês
             </p>
             <HistoricoChart data={months} />
           </div>
@@ -131,7 +131,7 @@ export default async function HistoricoPage() {
                         )}
                       </p>
                       <p className="mt-1 font-mono text-[16px] font-bold text-[var(--text)]">
-                        {fmtBRL(m.arrecadacao)}
+                        {fmtPts(m.arrecadacao)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -183,9 +183,9 @@ export default async function HistoricoPage() {
                   <span className="font-display font-extrabold text-[var(--cyan)]">02</span>
                   <span>
                     <strong className="text-[var(--text)]">
-                      {fmtBRL(mesAnterior.arrecadacao)}
+                      {fmtPts(mesAnterior.arrecadacao)}
                     </strong>{' '}
-                    em valor recebido no período
+                    em pontos no período
                   </span>
                 </li>
                 {melhorMes.mes !== mesAnterior.mes && melhorMes.totalVisitas > 0 && (
@@ -194,7 +194,7 @@ export default async function HistoricoPage() {
                     <span>
                       Seu melhor mês recente foi{' '}
                       <strong className="text-[var(--text)] capitalize">{melhorMes.label}</strong>{' '}
-                      com {fmtBRL(melhorMes.arrecadacao)}
+                      com {fmtPts(melhorMes.arrecadacao)}
                     </span>
                   </li>
                 )}

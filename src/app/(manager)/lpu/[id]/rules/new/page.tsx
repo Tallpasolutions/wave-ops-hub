@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { CreateRuleForm } from './_components/CreateRuleForm'
+import { getDistinctValues } from '../../../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,5 +22,16 @@ export default async function NewRulePage({ params }: Props) {
 
   if (!lpu) notFound()
 
-  return <CreateRuleForm lpuId={lpu.id} lpuNome={lpu.nome} />
+  const [finalidades, cidades] = await Promise.all([
+    getDistinctValues(user.tenantId!, 'finalidade'),
+    getDistinctValues(user.tenantId!, 'cidade'),
+  ])
+
+  return (
+    <CreateRuleForm
+      lpuId={lpu.id}
+      lpuNome={lpu.nome}
+      suggestions={{ finalidade: finalidades, cidade: cidades }}
+    />
+  )
 }

@@ -1,16 +1,23 @@
 export type TechnicianRef = { id: string; nome_completo: string }
 export type ReasonRef = { id: string; motivo_original: string }
 
+// Remove diacríticos para comparação tolerante a variações de encoding da planilha
+function normalizeStr(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
 export function matchTechnician(
   rawName: string,
   technicians: TechnicianRef[],
 ): TechnicianRef | null {
   // Remove prefixo "WAVE - " (e variantes) antes do match
-  const clean = rawName.replace(/^WAVE\s*-\s*/i, '').trim()
+  const clean = normalizeStr(rawName.replace(/^WAVE\s*-\s*/i, ''))
   return (
-    technicians.find(
-      (t) => t.nome_completo.trim().toLowerCase() === clean.toLowerCase(),
-    ) ?? null
+    technicians.find((t) => normalizeStr(t.nome_completo) === clean) ?? null
   )
 }
 

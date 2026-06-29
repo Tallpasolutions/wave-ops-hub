@@ -187,6 +187,29 @@ export async function deactivateLpuRule(ruleId: string, lpuId: string): Promise<
   redirect(`/lpu/${lpuId}`)
 }
 
+// ── Distinct field values for combobox suggestions ───────────────────────────
+
+export async function getDistinctValues(
+  tenantId: string,
+  field: 'finalidade' | 'cidade',
+): Promise<string[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase
+    .from('service_visits')
+    .select(field)
+    .eq('tenant_id', tenantId)
+    .not(field, 'is', null)
+    .order(field)
+  const seen = new Set<string>()
+  return (data ?? [])
+    .map((r) => (r as Record<string, string | null>)[field])
+    .filter((v): v is string => {
+      if (!v || seen.has(v)) return false
+      seen.add(v)
+      return true
+    })
+}
+
 // ── Duplicate Rule ────────────────────────────────────────────────────────────
 
 export async function duplicateLpuRule(ruleId: string, lpuId: string): Promise<void> {

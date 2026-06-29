@@ -1,7 +1,7 @@
 # Sprint 7 — ETL & Dados Essenciais
 
 **Duração estimada:** 0.5 a 1 semana
-**Status:** Em andamento (iniciada 2026-06-29)
+**Status:** Concluída ✅ (2026-06-29)
 **Pré-requisitos:** Sprint 6 concluída ✅ (sistema em produção desde 2026-06-05)
 
 ---
@@ -76,10 +76,19 @@ Idem para `cidade`.
 
 ## Definition of Done
 
-- [ ] Técnico "Jose Silva" (sem acento) casa com cadastro "José Silva" no sistema
-- [ ] Campo `explicacao_valor` visível no detalhe da visita (quando preenchido)
-- [ ] Na tela de upload, técnico não vinculado tem link para criar novo técnico com nome pré-preenchido
-- [ ] Campo `finalidade` no criador de regra LPU mostra combobox com valores reais da planilha
-- [ ] `pnpm typecheck` sem erros
-- [ ] `pnpm lint` sem erros
-- [ ] `pnpm test` passa (66+ testes)
+- [x] Técnico "Jose Silva" (sem acento) casa com cadastro "José Silva" no sistema — `normalizeStr()` em `matchers.ts`
+- [x] Campo `explicacao_valor` visível no detalhe da visita (quando preenchido) — `visitas/[id]/page.tsx`
+- [x] Na tela de upload, técnico não vinculado tem link para criar novo técnico com nome pré-preenchido — já existia no `LinkTechnicianForm`, confirmado
+- [x] Campo `finalidade` e `cidade` no criador de regra LPU mostram combobox com valores reais da planilha — `getDistinctValues` + `datalist` nativo
+- [x] `pnpm typecheck` sem erros
+- [x] `pnpm lint` sem erros
+- [x] `pnpm test` — 66 testes passando
+
+## Migrations
+
+Nenhuma migration necessária. Todos os campos já existiam em `0001_initial_schema.sql`. Próxima migration disponível: `0008_`.
+
+## Commit
+
+`319c155` — feat(sprint-7): ETL data quality improvements for LPU matching  
+Merge em `main`: `e654dd2`

@@ -24,13 +24,13 @@ const VALID_CONDITION_KEYS = [
 ] as const
 
 type ConditionKey = (typeof VALID_CONDITION_KEYS)[number]
-type FieldType = 'text' | 'select' | 'boolean' | 'number' | 'range'
+type FieldType = 'text' | 'select' | 'boolean' | 'number' | 'range' | 'combobox'
 
 const FIELD_CONFIG: Record<ConditionKey, { type: FieldType; options?: string[]; label: string }> = {
-  finalidade: { type: 'text', label: 'Finalidade' },
+  finalidade: { type: 'combobox', label: 'Finalidade' },
   tipoAtendimento: { type: 'select', options: ['Externo', 'Interno'], label: 'Tipo de Atendimento' },
   sucesso: { type: 'text', label: 'Sucesso' },
-  cidade: { type: 'text', label: 'Cidade' },
+  cidade: { type: 'combobox', label: 'Cidade' },
   condominio: { type: 'boolean', label: 'Condomínio' },
   dropUsado: { type: 'range', label: 'Drop Usado (m)' },
   faixaDrop: { type: 'text', label: 'Faixa Drop' },
@@ -100,6 +100,7 @@ type Props = {
   defaultDescription?: string
   defaultPrioridade?: number
   actionFn?: typeof createLpuRule
+  suggestions?: { finalidade: string[]; cidade: string[] }
 }
 
 export function CreateRuleForm({
@@ -108,6 +109,7 @@ export function CreateRuleForm({
   defaultDescription = '',
   defaultPrioridade,
   actionFn = createLpuRule,
+  suggestions = { finalidade: [], cidade: [] },
 }: Props) {
   const boundAction = actionFn.bind(null, lpuId)
   const [state, formAction, isPending] = useActionState(boundAction, { error: null as string | null })
@@ -184,6 +186,24 @@ export function CreateRuleForm({
 
                   {/* Value input based on type */}
                   <div className="flex flex-1 items-center gap-1">
+                    {config.type === 'combobox' && (() => {
+                      const listId = `dl-${row.id}-${row.fieldKey}`
+                      const opts = row.fieldKey === 'finalidade' ? suggestions.finalidade : suggestions.cidade
+                      return (
+                        <>
+                          <datalist id={listId}>
+                            {opts.map((o) => <option key={o} value={o} />)}
+                          </datalist>
+                          <Input
+                            list={listId}
+                            value={row.textValue}
+                            onChange={(e) => updateRow(row.id, { textValue: e.target.value })}
+                            placeholder="Selecione ou digite..."
+                            className="h-9 text-xs"
+                          />
+                        </>
+                      )
+                    })()}
                     {config.type === 'text' && (
                       <Input
                         value={row.textValue}

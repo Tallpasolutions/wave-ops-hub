@@ -82,7 +82,7 @@ export default async function VisitDetailPage({ params }: Props) {
       .from('service_visits')
       .select(
         `id, os_num, data_execucao, sucesso, improdutiva, cidade, finalidade,
-         tipo_atendimento, valor_recebido_unetvale, tecnico_raw, condominio,
+         tipo_atendimento, valor_recebido_unetvale, explicacao_valor, tecnico_raw, condominio,
          garantia, validada, agregada, rejeitada, agendada,
          drop_usado, faixa_drop, conectores_usados, observacoes,
          technicians(id, nome),
@@ -206,6 +206,9 @@ export default async function VisitDetailPage({ params }: Props) {
             label="Receita Unetvale"
             value={formatBRL(Number(visit.valor_recebido_unetvale ?? 0))}
           />
+          {visit.explicacao_valor && (
+            <InfoRow label="Explicação do valor" value={visit.explicacao_valor} />
+          )}
           {visit.condominio && <InfoRow label="Condomínio" value="Sim" />}
           {visit.garantia && <InfoRow label="Garantia" value="Sim" />}
           {visit.observacoes && <InfoRow label="Observações" value={visit.observacoes} />}

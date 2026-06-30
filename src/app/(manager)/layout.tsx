@@ -33,7 +33,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
 
   const supabase = await createSupabaseServerClient()
 
-  const [tenantRes, notifRes] = await Promise.all([
+  const [tenantRes, notifRes, improdutivasRes] = await Promise.all([
     user.tenantId
       ? supabase.from('tenants').select('nome').eq('id', user.tenantId).single()
       : Promise.resolve({ data: null }),
@@ -43,6 +43,14 @@ export default async function ManagerLayout({ children }: { children: React.Reac
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20),
+    user.tenantId
+      ? supabase
+          .from('payouts')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', user.tenantId)
+          .is('improdutiva_aprovada', null)
+          .not('reason_id', 'is', null)
+      : Promise.resolve({ count: 0 }),
   ])
 
   const tenantNome = (tenantRes.data as { nome?: string } | null)?.nome ?? 'Manager'
@@ -62,11 +70,14 @@ export default async function ManagerLayout({ children }: { children: React.Reac
     createdAt: n.created_at,
   }))
 
+  const improdutivasPendentes = improdutivasRes.count ?? 0
+
   return (
     <ManagerShell
       nomeCompleto={user.nomeCompleto}
       email={user.email}
       tenantNome={tenantNome}
+      improdutivasPendentes={improdutivasPendentes}
       topbar={
         <>
           <Suspense fallback={<div className="flex-1" />}>

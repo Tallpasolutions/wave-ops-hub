@@ -7,18 +7,31 @@ interface ManagerShellProps {
   nomeCompleto: string
   email: string
   tenantNome: string
+  improdutivasPendentes?: number
   topbar: React.ReactNode
   children: React.ReactNode
 }
 
-export function ManagerShell({ nomeCompleto, email, tenantNome, topbar, children }: ManagerShellProps) {
+export function ManagerShell({
+  nomeCompleto,
+  email,
+  tenantNome,
+  improdutivasPendentes,
+  topbar,
+  children,
+}: ManagerShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
-        <ManagerSidebar nomeCompleto={nomeCompleto} email={email} tenantNome={tenantNome} />
+        <ManagerSidebar
+          nomeCompleto={nomeCompleto}
+          email={email}
+          tenantNome={tenantNome}
+          improdutivasPendentes={improdutivasPendentes}
+        />
       </div>
 
       {/* Mobile drawer */}
@@ -33,6 +46,7 @@ export function ManagerShell({ nomeCompleto, email, tenantNome, topbar, children
               nomeCompleto={nomeCompleto}
               email={email}
               tenantNome={tenantNome}
+              improdutivasPendentes={improdutivasPendentes}
               onClose={() => setMobileOpen(false)}
             />
           </div>

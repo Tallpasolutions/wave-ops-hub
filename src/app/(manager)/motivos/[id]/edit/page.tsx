@@ -48,7 +48,7 @@ export default async function EditReasonPage({
           className="mb-4 inline-flex items-center gap-1.5 text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
         >
           <ArrowLeft size={14} />
-          Motivos
+          Improdutivas
         </Link>
 
         <h1 className="font-display text-2xl font-bold text-[var(--text)]">Editar Motivo</h1>

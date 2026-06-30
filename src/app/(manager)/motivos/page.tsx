@@ -3,10 +3,11 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { ReasonCategoria } from '@/db/schema'
+import { OsListSheet } from './_components/OsListSheet'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = { title: 'Motivos' }
+export const metadata: Metadata = { title: 'Improdutivas' }
 
 type ReasonRow = {
   id: string
@@ -80,9 +81,9 @@ function CategoriaBadge({ categoria }: { categoria: ReasonCategoria }) {
 export default async function MotivosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ categoria?: string }>
+  searchParams: Promise<{ categoria?: string; sheet?: string }>
 }) {
-  const { categoria } = await searchParams
+  const { categoria, sheet } = await searchParams
   const user = await getCurrentUser()
   if (!user) return null
 
@@ -118,7 +119,9 @@ export default async function MotivosPage({
     <div className="p-4 lg:p-8">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--text)]">Motivos</h1>
+          <h1 className="font-display text-2xl font-bold text-[var(--text)]">
+            Visitas Improdutivas
+          </h1>
           <p className="mt-1 text-sm text-[var(--text-3)]">
             {list.length} {list.length === 1 ? 'motivo' : 'motivos'}
             {!categoriaFiltro && (totalPendentes ?? 0) > 0 && (
@@ -205,6 +208,12 @@ export default async function MotivosPage({
                   </td>
                   <td className="px-5 py-3 text-right">
                     <Link
+                      href={`/motivos${categoriaFiltro ? `?categoria=${categoriaFiltro}&` : '?'}sheet=${r.id}`}
+                      className="mr-3 text-xs text-[var(--cyan)] underline-offset-2 hover:underline"
+                    >
+                      Visitas
+                    </Link>
+                    <Link
                       href={`/motivos/${r.id}/edit`}
                       className="text-xs text-[var(--blue)] underline-offset-2 hover:underline"
                     >
@@ -217,6 +226,18 @@ export default async function MotivosPage({
           </table>
         </div>
       )}
+
+      {sheet &&
+        (() => {
+          const selected = list.find((r) => r.id === sheet)
+          if (!selected) return null
+          return (
+            <OsListSheet
+              reasonId={selected.id}
+              reasonLabel={selected.motivo_normalizado ?? selected.motivo_original}
+            />
+          )
+        })()}
     </div>
   )
 }

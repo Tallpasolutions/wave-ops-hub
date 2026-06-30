@@ -1,9 +1,74 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { requireRole } from '@/lib/auth'
+import { requireRole, getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { recalculatePendingPayouts } from '@/lib/payouts'
+
+export type VisitByReasonRow = {
+  id: string
+  osNum: number
+  dataExecucao: string
+  tecnicoNome: string | null
+  payoutStatus: string | null
+  valorCalculado: number | null
+}
+
+export async function getVisitsByReason(
+  reasonId: string,
+  period?: string,
+): Promise<VisitByReasonRow[]> {
+  const user = await getCurrentUser()
+  if (!user?.tenantId) return []
+
+  const supabase = await createSupabaseServerClient()
+
+  let query = supabase
+    .from('service_visits')
+    .select(
+      `id, os_num, data_execucao,
+       technicians(nome),
+       payouts(status, valor_calculado, valor_override)`,
+    )
+    .eq('tenant_id', user.tenantId)
+    .eq('reason_id', reasonId)
+    .order('data_execucao', { ascending: false })
+
+  if (period && /^\d{4}-\d{2}$/.test(period)) {
+    const [year, month] = period.split('-').map(Number)
+    const start = `${year}-${String(month).padStart(2, '0')}-01`
+    const nextMonth = month === 12 ? 1 : month + 1
+    const nextYear = month === 12 ? year + 1 : year
+    const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+    query = query.gte('data_execucao', start).lt('data_execucao', end)
+  }
+
+  const { data } = await query
+
+  return (data ?? []).map((v) => {
+    const tech = v.technicians as unknown as { nome: string } | null
+    const payout = v.payouts as unknown as {
+      status: string | null
+      valor_calculado: string | null
+      valor_override: string | null
+    } | null
+    const valorEfetivo =
+      payout?.valor_override !== null && payout?.valor_override !== undefined
+        ? Number(payout.valor_override)
+        : payout?.valor_calculado !== null && payout?.valor_calculado !== undefined
+          ? Number(payout.valor_calculado)
+          : null
+
+    return {
+      id: v.id,
+      osNum: Number(v.os_num),
+      dataExecucao: v.data_execucao,
+      tecnicoNome: tech?.nome ?? null,
+      payoutStatus: payout?.status ?? null,
+      valorCalculado: valorEfetivo,
+    }
+  })
+}
 
 const updateReasonSchema = z.object({
   motivoNormalizado: z

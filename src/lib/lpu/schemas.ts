@@ -32,7 +32,7 @@ export const lpuConditionsSchema = z
 
 const payoutFixedSchema = z.object({
   type: z.literal("fixed"),
-  value: z.number().positive(),
+  value: z.number().nonnegative(),
 });
 
 const payoutFormulaSchema = z.object({

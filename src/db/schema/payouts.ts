@@ -4,6 +4,7 @@ import {
   text,
   numeric,
   timestamp,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
@@ -48,6 +49,7 @@ export const payouts = pgTable(
     reasonId: uuid("reason_id").references(() => reasons.id, {
       onDelete: "set null",
     }),
+    improdutivaAprovada: boolean("improdutiva_aprovada"),
     valorCalculado: numeric("valor_calculado", { precision: 10, scale: 2 }),
     valorDeixadoNaMesa: numeric("valor_deixado_na_mesa", {
       precision: 10,

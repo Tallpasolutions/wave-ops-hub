@@ -21,6 +21,14 @@ const IGNORED_FIELDS = new Set([
   'created_at',
   'updated_at',
   'content_hash',
+  // infra: hidden per Wave request, 2026-06
+  'drop_usado',
+  'faixa_drop',
+  'conectores_usados',
+  'trocado_drop',
+  'motivo_troca',
+  'outras_fibras',
+  'quantas_fibras',
 ])
 
 const FIELD_LABELS: Record<string, string> = {

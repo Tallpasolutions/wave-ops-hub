@@ -26,14 +26,15 @@ const FIELD_LABELS: Record<string, string> = {
   agregada: 'Agregada',
   rejeitada: 'Rejeitada',
   agendada: 'Agendada',
-  drop_usado: 'Drop usado',
-  faixa_drop: 'Faixa de drop',
-  conectores_usados: 'Conectores usados',
   observacoes: 'Observações',
   condominio: 'Condomínio',
 }
 
-const IGNORED_AUDIT = new Set(['id', 'tenant_id', 'upload_id', 'created_at', 'updated_at', 'content_hash'])
+const IGNORED_AUDIT = new Set([
+  'id', 'tenant_id', 'upload_id', 'created_at', 'updated_at', 'content_hash',
+  // infra: hidden per Wave request, 2026-06
+  'drop_usado', 'faixa_drop', 'conectores_usados', 'trocado_drop', 'motivo_troca', 'outras_fibras', 'quantas_fibras',
+])
 
 function formatBRL(value: number | null): string {
   if (value === null || isNaN(value)) return '—'
@@ -84,7 +85,7 @@ export default async function VisitDetailPage({ params }: Props) {
         `id, os_num, data_execucao, sucesso, improdutiva, cidade, finalidade,
          tipo_atendimento, valor_recebido_unetvale, explicacao_valor, tecnico_raw, condominio,
          garantia, validada, agregada, rejeitada, agendada,
-         drop_usado, faixa_drop, conectores_usados, observacoes,
+         observacoes,
          technicians(id, nome),
          reasons(motivo_original, motivo_normalizado, categoria),
          payouts(id, status, valor_calculado, valor_override, valor_deixado_na_mesa,

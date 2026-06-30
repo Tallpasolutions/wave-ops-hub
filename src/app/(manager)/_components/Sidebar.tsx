@@ -14,6 +14,7 @@ import {
   TrendingUp,
   HelpCircle,
   LogOut,
+  CheckCircle2,
 } from 'lucide-react'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { signOut } from '@/lib/auth/logout'
@@ -30,7 +31,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/equipe', label: 'Equipe', icon: Users },
   { href: '/equipe/tecnicos', label: 'Técnicos', icon: HardHat },
   { href: '/uploads', label: 'Uploads', icon: FileUp },
-  { href: '/motivos', label: 'Motivos', icon: Tag },
+  { href: '/motivos', label: 'Improdutivas', icon: Tag },
+  { href: '/improdutivas', label: 'Aprovação', icon: CheckCircle2 },
   { href: '/lpu', label: 'LPU', icon: ScrollText },
   { href: '/oss', label: 'OSs', icon: ClipboardList },
   { href: '/pagamentos', label: 'Pagamentos', icon: DollarSign },
@@ -43,10 +45,17 @@ interface ManagerSidebarProps {
   nomeCompleto: string
   email: string
   tenantNome: string
+  improdutivasPendentes?: number
   onClose?: () => void
 }
 
-export function ManagerSidebar({ nomeCompleto, email, tenantNome, onClose }: ManagerSidebarProps) {
+export function ManagerSidebar({
+  nomeCompleto,
+  email,
+  tenantNome,
+  improdutivasPendentes,
+  onClose,
+}: ManagerSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -98,6 +107,11 @@ export function ManagerSidebar({ nomeCompleto, email, tenantNome, onClose }: Man
             >
               <Icon size={16} />
               {label}
+              {href === '/improdutivas' && !!improdutivasPendentes && improdutivasPendentes > 0 && (
+                <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--red)] px-1 text-[9px] font-bold text-white">
+                  {improdutivasPendentes}
+                </span>
+              )}
             </Link>
           )
         })}

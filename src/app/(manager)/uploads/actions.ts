@@ -243,6 +243,28 @@ export async function deleteUpload(uploadId: string): Promise<void> {
   redirect('/uploads')
 }
 
+export async function recalculateUploadPayouts(uploadId: string): Promise<void> {
+  const user = await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
+  if (!user.tenantId) throw new Error('Usuário sem tenant')
+
+  const supabase = await createSupabaseServerClient()
+
+  const { data: upload } = await supabase
+    .from('uploads')
+    .select('periodo_inicio, periodo_fim')
+    .eq('id', uploadId)
+    .single()
+
+  if (!upload?.periodo_inicio) {
+    redirect('/uploads/' + uploadId)
+  }
+
+  const periodo = upload.periodo_inicio.slice(0, 7)
+  await recalculatePendingPayouts(user.tenantId, supabase, { periodo })
+
+  redirect('/uploads/' + uploadId)
+}
+
 export async function linkTechnicianRaw(
   tecnicoRaw: string,
   tecnicoId: string,

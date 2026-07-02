@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Detalhe do Upload' }
 import type { UploadStatus } from '@/db/schema'
 import { LinkTechnicianForm } from './LinkTechnicianForm'
-import { deleteUpload, reprocessUpload, rerunUpload } from '../actions'
+import { deleteUpload, reprocessUpload, rerunUpload, recalculateUploadPayouts } from '../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -165,6 +165,17 @@ export default async function UploadDetailPage({
           </div>
           <div className="flex items-center gap-3">
             <StatusBadge status={u.status} />
+            {/* Recalcular payouts: sempre disponível em uploads com sucesso */}
+            {u.status === 'success' && (
+              <form action={recalculateUploadPayouts.bind(null, u.id)}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-[var(--line)] bg-[var(--bg-2)] px-3 py-1.5 text-xs font-semibold text-[var(--text-2)] transition-colors hover:bg-[var(--bg-3)]"
+                >
+                  Recalcular payouts
+                </button>
+              </form>
+            )}
             {/* Reprocessar via ingestor: quando há erros ou status não-final */}
             {(u.erros > 0 || u.status === 'pending' || u.status === 'processing' || u.status === 'failed') &&
               u.status !== 'duplicate' && (

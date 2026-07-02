@@ -60,7 +60,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
        payouts!inner(
          id, status, valor_calculado, valor_override,
          valor_deixado_na_mesa, visit_id, technician_id,
-         technicians(nome)
+         technicians(nome_completo)
        )`,
     )
     .eq('tenant_id', user.tenantId!)
@@ -77,7 +77,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
     valor_deixado_na_mesa: number | null
     visit_id: string
     technician_id: string | null
-    technicians: { nome: string } | { nome: string }[] | null
+    technicians: { nome_completo: string } | { nome_completo: string }[] | null
   }
 
   type PayoutRow = {
@@ -107,7 +107,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
       valor_calculado: p.valor_calculado,
       valor_override: p.valor_override,
       technician_id: p.technician_id,
-      tecnico: tech?.nome ?? null,
+      tecnico: tech?.nome_completo ?? null,
       os_num: v.os_num as number,
       data_execucao: v.data_execucao as string,
       finalidade: v.finalidade as string | null,

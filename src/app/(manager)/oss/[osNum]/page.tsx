@@ -62,7 +62,7 @@ export default async function OsDetailPage({ params }: Props) {
       .select(
         `id, data_execucao, sucesso, cidade, finalidade, tipo_atendimento,
          valor_recebido_unetvale, tecnico_raw,
-         technicians(id, nome),
+         technicians(id, nome_completo),
          reasons(motivo_original, motivo_normalizado, categoria),
          payouts(id, status, valor_calculado, valor_override, valor_deixado_na_mesa)`,
       )
@@ -170,7 +170,7 @@ export default async function OsDetailPage({ params }: Props) {
 
           <div className="space-y-4 pl-12">
             {visits.map((v, idx) => {
-              const tech = v.technicians as unknown as { id: string; nome: string } | null
+              const tech = v.technicians as unknown as { id: string; nome_completo: string } | null
               const reason = v.reasons as unknown as {
                 motivo_original: string
                 motivo_normalizado: string | null
@@ -246,7 +246,7 @@ export default async function OsDetailPage({ params }: Props) {
                               href={`/equipe/tecnicos/${tech.id}`}
                               className="hover:text-[var(--cyan)] transition-colors"
                             >
-                              {tech.nome}
+                              {tech.nome_completo}
                             </Link>
                           ) : (
                             <span className="text-[var(--text-3)]">{v.tecnico_raw ?? '—'}</span>

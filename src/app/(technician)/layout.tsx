@@ -19,7 +19,7 @@ export default async function TechnicianLayout({ children }: { children: React.R
   const user = await getCurrentUser()
 
   if (!user) redirect('/login')
-  if (user.role !== 'tenant_technician') redirect('/login')
+  if (user.role !== 'tenant_technician' && user.role !== 'tenant_supervisor') redirect('/login')
 
   const headerStore = await headers()
   const subdomain = headerStore.get('x-subdomain')
@@ -98,7 +98,7 @@ export default async function TechnicianLayout({ children }: { children: React.R
 
       <main className="flex-1 pb-16">{children}</main>
 
-      <TechBottomNav />
+      <TechBottomNav isSupervisor={user.role === 'tenant_supervisor'} />
     </div>
   )
 }

@@ -99,7 +99,7 @@ export default async function SimulatePage({ params, searchParams }: Props) {
     supabase
       .from('service_visits')
       .select(
-        'id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale',
+        'id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada',
       )
       .eq('tenant_id', user.tenantId!)
       .gte('data_execucao', inicio)
@@ -131,6 +131,7 @@ export default async function SimulatePage({ params, searchParams }: Props) {
     conectoresUsados: v.conectores_usados,
     garantia: v.garantia ?? false,
     subterraneaAereo: v.subterraneo_aereo,
+    agregada: v.agregada ?? false,
     valorRecebidoUnetvale:
       v.valor_recebido_unetvale != null ? Number(v.valor_recebido_unetvale) : null,
   }))

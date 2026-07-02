@@ -20,6 +20,7 @@ type VisitRow = {
   garantia: boolean | null;
   subterraneo_aereo: string | null;
   valor_recebido_unetvale: number | string | null;
+  agregada: boolean | null;
   data_execucao: string;
 };
 
@@ -39,6 +40,7 @@ function rowToSimVisit(v: VisitRow): SimVisit {
     conectoresUsados: v.conectores_usados,
     garantia: v.garantia ?? false,
     subterraneaAereo: v.subterraneo_aereo,
+    agregada: v.agregada ?? false,
     valorRecebidoUnetvale:
       v.valor_recebido_unetvale != null
         ? Number(v.valor_recebido_unetvale)
@@ -94,7 +96,7 @@ export async function recalculatePendingPayouts(
   let visitsQuery = supabase
     .from("service_visits")
     .select(
-      "id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, data_execucao",
+      "id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada, data_execucao",
     )
     .eq("tenant_id", tenantId);
 

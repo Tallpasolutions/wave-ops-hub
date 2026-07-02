@@ -35,6 +35,7 @@ function makeVisit(overrides: Partial<SimVisit> = {}): SimVisit {
     garantia: false,
     subterraneaAereo: null,
     valorRecebidoUnetvale: 200,
+    agregada: false,
     ...overrides,
   };
 }

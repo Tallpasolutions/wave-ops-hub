@@ -52,15 +52,15 @@ export const users = pgTable(
       .where(sql`technician_id IS NOT NULL`),
     check(
       "role_valid",
-      sql`role IN ('tallpa_owner', 'tenant_owner', 'tenant_manager', 'tenant_technician')`,
+      sql`role IN ('tallpa_owner', 'tenant_owner', 'tenant_manager', 'tenant_technician', 'tenant_supervisor')`,
     ),
     check(
       "tenant_role_consistency",
-      sql`(role = 'tallpa_owner' AND tenant_id IS NULL) OR (role IN ('tenant_owner', 'tenant_manager', 'tenant_technician') AND tenant_id IS NOT NULL)`,
+      sql`(role = 'tallpa_owner' AND tenant_id IS NULL) OR (role IN ('tenant_owner', 'tenant_manager', 'tenant_technician', 'tenant_supervisor') AND tenant_id IS NOT NULL)`,
     ),
     check(
       "technician_role_consistency",
-      sql`(role = 'tenant_technician' AND technician_id IS NOT NULL) OR (role != 'tenant_technician' AND technician_id IS NULL)`,
+      sql`(role IN ('tenant_technician', 'tenant_supervisor') AND technician_id IS NOT NULL) OR (role NOT IN ('tenant_technician', 'tenant_supervisor') AND technician_id IS NULL)`,
     ),
   ],
 );

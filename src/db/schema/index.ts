@@ -13,3 +13,4 @@ export * from "./lpu-rules";
 export * from "./monthly-closings";
 export * from "./payouts";
 export * from "./notifications";
+export * from "./supervisor-technicians";

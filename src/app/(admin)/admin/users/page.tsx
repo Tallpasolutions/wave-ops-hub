@@ -172,6 +172,10 @@ function RoleBadge({ role }: { role: AppRole }) {
       label: 'Técnico',
       className: 'bg-white/5 text-[var(--text-3)]',
     },
+    tenant_supervisor: {
+      label: 'Supervisor',
+      className: 'bg-[rgba(255,171,0,0.12)] text-[var(--yellow,#ffab00)]',
+    },
   }
   const { label, className } = config[role] ?? config.tenant_manager
   return (

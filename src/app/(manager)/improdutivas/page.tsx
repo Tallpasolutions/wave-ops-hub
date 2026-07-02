@@ -18,24 +18,13 @@ type Props = {
 
 export default async function ImprodutivasPage({ searchParams }: Props) {
   const { tecnico, mes } = await searchParams
-  const { start, end } = parsePeriod(mes)
 
   const user = await getCurrentUser()
   if (!user) notFound()
 
   const supabase = await createSupabaseServerClient()
 
-  // Busca os IDs das visitas do período — filtro direto na tabela com a coluna de data
-  // (filtrar via join embutido no PostgREST é instável e pode ignorar o filtro)
-  const { data: visitData } = await supabase
-    .from('service_visits')
-    .select('id')
-    .eq('tenant_id', user.tenantId!)
-    .gte('data_execucao', start)
-    .lt('data_execucao', end)
-
-  const visitIds = (visitData ?? []).map((v) => v.id)
-
+  // Constrói a query base — payouts improdutivos pendentes de aprovação
   let payoutsQuery = supabase
     .from('payouts')
     .select(
@@ -49,10 +38,29 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
     .not('reason_id', 'is', null)
     .order('service_visits(data_execucao)', { ascending: false })
 
-  if (visitIds.length === 0) {
-    payoutsQuery = payoutsQuery.in('visit_id', ['00000000-0000-0000-0000-000000000000'])
-  } else {
-    payoutsQuery = payoutsQuery.in('visit_id', visitIds)
+  // Filtro de período: só aplica quando o usuário seleciona um mês no topbar.
+  // Por padrão mostra TODA a fila pendente, independente do período — comportamento
+  // correto para uma fila de aprovação.
+  if (mes && /^\d{4}-\d{2}$/.test(mes)) {
+    const { start, end } = parsePeriod(mes)
+
+    // Two-step: busca IDs das visitas do período (filtro direto na tabela com a coluna de data)
+    // para evitar instabilidade do filtro por join embutido no PostgREST
+    const { data: visitData } = await supabase
+      .from('service_visits')
+      .select('id')
+      .eq('tenant_id', user.tenantId!)
+      .gte('data_execucao', start)
+      .lt('data_execucao', end)
+
+    const visitIds = (visitData ?? []).map((v) => v.id)
+
+    if (visitIds.length === 0) {
+      // Nenhuma visita no período — força retorno vazio sem usar UUID falso
+      payoutsQuery = payoutsQuery.is('visit_id', null)
+    } else {
+      payoutsQuery = payoutsQuery.in('visit_id', visitIds)
+    }
   }
 
   if (tecnico) {
@@ -85,6 +93,8 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
     new Map(rows.filter((r) => r.tecnicoId).map((r) => [r.tecnicoId!, r.tecnicoNome!])).entries(),
   ).map(([id, nome]) => ({ id, nome }))
 
+  const { label: periodoLabel } = mes ? parsePeriod(mes) : { label: 'todos os períodos' }
+
   return (
     <div className="p-4 lg:p-8">
       <div className="mb-6">
@@ -93,6 +103,8 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
         </h1>
         <p className="mt-1 text-sm text-[var(--text-3)]">
           {rows.length} {rows.length === 1 ? 'visita pendente' : 'visitas pendentes'} de decisão
+          {' · '}
+          {periodoLabel}
         </p>
       </div>
 
@@ -129,7 +141,11 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
         <EmptyState
           icon={CheckCircle2}
           title="Nenhuma improdutiva pendente de aprovação"
-          description="Quando houver visitas improdutivas aguardando decisão, elas aparecerão aqui."
+          description={
+            mes
+              ? `Sem improdutivas pendentes em ${periodoLabel}. Selecione outro período ou remova o filtro.`
+              : 'Quando houver visitas improdutivas aguardando decisão, elas aparecerão aqui.'
+          }
         />
       ) : (
         <ImprodutivasTable rows={rows} />

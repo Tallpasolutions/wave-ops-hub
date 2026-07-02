@@ -30,13 +30,13 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
     .select(
       `id, valor_calculado, technician_id,
        service_visits!inner(os_num, data_execucao),
-       technicians(id, nome),
+       technicians(id, nome_completo),
        reasons!inner(motivo_normalizado, motivo_original, categoria)`,
     )
     .eq('tenant_id', user.tenantId!)
     .is('improdutiva_aprovada', null)
     .not('reason_id', 'is', null)
-    .order('service_visits(data_execucao)', { ascending: false })
+    .order('data_execucao', { ascending: false, referencedTable: 'service_visits' })
 
   // Filtro de período: só aplica quando o usuário seleciona um mês no topbar.
   // Por padrão mostra TODA a fila pendente, independente do período — comportamento
@@ -71,7 +71,7 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
 
   const rows: ImprodutivaRow[] = (raw ?? []).map((p) => {
     const visit = p.service_visits as unknown as { os_num: number; data_execucao: string }
-    const tech = p.technicians as unknown as { id: string; nome: string } | null
+    const tech = p.technicians as unknown as { id: string; nome_completo: string } | null
     const reason = p.reasons as unknown as {
       motivo_normalizado: string | null
       motivo_original: string
@@ -82,7 +82,7 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
       osNum: Number(visit.os_num),
       dataExecucao: visit.data_execucao,
       tecnicoId: tech?.id ?? null,
-      tecnicoNome: tech?.nome ?? null,
+      tecnicoNome: tech?.nome_completo ?? null,
       motivo: reason.motivo_normalizado ?? reason.motivo_original,
       categoria: reason.categoria,
       valorCalculado: p.valor_calculado !== null ? Number(p.valor_calculado) : null,

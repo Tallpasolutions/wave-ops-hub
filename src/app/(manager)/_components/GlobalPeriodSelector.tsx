@@ -3,7 +3,7 @@
 import { useSearchParams, usePathname, useRouter } from 'next/navigation'
 import { buildPeriodOptions } from '../_lib/period'
 
-const PERIOD_PATHS = ['/dashboard', '/oss', '/financeiro', '/pagamentos', '/equipe/tecnicos']
+const PERIOD_PATHS = ['/dashboard', '/oss', '/financeiro', '/pagamentos', '/improdutivas', '/equipe/tecnicos']
 
 function getMesAtual(): string {
   const now = new Date()

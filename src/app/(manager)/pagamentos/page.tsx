@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Suspense } from 'react'
 import { AlertTriangle, Wallet } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
-import { PeriodoSelect } from './_components/PeriodoSelect'
+import { recalculatePendingPayoutsAction } from './actions'
 
 export const metadata: Metadata = { title: 'Pagamentos' }
 
@@ -52,8 +51,8 @@ export default async function PayoutsPage({ searchParams }: Props) {
 
   const supabase = await createSupabaseServerClient()
 
-  // Busca visitas do período com seus payouts (filtro de data direto em service_visits,
-  // evitando filtro por join embutido no PostgREST que é instável)
+  // Busca visitas do período com seus payouts — filtro de data direto em service_visits
+  // para evitar instabilidade do filtro por join embutido no PostgREST
   const { data: visitsRaw } = await supabase
     .from('service_visits')
     .select(
@@ -119,7 +118,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
     ? allPayouts.filter((p) => p.status === statusFilter)
     : allPayouts
 
-  // Contadores de pendências (sem filtro de período — mostra total do tenant)
+  // Contadores de pendências — sem filtro de período, mostra total do tenant
   const { data: pendRaw } = await supabase
     .from('payouts')
     .select('status')
@@ -137,53 +136,126 @@ export default async function PayoutsPage({ searchParams }: Props) {
   const totalPendencias =
     pendencias.no_rule_match + pendencias.pending_classification + pendencias.conflict
 
+  const mesParam = mes ? `&mes=${mes}` : ''
+
   return (
     <div className="p-4 lg:p-8">
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--text)]">Pagamentos</h1>
-          <p className="mt-1 text-sm text-[var(--text-3)]">
-            {payouts.length} pagamento{payouts.length !== 1 ? 's' : ''} · {periodoLabel}
-          </p>
-        </div>
-        <Suspense>
-          <PeriodoSelect />
-        </Suspense>
+      <div className="mb-6">
+        <h1 className="font-display text-2xl font-bold text-[var(--text)]">Pagamentos</h1>
+        <p className="mt-1 text-sm text-[var(--text-3)]">
+          {payouts.length} pagamento{payouts.length !== 1 ? 's' : ''} · {periodoLabel}
+        </p>
       </div>
 
-      {/* Pendências críticas */}
+      {/* Pendências críticas com instruções acionáveis */}
       {totalPendencias > 0 && (
-        <div className="mb-6 rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.06)] p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <AlertTriangle size={15} className="text-[var(--red)]" />
-            <p className="text-sm font-semibold text-[var(--red)]">
-              {totalPendencias} pagamento{totalPendencias !== 1 ? 's' : ''} com pendência crítica
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3 text-xs text-[var(--text-2)]">
-            {pendencias.no_rule_match > 0 && (
-              <Link
-                href={`/pagamentos?status=no_rule_match&mes=${mes ?? ''}`}
-                className="underline hover:text-[var(--text)]"
+        <div className="mb-6 overflow-hidden rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.04)]">
+          {/* Header do bloco */}
+          <div className="flex items-center justify-between border-b border-[rgba(239,68,68,0.15)] px-5 py-3.5">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="shrink-0 text-[var(--red)]" />
+              <p className="text-sm font-semibold text-[var(--red)]">
+                {totalPendencias} pagamento{totalPendencias !== 1 ? 's' : ''} com pendência crítica
+              </p>
+            </div>
+            <form action={recalculatePendingPayoutsAction}>
+              <button
+                type="submit"
+                title="Recalcula todos os pagamentos pendentes com as regras LPU atuais"
+                className="rounded-lg border border-[var(--line)] bg-[var(--bg-1)] px-3 py-1.5 text-xs font-semibold text-[var(--text-2)] transition-colors hover:bg-[var(--bg-2)]"
               >
-                {pendencias.no_rule_match} sem regra LPU
+                Recalcular pendentes
+              </button>
+            </form>
+          </div>
+
+          {/* Sem regra LPU */}
+          {pendencias.no_rule_match > 0 && (
+            <div className="border-b border-[rgba(239,68,68,0.1)] px-5 py-4">
+              <div className="mb-1.5 flex items-start justify-between gap-4">
+                <span className="text-sm font-semibold text-[var(--red)]">
+                  {pendencias.no_rule_match} sem regra LPU
+                </span>
+                <Link
+                  href={`/pagamentos?status=no_rule_match${mesParam}`}
+                  className="shrink-0 text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+                >
+                  Ver visitas ↓
+                </Link>
+              </div>
+              <p className="mb-2 text-xs text-[var(--text-3)]">
+                Nenhuma regra na LPU ativa cobre a combinação de finalidade, cidade ou tipo dessas visitas.
+              </p>
+              <p className="mb-2 text-xs text-[var(--text-2)]">
+                <span className="font-semibold">Como corrigir:</span> acesse a LPU ativa, crie ou ajuste regras para cobrir as finalidades não mapeadas e clique em <span className="font-semibold">Recalcular pendentes</span> acima.
+              </p>
+              <Link
+                href="/lpu"
+                className="text-xs font-semibold text-[var(--blue)] transition-colors hover:underline"
+              >
+                Ir para LPU →
               </Link>
-            )}
-            {pendencias.pending_classification > 0 && (
+            </div>
+          )}
+
+          {/* Motivo pendente de classificação */}
+          {pendencias.pending_classification > 0 && (
+            <div className="border-b border-[rgba(239,68,68,0.1)] px-5 py-4">
+              <div className="mb-1.5 flex items-start justify-between gap-4">
+                <span className="text-sm font-semibold text-yellow-400">
+                  {pendencias.pending_classification} com motivo pendente
+                </span>
+                <Link
+                  href={`/pagamentos?status=pending_classification${mesParam}`}
+                  className="shrink-0 text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+                >
+                  Ver visitas ↓
+                </Link>
+              </div>
+              <p className="mb-2 text-xs text-[var(--text-3)]">
+                Visitas improdutivas cujo motivo ainda não foi classificado — sem categoria, não é possível saber se o técnico recebe pagamento.
+              </p>
+              <p className="mb-2 text-xs text-[var(--text-2)]">
+                <span className="font-semibold">Como corrigir:</span> classifique cada motivo indicando se é falha do técnico, cliente ausente, reagendamento, etc. O sistema recalcula automaticamente após a classificação.
+              </p>
               <Link
                 href="/motivos?categoria=pendente_classificacao"
-                className="underline hover:text-[var(--text)]"
+                className="text-xs font-semibold text-[var(--blue)] transition-colors hover:underline"
               >
-                {pendencias.pending_classification} com motivo pendente → classificar
+                Classificar motivos →
               </Link>
-            )}
-            {pendencias.conflict > 0 && (
-              <Link href="/lpu" className="underline hover:text-[var(--text)]">
-                {pendencias.conflict} com conflito de prioridade → resolver na LPU
+            </div>
+          )}
+
+          {/* Conflito de prioridade */}
+          {pendencias.conflict > 0 && (
+            <div className="px-5 py-4">
+              <div className="mb-1.5 flex items-start justify-between gap-4">
+                <span className="text-sm font-semibold text-yellow-400">
+                  {pendencias.conflict} com conflito de prioridade
+                </span>
+                <Link
+                  href={`/pagamentos?status=conflict${mesParam}`}
+                  className="shrink-0 text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+                >
+                  Ver visitas ↓
+                </Link>
+              </div>
+              <p className="mb-2 text-xs text-[var(--text-3)]">
+                Mais de uma regra LPU ativa se aplica às mesmas visitas com a mesma prioridade — o sistema não consegue decidir qual usar.
+              </p>
+              <p className="mb-2 text-xs text-[var(--text-2)]">
+                <span className="font-semibold">Como corrigir:</span> ajuste a prioridade das regras LPU para que apenas uma tenha maior prioridade para cada tipo de visita, depois clique em <span className="font-semibold">Recalcular pendentes</span> acima.
+              </p>
+              <Link
+                href="/lpu"
+                className="text-xs font-semibold text-[var(--blue)] transition-colors hover:underline"
+              >
+                Resolver na LPU →
               </Link>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

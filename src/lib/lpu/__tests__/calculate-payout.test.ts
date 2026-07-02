@@ -24,6 +24,7 @@ const BASE_VISIT: VisitForMatch = {
   subterraneaAereo: null,
   valorRecebidoUnetvale: 200,
   tecnicoId: null,
+  agregada: false,
 };
 
 function makeRule(overrides: Partial<LpuRuleNarrowed> = {}): LpuRuleNarrowed {

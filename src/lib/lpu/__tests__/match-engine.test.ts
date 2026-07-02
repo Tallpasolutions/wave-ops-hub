@@ -15,6 +15,7 @@ const BASE_VISIT: VisitForMatch = {
   subterraneaAereo: null,
   valorRecebidoUnetvale: 206.26,
   tecnicoId: null,
+  agregada: false,
 };
 
 function makeRule(

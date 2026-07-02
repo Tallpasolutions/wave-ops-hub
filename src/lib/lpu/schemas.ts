@@ -12,6 +12,7 @@ const VALID_CONDITION_KEYS = [
   "garantia",
   "subterraneaAereo",
   "valorRecebidoUnetvale",
+  "tecnicoId",
 ] as const;
 
 const conditionValueSchema = z.union([

@@ -11,7 +11,6 @@ import type {
 export type SimVisit = VisitForMatch & {
   id: string;
   osNum: number;
-  tecnicoId: string | null;
   reasonId: string | null;
 };
 

@@ -22,10 +22,11 @@ const VALID_CONDITION_KEYS = [
   'garantia',
   'subterraneaAereo',
   'valorRecebidoUnetvale',
+  'tecnicoId',
 ] as const
 
 type ConditionKey = (typeof VALID_CONDITION_KEYS)[number]
-type FieldType = 'text' | 'select' | 'boolean' | 'number' | 'range'
+type FieldType = 'text' | 'select' | 'boolean' | 'number' | 'range' | 'technician'
 
 const FIELD_CONFIG: Record<ConditionKey, { type: FieldType; options?: string[]; label: string }> = {
   finalidade: { type: 'text', label: 'Finalidade' },
@@ -39,6 +40,7 @@ const FIELD_CONFIG: Record<ConditionKey, { type: FieldType; options?: string[]; 
   garantia: { type: 'boolean', label: 'Garantia' },
   subterraneaAereo: { type: 'text', label: 'Subterrânea/Aéreo' },
   valorRecebidoUnetvale: { type: 'range', label: 'Valor Recebido Unetvale (R$)' },
+  tecnicoId: { type: 'technician', label: 'Técnico' },
 }
 
 type ConditionRow = {
@@ -130,9 +132,14 @@ function payoutToState(payout: Record<string, unknown>): PayoutState {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-type Props = { rule: LpuRuleNarrowed; lpuId: string; lpuNome: string }
+type Props = {
+  rule: LpuRuleNarrowed
+  lpuId: string
+  lpuNome: string
+  technicians?: { id: string; nome: string }[]
+}
 
-export function EditRuleForm({ rule, lpuId, lpuNome }: Props) {
+export function EditRuleForm({ rule, lpuId, lpuNome, technicians = [] }: Props) {
   const boundAction = updateLpuRule.bind(null, rule.id, lpuId)
   const [state, formAction, isPending] = useActionState(boundAction, { error: null as string | null })
 
@@ -264,6 +271,18 @@ export function EditRuleForm({ rule, lpuId, lpuNome }: Props) {
                       >
                         <option value="true">Sim</option>
                         <option value="false">Não</option>
+                      </select>
+                    )}
+                    {config.type === 'technician' && (
+                      <select
+                        value={row.textValue}
+                        onChange={(e) => updateRow(row.id, { textValue: e.target.value })}
+                        className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-2 text-xs text-[var(--text)] outline-none focus:border-[var(--cyan)]"
+                      >
+                        <option value="">Selecione um técnico</option>
+                        {technicians.map((t) => (
+                          <option key={t.id} value={t.id}>{t.nome}</option>
+                        ))}
                       </select>
                     )}
                     {config.type === 'range' && (

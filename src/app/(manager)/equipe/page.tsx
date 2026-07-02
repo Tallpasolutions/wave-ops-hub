@@ -51,14 +51,22 @@ export default async function EquipePage() {
             {users?.length ?? 0} usuário{users?.length !== 1 ? 's' : ''} no tenant
           </p>
         </div>
-        {canCreate && (
-          <Link href="/equipe/new">
-            <Button size="sm">
-              <Plus size={16} className="mr-2" />
-              Novo Usuário
-            </Button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/equipe/supervisores"
+            className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--text-2)] transition-colors hover:border-[var(--cyan)] hover:text-[var(--cyan)]"
+          >
+            Supervisores
           </Link>
-        )}
+          {canCreate && (
+            <Link href="/equipe/new">
+              <Button size="sm">
+                <Plus size={16} className="mr-2" />
+                Novo Usuário
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg-1)]">

@@ -14,6 +14,7 @@ const BASE_VISIT: VisitForMatch = {
   garantia: false,
   subterraneaAereo: null,
   valorRecebidoUnetvale: 206.26,
+  tecnicoId: null,
 };
 
 function makeRule(
@@ -77,5 +78,30 @@ describe("findApplicableRule", () => {
     const rule = makeRule({ ativa: false });
     const result = findApplicableRule(BASE_VISIT, [rule]);
     expect(result).toEqual({ type: "no_match" });
+  });
+
+  it("regra com tecnicoId só bate para esse técnico", () => {
+    const visitaTecA: VisitForMatch = { ...BASE_VISIT, tecnicoId: "tec-a" };
+    const rule = makeRule({ conditions: { finalidade: "Suporte Fibra", tecnicoId: "tec-a" }, prioridade: 200 });
+    expect(findApplicableRule(visitaTecA, [rule]).type).toBe("match");
+    const visitaTecB: VisitForMatch = { ...BASE_VISIT, tecnicoId: "tec-b" };
+    expect(findApplicableRule(visitaTecB, [rule]).type).toBe("no_match");
+  });
+
+  it("fallback para regra geral quando técnico não tem regra específica", () => {
+    const visitaTecB: VisitForMatch = { ...BASE_VISIT, tecnicoId: "tec-b" };
+    const ruleGeral = makeRule({ id: "geral", prioridade: 100, conditions: { finalidade: "Suporte Fibra" } });
+    const ruleEspecifica = makeRule({ id: "esp", prioridade: 200, conditions: { finalidade: "Suporte Fibra", tecnicoId: "tec-a" } });
+    const result = findApplicableRule(visitaTecB, [ruleGeral, ruleEspecifica]);
+    expect(result).toEqual({ type: "match", rule: ruleGeral });
+  });
+
+  it("regra específica por técnico supera regra geral por prioridade", () => {
+    const visitaTecA: VisitForMatch = { ...BASE_VISIT, tecnicoId: "tec-a" };
+    const ruleGeral = makeRule({ id: "geral", prioridade: 100, conditions: { finalidade: "Suporte Fibra" }, payout: { type: "fixed", value: 80 } });
+    const ruleEspecifica = makeRule({ id: "esp", prioridade: 200, conditions: { finalidade: "Suporte Fibra", tecnicoId: "tec-a" }, payout: { type: "fixed", value: 120 } });
+    const result = findApplicableRule(visitaTecA, [ruleGeral, ruleEspecifica]);
+    expect(result.type).toBe("match");
+    if (result.type === "match") expect(result.rule.id).toBe("esp");
   });
 });

@@ -14,7 +14,10 @@
 | 3 | LPU + Motivos | 1 semana | Motor de regras, configuração de motivos, simulação | ✅ Concluída |
 | 4 | Payouts | 1 semana | Cálculo automático, "deixado na mesa", fechamento | ✅ Concluída |
 | 5 | Portais | 1.5 semanas | Dashboard manager (replicando HTML), portal técnico | ✅ Concluída |
-| 6 | Polish | 0.5 semana | Testes E2E, ajustes, deploy, onboarding Wave | 🟡 Em andamento |
+| 6 | Polish | 0.5 semana | Testes E2E, ajustes, deploy, onboarding Wave | ✅ Concluída (2026-06-05) |
+| 7 | ETL & Dados | 0.5 semana | Normalização de acentos, combobox LPU, explicação valor | ✅ Concluída (2026-06-29) |
+| 8 | Improdutivas | 0.5 semana | Tela de aprovação, sheet de motivos, UX Wave | ✅ Concluída (2026-06-30) |
+| 9 | Supervisor | 1 semana | LPU por técnico, role supervisor, portal Minha Equipe | ✅ Concluída (2026-07-01) |
 
 **Total estimado:** ~7 semanas (com folga, ~8-9 semanas em ritmo realista solo)
 

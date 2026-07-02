@@ -210,6 +210,21 @@ export async function getDistinctValues(
     })
 }
 
+// ── Technicians for rule condition ───────────────────────────────────────────
+
+export async function getTechniciansForRule(
+  tenantId: string,
+): Promise<{ id: string; nome: string }[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase
+    .from('technicians')
+    .select('id, nome')
+    .eq('tenant_id', tenantId)
+    .eq('ativo', true)
+    .order('nome')
+  return data ?? []
+}
+
 // ── Duplicate Rule ────────────────────────────────────────────────────────────
 
 export async function duplicateLpuRule(ruleId: string, lpuId: string): Promise<void> {

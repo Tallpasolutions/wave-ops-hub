@@ -12,6 +12,7 @@ export type VisitForMatch = {
   garantia: boolean;
   subterraneaAereo: string | null;
   valorRecebidoUnetvale: number | null;
+  tecnicoId: string | null;
 };
 
 export type ConditionValue =

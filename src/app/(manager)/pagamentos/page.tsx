@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { AlertTriangle, Wallet } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
-
-export const metadata: Metadata = { title: 'Pagamentos' }
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
+import { PeriodoSelect } from './_components/PeriodoSelect'
+
+export const metadata: Metadata = { title: 'Pagamentos' }
 
 export const dynamic = 'force-dynamic'
 
@@ -32,7 +34,6 @@ function StatusBadge({ status }: { status: string }) {
     conflict: { label: 'Conflito', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
     pending_calculation: { label: 'Calculando', cls: 'bg-white/5 text-[var(--text-3)]' },
     contestado: { label: 'Contestado', cls: 'bg-[rgba(250,204,21,0.12)] text-yellow-400' },
-    pending_review_default: { label: status, cls: 'bg-white/5 text-[var(--text-3)]' },
   }
   const { label, cls } = map[status] ?? { label: status, cls: 'bg-white/5 text-[var(--text-3)]' }
   return (
@@ -51,40 +52,81 @@ export default async function PayoutsPage({ searchParams }: Props) {
 
   const supabase = await createSupabaseServerClient()
 
-  // Payouts do período
-  let payoutsQuery = supabase
-    .from('payouts')
+  // Busca visitas do período com seus payouts (filtro de data direto em service_visits,
+  // evitando filtro por join embutido no PostgREST que é instável)
+  const { data: visitsRaw } = await supabase
+    .from('service_visits')
     .select(
-      `id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
-       visit_id, technician_id,
-       service_visits!inner(os_num, data_execucao, finalidade, sucesso),
-       technicians(nome)`,
+      `id, os_num, data_execucao, finalidade, sucesso,
+       payouts!inner(
+         id, status, valor_calculado, valor_override,
+         valor_deixado_na_mesa, visit_id, technician_id,
+         technicians(nome)
+       )`,
     )
     .eq('tenant_id', user.tenantId!)
+    .gte('data_execucao', inicio)
+    .lt('data_execucao', fimExclusivo)
+    .order('data_execucao', { ascending: false })
+    .limit(2000)
 
-  // Filtro por período via JOIN em service_visits
-  payoutsQuery = payoutsQuery
-    .gte('service_visits.data_execucao', inicio)
-    .lt('service_visits.data_execucao', fimExclusivo)
-
-  if (statusFilter) {
-    payoutsQuery = payoutsQuery.eq('status', statusFilter)
+  type RawPayout = {
+    id: string
+    status: string
+    valor_calculado: number | null
+    valor_override: number | null
+    valor_deixado_na_mesa: number | null
+    visit_id: string
+    technician_id: string | null
+    technicians: { nome: string } | { nome: string }[] | null
   }
 
-  const { data: payoutsRaw } = await payoutsQuery.order('service_visits(data_execucao)', {
-    ascending: false,
+  type PayoutRow = {
+    id: string
+    status: string
+    valor_calculado: number | null
+    valor_override: number | null
+    technician_id: string | null
+    tecnico: string | null
+    os_num: number
+    data_execucao: string
+    finalidade: string | null
+  }
+
+  const allPayouts: PayoutRow[] = (visitsRaw ?? []).flatMap((v) => {
+    const raw = v.payouts as unknown as RawPayout | RawPayout[]
+    const p = Array.isArray(raw) ? raw[0] : raw
+    if (!p) return []
+    const tech = p.technicians
+      ? Array.isArray(p.technicians)
+        ? p.technicians[0]
+        : p.technicians
+      : null
+    return [{
+      id: p.id,
+      status: p.status,
+      valor_calculado: p.valor_calculado,
+      valor_override: p.valor_override,
+      technician_id: p.technician_id,
+      tecnico: tech?.nome ?? null,
+      os_num: v.os_num as number,
+      data_execucao: v.data_execucao as string,
+      finalidade: v.finalidade as string | null,
+    }]
   })
 
-  const payouts = payoutsRaw ?? []
+  const payouts = statusFilter
+    ? allPayouts.filter((p) => p.status === statusFilter)
+    : allPayouts
 
-  // Contadores de pendências
-  const allPayouts = await supabase
+  // Contadores de pendências (sem filtro de período — mostra total do tenant)
+  const { data: pendRaw } = await supabase
     .from('payouts')
     .select('status')
     .eq('tenant_id', user.tenantId!)
     .in('status', ['no_rule_match', 'pending_classification', 'conflict'])
 
-  const pendencias = (allPayouts.data ?? []).reduce(
+  const pendencias = (pendRaw ?? []).reduce(
     (acc, p) => {
       acc[p.status as keyof typeof acc] = (acc[p.status as keyof typeof acc] ?? 0) + 1
       return acc
@@ -98,11 +140,16 @@ export default async function PayoutsPage({ searchParams }: Props) {
   return (
     <div className="p-4 lg:p-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-[var(--text)]">Pagamentos</h1>
-        <p className="mt-1 text-sm text-[var(--text-3)]">
-          Cálculos de pagamento por visita · {periodoLabel}
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-[var(--text)]">Pagamentos</h1>
+          <p className="mt-1 text-sm text-[var(--text-3)]">
+            {payouts.length} pagamento{payouts.length !== 1 ? 's' : ''} · {periodoLabel}
+          </p>
+        </div>
+        <Suspense>
+          <PeriodoSelect />
+        </Suspense>
       </div>
 
       {/* Pendências críticas */}
@@ -117,8 +164,8 @@ export default async function PayoutsPage({ searchParams }: Props) {
           <div className="flex flex-wrap gap-3 text-xs text-[var(--text-2)]">
             {pendencias.no_rule_match > 0 && (
               <Link
-                href={`/pagamentos?status=no_rule_match`}
-                className="hover:text-[var(--text)] underline"
+                href={`/pagamentos?status=no_rule_match&mes=${mes ?? ''}`}
+                className="underline hover:text-[var(--text)]"
               >
                 {pendencias.no_rule_match} sem regra LPU
               </Link>
@@ -126,13 +173,13 @@ export default async function PayoutsPage({ searchParams }: Props) {
             {pendencias.pending_classification > 0 && (
               <Link
                 href="/motivos?categoria=pendente_classificacao"
-                className="hover:text-[var(--text)] underline"
+                className="underline hover:text-[var(--text)]"
               >
                 {pendencias.pending_classification} com motivo pendente → classificar
               </Link>
             )}
             {pendencias.conflict > 0 && (
-              <Link href="/lpu" className="hover:text-[var(--text)] underline">
+              <Link href="/lpu" className="underline hover:text-[var(--text)]">
                 {pendencias.conflict} com conflito de prioridade → resolver na LPU
               </Link>
             )}
@@ -150,71 +197,59 @@ export default async function PayoutsPage({ searchParams }: Props) {
       ) : (
         <div className="overflow-hidden rounded-xl border border-[var(--line)]">
           <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[var(--bg-1)]">
-              <tr>
-                {['OS', 'Data', 'Técnico', 'Finalidade', 'Status', 'Valor efetivo', ''].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]"
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--line)] bg-[var(--bg)]">
-              {payouts.map((p) => {
-                const visit = p.service_visits as unknown as {
-                  os_num: number
-                  data_execucao: string
-                  finalidade: string | null
-                  sucesso: string | null
-                } | null
-                const tech = p.technicians as unknown as { nome: string } | null
-                const valorEfetivo =
-                  p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado)
-
-                return (
-                  <tr
-                    key={p.id}
-                    className="transition-colors hover:bg-white/[0.02]"
-                  >
-                    <td className="px-4 py-3 font-mono text-sm text-[var(--text)]">
-                      {visit?.os_num ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-3)]">
-                      {visit?.data_execucao
-                        ? new Date(visit.data_execucao).toLocaleDateString('pt-BR')
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text)]">
-                      {tech?.nome ?? 'Sem técnico'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-3)]">
-                      {visit?.finalidade ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={p.status} />
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-[var(--text)]">
-                      {formatBRL(isNaN(valorEfetivo) ? null : valorEfetivo)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/pagamentos/${p.id}`}
-                        className="text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+            <table className="w-full">
+              <thead className="bg-[var(--bg-1)]">
+                <tr>
+                  {['OS', 'Data', 'Técnico', 'Finalidade', 'Status', 'Valor efetivo', ''].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]"
                       >
-                        Detalhes →
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                        {h}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--line)] bg-[var(--bg)]">
+                {payouts.map((p) => {
+                  const valorEfetivo =
+                    p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado)
+
+                  return (
+                    <tr key={p.id} className="transition-colors hover:bg-white/[0.02]">
+                      <td className="px-4 py-3 font-mono text-sm text-[var(--text)]">
+                        {p.os_num}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-3)]">
+                        {new Date(p.data_execucao).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text)]">
+                        {p.tecnico ?? 'Sem técnico'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-3)]">
+                        {p.finalidade ?? '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={p.status} />
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--text)]">
+                        {formatBRL(isNaN(valorEfetivo) ? null : valorEfetivo)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/pagamentos/${p.id}`}
+                          className="text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+                        >
+                          Detalhes →
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

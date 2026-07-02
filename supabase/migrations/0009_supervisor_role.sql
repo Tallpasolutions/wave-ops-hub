@@ -55,7 +55,11 @@ CREATE POLICY tenant_isolation ON supervisor_technicians FOR ALL
     OR tenant_id = current_tenant_id()
   );
 
--- 5. Atualizar RLS de service_visits para incluir supervisor
+-- 5. GRANTs para a nova tabela (mesmo padrão de 0005 e 0007)
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE supervisor_technicians TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE supervisor_technicians TO service_role;
+
+-- 6. Atualizar RLS de service_visits para incluir supervisor
 DROP POLICY IF EXISTS tenant_isolation ON service_visits;
 CREATE POLICY tenant_isolation ON service_visits FOR ALL
   USING (

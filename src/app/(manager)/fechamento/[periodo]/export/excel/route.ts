@@ -32,7 +32,7 @@ export async function GET(
     .from('payouts')
     .select(
       `id, status, valor_calculado, valor_override, technician_id,
-       technicians(nome),
+       technicians(nome_completo),
        service_visits(os_num, data_execucao, finalidade, sucesso)`,
     )
     .eq('tenant_id', user.tenantId!)
@@ -53,7 +53,7 @@ export async function GET(
 
   const techMap = new Map<string, TechWithDetails>()
   for (const p of payouts as PayoutRow[]) {
-    const tech = p.technicians as unknown as { nome: string } | null
+    const tech = p.technicians as unknown as { nome_completo: string } | null
     const sv = p.service_visits as unknown as {
       os_num: number
       data_execucao: string
@@ -61,7 +61,7 @@ export async function GET(
       sucesso: string | null
     } | null
     const techId = p.technician_id ?? 'sem_tecnico'
-    const nome = tech?.nome ?? 'Sem técnico'
+    const nome = tech?.nome_completo ?? 'Sem técnico'
     const valor = p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado)
     const valorSafe = isNaN(valor) ? 0 : valor
 

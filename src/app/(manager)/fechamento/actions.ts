@@ -14,7 +14,7 @@ export async function solicitarAprovacao(periodo: string, _formData: FormData) {
     .from('payouts')
     .select(
       `id, status, valor_calculado, valor_override,
-       service_visits(technician_id)`,
+       service_visits(tecnico_id)`,
     )
     .eq('tenant_id', user.tenantId!)
     .gte('service_visits.data_execucao' as never, `${periodo}-01`)
@@ -34,8 +34,8 @@ export async function solicitarAprovacao(periodo: string, _formData: FormData) {
   }))
 
   const visitsWithoutTech = (payouts ?? []).filter((p) => {
-    const sv = p.service_visits as unknown as { technician_id: string | null } | null
-    return !sv?.technician_id
+    const sv = p.service_visits as unknown as { tecnico_id: string | null } | null
+    return !sv?.tecnico_id
   }).length
 
   const validation = validateClosingReadiness(payoutsForPeriod, visitsWithoutTech)

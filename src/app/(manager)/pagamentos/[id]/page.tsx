@@ -66,7 +66,7 @@ export default async function PayoutDetailPage({ params }: Props) {
         `id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
          override_motivo, override_at, approved_at, paid_at,
          service_visits(os_num, data_execucao, finalidade, sucesso, cidade, condominio),
-         technicians(nome),
+         technicians(nome_completo),
          lpu_rules(description, conditions, payout),
          reasons(motivo_original, motivo_normalizado, categoria)`,
       )
@@ -92,7 +92,7 @@ export default async function PayoutDetailPage({ params }: Props) {
     condominio: boolean | null
   } | null
 
-  const tech = payout.technicians as unknown as { nome: string } | null
+  const tech = payout.technicians as unknown as { nome_completo: string } | null
   const rule = payout.lpu_rules as unknown as { description: string | null; conditions: unknown; payout: unknown } | null
   const reason = payout.reasons as unknown as {
     motivo_original: string
@@ -152,7 +152,7 @@ export default async function PayoutDetailPage({ params }: Props) {
                 : '—'
             }
           />
-          <InfoRow label="Técnico" value={tech?.nome ?? 'Sem técnico'} />
+          <InfoRow label="Técnico" value={tech?.nome_completo ?? 'Sem técnico'} />
           <InfoRow label="Finalidade" value={visit?.finalidade ?? '—'} />
           <InfoRow label="Sucesso" value={visit?.sucesso ?? '—'} />
           <InfoRow label="Cidade" value={visit?.cidade ?? '—'} />

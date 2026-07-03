@@ -18,8 +18,16 @@
 | 7 | ETL & Dados | 0.5 semana | Normalização de acentos, combobox LPU, explicação valor | ✅ Concluída (2026-06-29) |
 | 8 | Improdutivas | 0.5 semana | Tela de aprovação, sheet de motivos, UX Wave | ✅ Concluída (2026-06-30) |
 | 9 | Supervisor | 1 semana | LPU por técnico, role supervisor, portal Minha Equipe | ✅ Concluída (2026-07-01) |
+| 10 | Hotfixes + LPU Wave | 1 sessão | `nome_completo`, conflitos LPU, processo Git Flow | 🔄 Em andamento — 10-A mergeado; 10-B absorvido pelas Sprints 11–12 |
+| 11 | Estabilização Crítica (P0) | 2–4 sessões | Sessão Supabase, varredura `technicians(nome)`, recalcular 503, fechamento zerado | 📋 Planejada |
+| 12 | Dados Confiáveis | 3–4 sessões | Encoding ETL, vínculo de técnicos, cobertura LPU, guard rails de aprovação | 📋 Planejada |
+| 13 | UX e Consistência | 3 sessões | Período inteligente, números reconciliados, busca+paginação, rejeição em lote | 📋 Planejada |
+| 14 | Acabamento | 1–2 sessões | Último acesso, cosméticos S1–S6, QA de regressão final | 📋 Planejada |
 
-**Total estimado:** ~7 semanas (com folga, ~8-9 semanas em ritmo realista solo)
+**Sprints 11–14 nascem do [Relatório de QA em produção de 02/07/2026](../qa/2026-07-02-relatorio-qa-producao.md).**
+A execução de qualquer sprint segue as [Regras de Execução Anti-Alucinação](./regras-de-execucao.md) — documento vinculante.
+
+**Total estimado (0–9):** ~7 semanas (com folga, ~8-9 semanas em ritmo realista solo)
 
 ---
 
@@ -38,6 +46,14 @@
    - Validação cruzada com Gemini (checklist em `docs/validation/`)
 
 4. **Sem big bang final.** A cada sprint, deploy em staging e teste com dados reais (planilha existente da Wave de abril/2026).
+
+5. **Regras anti-alucinação são vinculantes.** Toda sessão de execução de sprint segue
+   [`regras-de-execucao.md`](./regras-de-execucao.md): evidência antes de afirmação, grep
+   completo antes de declarar bug corrigido, verificação em produção antes de fechar DoD,
+   e seção "Estado verificado" atualizada em cada fase.
+
+6. **Bug reportado em produção só fecha verificado em produção.** Typecheck verde e teste
+   local passando não fecham item de QA.
 
 ---
 
@@ -191,6 +207,35 @@
 - Deploy em produção (`wave.tallpa.com.br`)
 
 **Dependências:** Sprint 5.
+
+---
+
+## Sprints 10–14 — Ciclo de estabilização pós-QA
+
+| Sprint | Arquivo | Resumo |
+|---|---|---|
+| 10 | [`11-sprint-10-hotfixes.md`](./11-sprint-10-hotfixes.md) | Hotfix `nome_completo` (parcial — 3 de 9 ocorrências), conflitos LPU, retomada do Git Flow. Etapa 10-B (LPU Wave + diagnóstico sem regra) foi absorvida pelas Sprints 11 (recalcular) e 12 (cobertura LPU) |
+| 11 | [`12-sprint-11-estabilizacao.md`](./12-sprint-11-estabilizacao.md) | **P0.** Sessão Supabase (refresh token race), varredura completa `technicians(nome)` (corrige 404 do pagamento e fechamento zerado), recalcular pendentes sem 503, financeiro sem contradições |
+| 12 | [`13-sprint-12-dados-confiaveis.md`](./13-sprint-12-dados-confiaveis.md) | Encoding do ETL + normalização dos dados gravados, vínculo assistido de técnicos (72% sem vínculo), cobertura LPU dos "sem regra", guard rails de aprovação/rejeição |
+| 13 | [`14-sprint-13-ux-consistencia.md`](./14-sprint-13-ux-consistencia.md) | Período default inteligente e persistente, reconciliação de contagens (OSs × visitas, ticket médio), busca + paginação, rejeição em lote, taxonomia única |
+| 14 | [`15-sprint-14-acabamento.md`](./15-sprint-14-acabamento.md) | Último acesso, cosméticos S1–S6, QA de regressão completo fechando o ciclo |
+
+**Ordem obrigatória: 11 → 12 → 13 → 14.** A Sprint 12 depende do recálculo em lote (11-C);
+a 13 depende dos dados saneados; a 14 fecha com reteste integral do relatório de QA.
+
+---
+
+## Roadmap pós-estabilização (Sprints 15+, a repriorizar após a 14)
+
+Itens herdados do planejamento anterior à Sprint 10:
+
+| Sprint | Tema | Itens |
+|---|---|---|
+| 15 | LPU Phase 2 + Texto | Campo `explicacaoValor` no ETL → pontos, cordoalha, homologação |
+| 16 | Feriados + Políticas | +15% feriados, calendário SC/Unetvale |
+| 17 | Wave Onboarding completo | Usuários reais, rotina mensal de planilha + fechamento assistido |
+| 18 | Contestação Técnico | Portal técnico: contestar payout + workflow de aprovação |
+| 19 | Notificações | WhatsApp/push payout aprovado, improdutiva classificada |
 
 ---
 

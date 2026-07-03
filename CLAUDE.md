@@ -21,8 +21,9 @@ Sempre, em ordem:
 1. **Leia** [`docs/glossary.md`](./docs/glossary.md) se a tarefa toca regra de negócio
 2. **Leia** o ADR relevante em [`docs/architecture/`](./docs/architecture/) se a tarefa toca arquitetura
 3. **Identifique a sprint atual** em [`docs/sprints/`](./docs/sprints/) e confirme se a tarefa está dentro do escopo dessa sprint
-4. **Se a tarefa NÃO está no escopo da sprint atual**, pare e pergunte ao usuário antes de seguir
-5. **Se a tarefa exige decisão arquitetural não documentada**, proponha um ADR antes de codar
+4. **Leia e aplique** [`docs/sprints/regras-de-execucao.md`](./docs/sprints/regras-de-execucao.md) — regras anti-alucinação **vinculantes** para toda sessão, sprint ou fase: evidência antes de afirmação, grep completo antes de declarar bug corrigido, colunas de banco só do schema, DoD fechado apenas com verificação em produção
+5. **Se a tarefa NÃO está no escopo da sprint atual**, pare e pergunte ao usuário antes de seguir
+6. **Se a tarefa exige decisão arquitetural não documentada**, proponha um ADR antes de codar
 
 ---
 

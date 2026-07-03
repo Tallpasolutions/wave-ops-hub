@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireRole } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { recalculatePendingPayouts } from '@/lib/payouts'
+import { recalculatePendingPayoutsChunk, type ChunkRecalcResult } from '@/lib/payouts'
 
 const overridePayoutSchema = z.object({
   valorOverride: z.coerce.number().positive('O valor deve ser positivo'),
@@ -48,10 +48,31 @@ export async function overridePayout(
   return { error: null }
 }
 
-export async function recalculatePendingPayoutsAction(): Promise<void> {
+type RecalcChunkResponse =
+  | ({ ok: true } & ChunkRecalcResult)
+  | { ok: false; error: string }
+
+// Uma página por invocação: o cliente itera até hasMore=false exibindo progresso.
+// A versão anterior (tenant inteiro numa invocação) estourava o tempo da função → 503
+// sem nenhum feedback (C3 do QA de 02/07/2026).
+export async function recalcularPendentesChunk(
+  offsetRaw: number,
+): Promise<RecalcChunkResponse> {
   const user = await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
-  if (!user.tenantId) throw new Error('Usuário sem tenant')
-  const supabase = await createSupabaseServerClient()
-  await recalculatePendingPayouts(user.tenantId, supabase)
-  revalidatePath('/pagamentos')
+  if (!user.tenantId) return { ok: false, error: 'Usuário sem tenant.' }
+
+  const parsed = z.number().int().min(0).safeParse(offsetRaw)
+  if (!parsed.success) return { ok: false, error: 'Offset inválido.' }
+
+  try {
+    const supabase = await createSupabaseServerClient()
+    const result = await recalculatePendingPayoutsChunk(user.tenantId, supabase, parsed.data)
+    if (result.errors > 0) {
+      return { ok: false, error: 'Erro ao recalcular um dos lotes. Tente novamente.' }
+    }
+    if (!result.hasMore) revalidatePath('/pagamentos')
+    return { ok: true, ...result }
+  } catch {
+    return { ok: false, error: 'Erro inesperado ao recalcular. Tente novamente.' }
+  }
 }

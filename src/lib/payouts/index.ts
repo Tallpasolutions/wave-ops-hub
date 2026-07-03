@@ -3,6 +3,7 @@ export type {
   ClosingStatus,
   PayoutUpsertData,
   BatchRecalcResult,
+  ChunkRecalcResult,
   ClosingBlockers,
   ClosingValidation,
   ClosingTotals,
@@ -10,7 +11,12 @@ export type {
 } from "./types";
 
 export { buildPayoutUpsert } from "./calculate";
-export { recalculatePendingPayouts } from "./recalculate-batch";
+export {
+  recalculatePendingPayouts,
+  recalculatePendingPayoutsChunk,
+  chunkArray,
+  RECALC_CHUNK_SIZE,
+} from "./recalculate-batch";
 export {
   validateClosingReadiness,
   buildClosingTotals,

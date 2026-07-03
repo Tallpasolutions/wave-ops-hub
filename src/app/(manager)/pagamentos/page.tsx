@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
-import { recalculatePendingPayoutsAction } from './actions'
+import { RecalcularButton } from './_components/RecalcularButton'
 
 export const metadata: Metadata = { title: 'Pagamentos' }
 
@@ -159,15 +159,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
                 {totalPendencias} pagamento{totalPendencias !== 1 ? 's' : ''} com pendência crítica
               </p>
             </div>
-            <form action={recalculatePendingPayoutsAction}>
-              <button
-                type="submit"
-                title="Recalcula todos os pagamentos pendentes com as regras LPU atuais"
-                className="rounded-lg border border-[var(--line)] bg-[var(--bg-1)] px-3 py-1.5 text-xs font-semibold text-[var(--text-2)] transition-colors hover:bg-[var(--bg-2)]"
-              >
-                Recalcular pendentes
-              </button>
-            </form>
+            <RecalcularButton />
           </div>
 
           {/* Sem regra LPU */}

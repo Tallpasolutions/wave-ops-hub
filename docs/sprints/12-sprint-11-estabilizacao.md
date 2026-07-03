@@ -145,6 +145,25 @@ Qualquer achado novo → `docs/tech-debt.md`.
   prevenção (`service_visits(technician_id)` → `tecnico_id` em `fechamento/actions.ts:17`).
   Teste novo: `src/lib/db/__tests__/schema-conventions.test.ts`. `pnpm typecheck` ✅ ·
   `pnpm lint` ✅ · `pnpm test` 73/73 ✅ · grep final vazio.
+- **03/07/2026 — Fase B implementada** (branch `fix/sprint-11-sessao-supabase`) —
+  **aguardando verificação em produção** (exige sessão de 30+ min pós-deploy):
+  - **Causa confirmada por inspeção antes de refatorar (R3.3):** `src/middleware.ts` não fazia
+    NENHUM refresh de sessão (só resolvia subdomínio); `server.ts` engole `setAll` em Server
+    Components ("cookies read-only — ignorar silenciosamente"). Logo, refresh disparado por
+    `getCurrentUser()` em RSC perdia o token rotacionado → próxima request reusava o token
+    antigo → `Invalid Refresh Token: Already Used` → sessão morta (mecanismo exato do C1)
+  - Novo `src/lib/supabase/middleware.ts`: `updateSession()` com refresh centralizado no
+    middleware (padrão oficial `@supabase/ssr`), cookie domain compartilhado, e
+    `isInvalidSessionError()` que distingue sessão queimada (refresh_token_already_used etc.)
+    de logout normal (`Auth session missing`) e de erro transitório de rede
+  - `src/middleware.ts` async: sessão irrecuperável em rota protegida → limpa cookies `sb-*`
+    (host-only e domain) + redirect `/login?expired=1`; portal admin agora também passa pelo
+    refresh
+  - `/login?expired=1` exibe aviso "Sua sessão expirou. Entre novamente para continuar."
+  - 4 testes novos em `src/lib/supabase/__tests__/middleware.test.ts` (inclui o erro literal
+    de produção). `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm test` 77/77 ✅ · `pnpm build` ✅
+  - **Pendente do escopo da fase:** item 5 (auditoria dos fallbacks `redirect()` em try-catch
+    que mascaram erro de renderização) — fazer junto com a verificação em produção
 - **03/07/2026 — Fase A VERIFICADA EM PRODUÇÃO** (merge `ba782c0` em main, deploy Vercel):
   - `/pagamentos/7e6e8846...` (Sem regra) e `/pagamentos/660f532a...` (Motivo pendente) —
     os dois UUIDs que retornavam 404 no QA — agora renderizam visita, financeiro e auditoria

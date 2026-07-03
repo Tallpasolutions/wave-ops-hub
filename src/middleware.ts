@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
-// Não consultamos o banco no middleware para manter a função síncrona e leve.
+// Não consultamos o banco no middleware para manter a função leve.
 // A existência real do tenant é verificada nos layouts dos portais via resolveTenantFromSlug().
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost'
 const SLUG_REGEX = /^[a-z0-9-]{2,32}$/
 const RESERVED_SUBDOMAINS = ['admin', 'api', 'www', 'app', 'auth', 'static', 'public', 'assets', 'cdn', 'docs']
 
-export function middleware(request: NextRequest) {
+// Rotas que funcionam sem sessão — sessão inválida aqui não redireciona (evita loop no /login).
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/first-access', '/auth/callback']
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
+export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') ?? ''
   const hostname = host.split(':')[0]  // strip port
 
@@ -22,22 +30,30 @@ export function middleware(request: NextRequest) {
 
   const subdomain = hostname.split('.')[0]
 
-  // Admin portal — auth enforcement via requireRole em (admin)/layout.tsx
-  if (subdomain === 'admin') {
-    const headers = new Headers(request.headers)
-    headers.set('x-subdomain', 'admin')
-    return NextResponse.next({ request: { headers } })
-  }
-
-  // Slugs com formato inválido ou reservados retornam 404 imediato
-  if (!SLUG_REGEX.test(subdomain) || RESERVED_SUBDOMAINS.includes(subdomain)) {
+  // Slugs com formato inválido ou reservados (exceto admin, que é portal próprio) → 404
+  if (subdomain !== 'admin' && (!SLUG_REGEX.test(subdomain) || RESERVED_SUBDOMAINS.includes(subdomain))) {
     return new NextResponse(null, { status: 404 })
   }
 
-  // Formato válido — injeta subdomain para uso nos layouts e Server Actions
+  // Injeta subdomain para uso nos layouts e Server Actions
   const headers = new Headers(request.headers)
   headers.set('x-subdomain', subdomain)
-  return NextResponse.next({ request: { headers } })
+
+  // Refresh de sessão centralizado — ver src/lib/supabase/middleware.ts.
+  // Sessão irrecuperável (refresh token queimado) → limpa cookies e manda para o login
+  // com aviso, em vez de deixar a renderização falhar em tela preta.
+  const { response, invalidSession } = await updateSession(request, headers)
+
+  if (invalidSession && !isPublicPath(request.nextUrl.pathname)) {
+    const loginUrl = new URL('/login?expired=1', request.url)
+    const redirect = NextResponse.redirect(loginUrl)
+    for (const cookie of response.cookies.getAll()) {
+      redirect.cookies.set(cookie)
+    }
+    return redirect
+  }
+
+  return response
 }
 
 export const config = {

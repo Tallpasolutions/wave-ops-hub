@@ -22,6 +22,12 @@ export type BatchRecalcResult = {
   errors: number;
 };
 
+export type ChunkRecalcResult = BatchRecalcResult & {
+  total: number;
+  nextOffset: number;
+  hasMore: boolean;
+};
+
 export type ClosingBlockers = {
   noRuleMatch: number;
   pendingClassification: number;

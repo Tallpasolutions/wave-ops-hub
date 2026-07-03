@@ -2,7 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
 import { buildPayoutUpsert } from "./calculate";
-import type { BatchRecalcResult } from "./types";
+import type { BatchRecalcResult, ChunkRecalcResult } from "./types";
+
+// Sem paginação explícita o PostgREST corta silenciosamente em 1000 linhas — visitas além
+// disso nunca eram recalculadas, e um `.in()` com 1000+ UUIDs estoura o limite de URL.
+// Todo acesso a visitas aqui é paginado/particionado neste tamanho.
+export const RECALC_CHUNK_SIZE = 200;
+
+const VISIT_COLUMNS =
+  "id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada, data_execucao";
 
 type VisitRow = {
   id: string;
@@ -53,12 +61,25 @@ function toPeriodo(isoDate: string): string {
   return isoDate.slice(0, 7);
 }
 
-export async function recalculatePendingPayouts(
+export function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size < 1) throw new Error(`chunkArray: size deve ser >= 1 (recebido ${size})`);
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+type RecalcContext = {
+  lpuId: string | null;
+  rules: LpuRuleNarrowed[];
+  reasons: ReasonForPayout[];
+};
+
+async function loadRecalcContext(
   tenantId: string,
   supabase: SupabaseClient,
-  options?: { visitIds?: string[]; periodo?: string },
-): Promise<BatchRecalcResult> {
-  // 1. Buscar LPU ativa + regras
+): Promise<RecalcContext> {
   const { data: lpuData } = await supabase
     .from("lpus")
     .select("id")
@@ -78,7 +99,6 @@ export async function recalculatePendingPayouts(
     rules = (rulesRaw ?? []) as LpuRuleNarrowed[];
   }
 
-  // 2. Buscar reasons do tenant
   const { data: reasonsRaw } = await supabase
     .from("reasons")
     .select("id, categoria, paga_improdutiva, valor_improdutiva")
@@ -92,36 +112,33 @@ export async function recalculatePendingPayouts(
       r.valor_improdutiva != null ? Number(r.valor_improdutiva) : null,
   }));
 
-  // 3. Buscar visitas a processar (excluindo as com payouts aprovados/pagos)
-  let visitsQuery = supabase
-    .from("service_visits")
-    .select(
-      "id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada, data_execucao",
-    )
-    .eq("tenant_id", tenantId);
+  return { lpuId, rules, reasons };
+}
 
-  if (options?.visitIds && options.visitIds.length > 0) {
-    visitsQuery = visitsQuery.in("id", options.visitIds);
-  } else if (options?.periodo) {
-    const [year, month] = options.periodo.split("-").map(Number);
-    const inicio = `${options.periodo}-01`;
-    const fimExclusivo = new Date(year, month, 1).toISOString().slice(0, 10);
-    visitsQuery = visitsQuery
-      .gte("data_execucao", inicio)
-      .lt("data_execucao", fimExclusivo);
-  }
+type PageResult = {
+  processed: number;
+  skipped: number;
+  errors: number;
+  periodos: Set<string>;
+};
 
-  const { data: visitsRaw, error: visitsError } = await visitsQuery;
-  if (visitsError || !visitsRaw || visitsRaw.length === 0) {
-    return { processed: 0, skipped: 0, errors: visitsError ? 1 : 0 };
-  }
+// Processa UMA página de visitas (<= RECALC_CHUNK_SIZE): detecta payouts travados
+// (approved/paid nunca são recalculados — invariante da Sprint 4), calcula e faz upsert.
+async function processVisitPage(
+  visits: VisitRow[],
+  ctx: RecalcContext,
+  tenantId: string,
+  supabase: SupabaseClient,
+): Promise<PageResult> {
+  const periodos = new Set<string>();
+  if (visits.length === 0) return { processed: 0, skipped: 0, errors: 0, periodos };
 
-  // 4. Buscar payouts existentes para detectar quais estão travados (approved/paid)
-  const visitIds = visitsRaw.map((v) => v.id);
-  const { data: existingPayouts } = await supabase
+  const { data: existingPayouts, error: payoutsError } = await supabase
     .from("payouts")
     .select("visit_id, status")
-    .in("visit_id", visitIds);
+    .in("visit_id", visits.map((v) => v.id));
+
+  if (payoutsError) return { processed: 0, skipped: 0, errors: 1, periodos };
 
   const lockedVisitIds = new Set(
     (existingPayouts ?? [])
@@ -129,21 +146,15 @@ export async function recalculatePendingPayouts(
       .map((p) => p.visit_id),
   );
 
-  // 5. Calcular payouts para visitas não travadas
-  const toProcess = (visitsRaw as VisitRow[]).filter(
-    (v) => !lockedVisitIds.has(v.id),
-  );
-  const skipped = visitsRaw.length - toProcess.length;
+  const toProcess = visits.filter((v) => !lockedVisitIds.has(v.id));
+  const skipped = visits.length - toProcess.length;
 
-  if (toProcess.length === 0) {
-    return { processed: 0, skipped, errors: 0 };
-  }
+  if (toProcess.length === 0) return { processed: 0, skipped, errors: 0, periodos };
 
   const upserts = toProcess.map((v) =>
-    buildPayoutUpsert(rowToSimVisit(v), rules, reasons, lpuId, tenantId),
+    buildPayoutUpsert(rowToSimVisit(v), ctx.rules, ctx.reasons, ctx.lpuId, tenantId),
   );
 
-  // 6. Upsert em batch
   const { error: upsertError } = await supabase.from("payouts").upsert(
     upserts.map((u) => ({
       tenant_id: u.tenantId,
@@ -159,18 +170,130 @@ export async function recalculatePendingPayouts(
     { onConflict: "visit_id" },
   );
 
-  if (upsertError) {
-    return { processed: 0, skipped, errors: 1 };
-  }
+  if (upsertError) return { processed: 0, skipped, errors: 1, periodos };
 
-  // 7. Criar monthly_closing para cada período encontrado (idempotente)
-  const periodos = [...new Set(toProcess.map((v) => toPeriodo(v.data_execucao)))];
+  for (const v of toProcess) periodos.add(toPeriodo(v.data_execucao));
+  return { processed: toProcess.length, skipped, errors: 0, periodos };
+}
+
+async function ensureMonthlyClosings(
+  periodos: Set<string>,
+  tenantId: string,
+  supabase: SupabaseClient,
+): Promise<void> {
   for (const periodo of periodos) {
     await supabase.from("monthly_closings").upsert(
       { tenant_id: tenantId, periodo, status: "aberto" },
       { onConflict: "tenant_id,periodo", ignoreDuplicates: true },
     );
   }
+}
 
-  return { processed: toProcess.length, skipped, errors: 0 };
+export async function recalculatePendingPayouts(
+  tenantId: string,
+  supabase: SupabaseClient,
+  options?: { visitIds?: string[]; periodo?: string },
+): Promise<BatchRecalcResult> {
+  const ctx = await loadRecalcContext(tenantId, supabase);
+
+  const totals: BatchRecalcResult = { processed: 0, skipped: 0, errors: 0 };
+  const periodos = new Set<string>();
+
+  const accumulate = (page: PageResult) => {
+    totals.processed += page.processed;
+    totals.skipped += page.skipped;
+    totals.errors += page.errors;
+    page.periodos.forEach((p) => periodos.add(p));
+  };
+
+  if (options?.visitIds && options.visitIds.length > 0) {
+    for (const idChunk of chunkArray(options.visitIds, RECALC_CHUNK_SIZE)) {
+      const { data, error } = await supabase
+        .from("service_visits")
+        .select(VISIT_COLUMNS)
+        .eq("tenant_id", tenantId)
+        .in("id", idChunk);
+      if (error) {
+        totals.errors += 1;
+        continue;
+      }
+      accumulate(await processVisitPage((data ?? []) as VisitRow[], ctx, tenantId, supabase));
+    }
+  } else {
+    let offset = 0;
+    for (;;) {
+      let query = supabase
+        .from("service_visits")
+        .select(VISIT_COLUMNS)
+        .eq("tenant_id", tenantId);
+
+      if (options?.periodo) {
+        const [year, month] = options.periodo.split("-").map(Number);
+        query = query
+          .gte("data_execucao", `${options.periodo}-01`)
+          .lt("data_execucao", new Date(year, month, 1).toISOString().slice(0, 10));
+      }
+
+      const { data, error } = await query
+        .order("id")
+        .range(offset, offset + RECALC_CHUNK_SIZE - 1);
+
+      if (error) {
+        totals.errors += 1;
+        break;
+      }
+      const page = (data ?? []) as VisitRow[];
+      if (page.length === 0) break;
+
+      accumulate(await processVisitPage(page, ctx, tenantId, supabase));
+
+      if (page.length < RECALC_CHUNK_SIZE) break;
+      offset += RECALC_CHUNK_SIZE;
+    }
+  }
+
+  await ensureMonthlyClosings(periodos, tenantId, supabase);
+  return totals;
+}
+
+// Versão interativa: processa UMA página por chamada, para o botão "Recalcular pendentes"
+// iterar em várias invocações curtas de Server Action (evita o timeout/503 da invocação única)
+// exibindo progresso real.
+export async function recalculatePendingPayoutsChunk(
+  tenantId: string,
+  supabase: SupabaseClient,
+  offset: number,
+): Promise<ChunkRecalcResult> {
+  const { count } = await supabase
+    .from("service_visits")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  const total = count ?? 0;
+
+  const ctx = await loadRecalcContext(tenantId, supabase);
+
+  const { data, error } = await supabase
+    .from("service_visits")
+    .select(VISIT_COLUMNS)
+    .eq("tenant_id", tenantId)
+    .order("id")
+    .range(offset, offset + RECALC_CHUNK_SIZE - 1);
+
+  if (error) {
+    return { processed: 0, skipped: 0, errors: 1, total, nextOffset: offset, hasMore: false };
+  }
+
+  const page = (data ?? []) as VisitRow[];
+  const result = await processVisitPage(page, ctx, tenantId, supabase);
+  await ensureMonthlyClosings(result.periodos, tenantId, supabase);
+
+  const nextOffset = offset + page.length;
+  return {
+    processed: result.processed,
+    skipped: result.skipped,
+    errors: result.errors,
+    total,
+    nextOffset,
+    hasMore: page.length === RECALC_CHUNK_SIZE && nextOffset < total,
+  };
 }

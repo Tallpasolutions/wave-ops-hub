@@ -103,6 +103,28 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **03/07/2026 — Fase A implementada** (branch `fix/sprint-12-encoding-etl`) —
+  **aguardando aplicação da migration + verificação em produção**:
+  - **Diagnóstico provado antes de codar (R3.3):** cadeia = bytes Latin-1/CP1252
+    decodificados como **Mac Roman**. Script contra o corpus real do QA: 6/9 exatos +
+    3/9 explicados (campos `motivo_normalizado` são `toLowerCase()` do mojibake:
+    `"EndereÁo".toLowerCase()="endereáo"`). A corrupção JÁ VEM na planilha da Unetvale —
+    o parser (.xlsx/UTF-8) apenas a preserva
+  - Novo `src/lib/etl/encoding.ts`: `repairMojibake()` (inverso byte-exato da tabela Mac
+    Roman) + `hasMojibake()` (indicador: „ ‚ · ou maiúscula acentuada após minúscula —
+    PT legítimo "Água" não dispara). Bail-out conservador: char fora da tabela ou reparo
+    virando controle → string original intacta
+  - `parser.ts` aplica o reparo em todo valor string na ingestão — ponto único; reasons,
+    match de técnico e visitas recebem texto limpo
+  - **Migration `0012_fix_macroman_mojibake.sql`** (aplicar manualmente via SQL Editor):
+    repara `service_visits` (8 colunas), `reasons` (com de-dup por UNIQUE tenant+motivo,
+    reapontando visitas/payouts), `service_orders`, `technicians`; re-deriva
+    `motivo_normalizado`; imprime contagens ANTES/DEPOIS (colar aqui — R2.4) e diagnóstico
+    de `lpu_rules` com mojibake (LPU ativa é limpa, seed verificado)
+  - 13 testes novos com o corpus real (103 total) · typecheck ✅ · lint ✅
+  - **Passos de verificação:** aplicar 0012 → conferir contagens DEPOIS = 0 → "Recalcular
+    pendentes" → conferir `no_rule_match` (esperado: cair — regras de Instalação/Mudança
+    passam a casar) → telas sem "InstalaÁ„o"
 
 ## Definition of Done da sprint
 

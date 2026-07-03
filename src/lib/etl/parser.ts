@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { RawRowSchema } from './schemas'
 import { COLUMN_MAP } from './column-mapping'
+import { repairMojibake } from './encoding'
 import type { RawRow } from './schemas'
 import type { IngestError } from './types'
 
@@ -31,12 +32,15 @@ export function parseXlsx(buffer: Buffer): { rows: RawRow[]; errors: IngestError
 
   if (rawObjects.length === 0) throw new Error('Planilha sem linhas de dados')
 
-  // Mapeia os headers encontrados para os nomes canônicos do schema (case-insensitive)
+  // Mapeia os headers encontrados para os nomes canônicos do schema (case-insensitive).
+  // repairMojibake: as planilhas da Unetvale chegam com Latin-1 lido como Mac Roman
+  // ("InstalaÁ„o") — reparar aqui garante texto limpo em todo o pipeline (reasons,
+  // match de técnico/LPU, visitas). Ver src/lib/etl/encoding.ts.
   const mapped = rawObjects.map((row) => {
     const result: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(row)) {
       const canonical = NORMALIZED_MAP.get(normalizeKey(key))
-      if (canonical) result[canonical] = value
+      if (canonical) result[canonical] = typeof value === 'string' ? repairMojibake(value) : value
     }
     return result
   })

@@ -86,7 +86,7 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
     .from('payouts')
     .select(
       `id, status, valor_calculado, valor_override, technician_id,
-       technicians(nome),
+       technicians(nome_completo),
        service_visits(os_num, data_execucao, finalidade)`,
     )
     .eq('tenant_id', user.tenantId!)
@@ -126,8 +126,8 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
   for (const p of payouts) {
     if (BLOCKING_STATUSES.includes(p.status)) continue
     const techId = p.technician_id ?? 'sem_tecnico'
-    const tech = p.technicians as unknown as { nome: string } | null
-    const nome = tech?.nome ?? 'Sem técnico'
+    const tech = p.technicians as unknown as { nome_completo: string } | null
+    const nome = tech?.nome_completo ?? 'Sem técnico'
     if (!techMap.has(techId)) techMap.set(techId, { id: techId, nome, payouts: [], total: 0 })
     const group = techMap.get(techId)!
     group.payouts.push(p)

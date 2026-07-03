@@ -27,7 +27,7 @@ export async function getVisitsByReason(
     .from('service_visits')
     .select(
       `id, os_num, data_execucao,
-       technicians(nome),
+       technicians(nome_completo),
        payouts(status, valor_calculado, valor_override)`,
     )
     .eq('tenant_id', user.tenantId)
@@ -46,7 +46,7 @@ export async function getVisitsByReason(
   const { data } = await query
 
   return (data ?? []).map((v) => {
-    const tech = v.technicians as unknown as { nome: string } | null
+    const tech = v.technicians as unknown as { nome_completo: string } | null
     const payout = v.payouts as unknown as {
       status: string | null
       valor_calculado: string | null
@@ -63,7 +63,7 @@ export async function getVisitsByReason(
       id: v.id,
       osNum: Number(v.os_num),
       dataExecucao: v.data_execucao,
-      tecnicoNome: tech?.nome ?? null,
+      tecnicoNome: tech?.nome_completo ?? null,
       payoutStatus: payout?.status ?? null,
       valorCalculado: valorEfetivo,
     }

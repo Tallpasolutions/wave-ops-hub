@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { OverridePayoutForm } from './_components/OverridePayoutForm'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export default async function OverridePayoutPage({ params }: Props) {
   const { data: payout } = await supabase
     .from('payouts')
     .select(
-      'id, status, valor_calculado, service_visits(os_num), technicians(nome_completo)',
+      'id, status, valor_calculado, service_visits(os_num, tecnico_raw), technicians(nome_completo)',
     )
     .eq('id', id)
     .eq('tenant_id', user.tenantId!)
@@ -31,7 +32,7 @@ export default async function OverridePayoutPage({ params }: Props) {
 
   if (!payout || LOCKED_STATUSES.includes(payout.status)) notFound()
 
-  const visit = payout.service_visits as unknown as { os_num: number } | null
+  const visit = payout.service_visits as unknown as { os_num: number; tecnico_raw: string | null } | null
   const tech = payout.technicians as unknown as { nome_completo: string } | null
   const valorCalculado = payout.valor_calculado !== null ? Number(payout.valor_calculado) : null
 
@@ -47,7 +48,7 @@ export default async function OverridePayoutPage({ params }: Props) {
         </Link>
         <h1 className="font-display text-2xl font-bold text-[var(--text)]">Override Manual</h1>
         <p className="mt-1 text-sm text-[var(--text-3)]">
-          OS {visit?.os_num ?? '—'} · {tech?.nome_completo ?? 'Sem técnico'}
+          OS {visit?.os_num ?? '—'} · {tecnicoDisplayName(tech?.nome_completo, visit?.tecnico_raw)}
         </p>
       </div>
 

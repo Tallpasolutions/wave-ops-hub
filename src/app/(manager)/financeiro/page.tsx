@@ -71,7 +71,7 @@ export default async function FinanceiroPage({ searchParams }: Props) {
         supabase
           .from('service_visits')
           .select(
-            `finalidade, valor_recebido_unetvale,
+            `finalidade, valor_recebido_unetvale, tecnico_raw,
              technicians(id, nome_completo),
              payouts(status, valor_calculado, valor_override)`,
           )
@@ -98,6 +98,7 @@ export default async function FinanceiroPage({ searchParams }: Props) {
   type VisitRow = {
     finalidade: string | null
     valor_recebido_unetvale: string | null
+    tecnico_raw: string | null
     technicians: { id: string; nome_completo: string } | null
     payouts: { status: string; valor_calculado: string | null; valor_override: string | null } | null
   }
@@ -286,7 +287,7 @@ export default async function FinanceiroPage({ searchParams }: Props) {
                 {byTecnico.map((row) => (
                   <tr key={row.tecnicoId} className="transition-colors hover:bg-white/[0.02]">
                     <td className="px-4 py-3 text-sm font-medium text-[var(--text)]">
-                      {row.tecnicoId !== '__sem_tecnico__' ? (
+                      {row.tecnicoId !== '__sem_tecnico__' && !row.tecnicoId.startsWith('raw:') ? (
                         <Link
                           href={`/equipe/tecnicos/${row.tecnicoId}?mes=${mesAtual}`}
                           className="hover:text-[var(--cyan)] transition-colors"

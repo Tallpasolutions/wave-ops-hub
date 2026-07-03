@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { tecnicoDisplayName, tecnicoGroupKey } from '@/lib/format/tecnico'
 import { generatePdfReport } from '@/lib/payouts'
 import type { TechWithDetails, ClosingInfo } from '@/lib/payouts/reports'
 
@@ -32,7 +33,8 @@ export async function GET(
     .from('payouts')
     .select(
       `id, status, valor_calculado, valor_override, technician_id,
-       technicians(nome_completo)`,
+       technicians(nome_completo),
+       service_visits(tecnico_raw)`,
     )
     .eq('tenant_id', user.tenantId!)
     .eq('closing_id', closing.id)
@@ -41,6 +43,7 @@ export async function GET(
   type PayoutRow = {
     technician_id: string | null
     technicians: unknown
+    service_visits: unknown
     valor_calculado: string | null
     valor_override: string | null
   }
@@ -48,8 +51,9 @@ export async function GET(
   const techMap = new Map<string, TechWithDetails>()
   for (const p of (payoutsRaw ?? []) as PayoutRow[]) {
     const tech = p.technicians as unknown as { nome_completo: string } | null
-    const techId = p.technician_id ?? 'sem_tecnico'
-    const nome = tech?.nome_completo ?? 'Sem técnico'
+    const sv = p.service_visits as unknown as { tecnico_raw: string | null } | null
+    const techId = tecnicoGroupKey(p.technician_id, sv?.tecnico_raw)
+    const nome = tecnicoDisplayName(tech?.nome_completo, sv?.tecnico_raw)
     const valor = p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado)
     const valorSafe = isNaN(valor) ? 0 : valor
 

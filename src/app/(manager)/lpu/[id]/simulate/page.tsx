@@ -268,8 +268,8 @@ export default async function SimulatePage({ params, searchParams }: Props) {
                     >
                       <td className="px-4 py-3 text-sm text-[var(--text)]">
                         {t.tecnicoId
-                          ? (tecnicoNomes.get(t.tecnicoId) ?? 'Técnico desconhecido')
-                          : 'Sem técnico'}
+                          ? (tecnicoNomes.get(t.tecnicoId) ?? 'Técnico removido')
+                          : 'Não vinculados (agrupados)'}
                       </td>
                       <td className="px-4 py-3 font-mono text-sm text-[var(--text-3)]">
                         {t.visitas}

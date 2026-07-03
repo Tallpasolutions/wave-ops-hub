@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { tecnicoDisplayName } from '@/lib/format/tecnico'
 
 export const metadata: Metadata = { title: 'Detalhe do Pagamento' }
 import { Button } from '@/components/ui/button'
@@ -65,7 +66,7 @@ export default async function PayoutDetailPage({ params }: Props) {
       .select(
         `id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
          override_motivo, override_at, approved_at, paid_at,
-         service_visits(os_num, data_execucao, finalidade, sucesso, cidade, condominio),
+         service_visits(os_num, data_execucao, finalidade, sucesso, cidade, condominio, tecnico_raw),
          technicians(nome_completo),
          lpu_rules(description, conditions, payout),
          reasons(motivo_original, motivo_normalizado, categoria)`,
@@ -90,6 +91,7 @@ export default async function PayoutDetailPage({ params }: Props) {
     sucesso: string | null
     cidade: string | null
     condominio: boolean | null
+    tecnico_raw: string | null
   } | null
 
   const tech = payout.technicians as unknown as { nome_completo: string } | null
@@ -152,7 +154,7 @@ export default async function PayoutDetailPage({ params }: Props) {
                 : '—'
             }
           />
-          <InfoRow label="Técnico" value={tech?.nome_completo ?? 'Sem técnico'} />
+          <InfoRow label="Técnico" value={tecnicoDisplayName(tech?.nome_completo, visit?.tecnico_raw)} />
           <InfoRow label="Finalidade" value={visit?.finalidade ?? '—'} />
           <InfoRow label="Sucesso" value={visit?.sucesso ?? '—'} />
           <InfoRow label="Cidade" value={visit?.cidade ?? '—'} />

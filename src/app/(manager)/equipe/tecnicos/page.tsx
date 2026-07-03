@@ -3,7 +3,9 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { getCurrentUser, canManageTechnicians } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { Button } from '@/components/ui/button'
+import { LinkTechnicianForm } from '@/components/LinkTechnicianForm'
 
 export const metadata: Metadata = { title: 'Técnicos' }
 import {
@@ -40,11 +42,32 @@ export default async function TecnicosPage() {
   if (!user) return null
 
   const supabase = await createSupabaseServerClient()
-  const { data: technicians } = await supabase
-    .from('technicians')
-    .select('id, nome_completo, email, cpf, celular, codigo_unetvale, ativo')
-    .eq('tenant_id', user.tenantId!)
-    .order('nome_completo', { ascending: true })
+  const [{ data: technicians }, { rows: unlinkedRaw }] = await Promise.all([
+    supabase
+      .from('technicians')
+      .select('id, nome_completo, email, cpf, celular, codigo_unetvale, ativo')
+      .eq('tenant_id', user.tenantId!)
+      .order('nome_completo', { ascending: true }),
+    // Nomes de técnico presentes na planilha mas sem cadastro/vínculo (global,
+    // não por upload) — paginado por causa do row-limit de 1000 do PostgREST
+    fetchAllPages((from, to) =>
+      supabase
+        .from('service_visits')
+        .select('tecnico_raw')
+        .eq('tenant_id', user.tenantId!)
+        .is('tecnico_id', null)
+        .order('id')
+        .range(from, to),
+    ),
+  ])
+
+  const unlinkedGroups = [...(unlinkedRaw as { tecnico_raw: string | null }[])
+    .reduce((map, v) => {
+      const raw = v.tecnico_raw?.trim()
+      if (raw) map.set(raw, (map.get(raw) ?? 0) + 1)
+      return map
+    }, new Map<string, number>())
+    .entries()].sort((a, b) => b[1] - a[1])
 
   const canManage = canManageTechnicians(user)
 
@@ -67,6 +90,30 @@ export default async function TecnicosPage() {
           </Link>
         )}
       </div>
+
+      {canManage && unlinkedGroups.length > 0 && (
+        <div className="mb-8 rounded-xl border border-yellow-500/25 bg-yellow-500/[0.04] p-5">
+          <h2 className="text-sm font-semibold text-[var(--text)]">
+            Técnicos da planilha sem vínculo
+          </h2>
+          <p className="mt-1 text-xs text-[var(--text-3)]">
+            Estes nomes aparecem nas planilhas mas não estão vinculados a um cadastro — as
+            visitas deles não geram pagamento até o vínculo. Vincule a um técnico existente ou
+            cadastre um novo.
+          </p>
+          <div className="mt-2">
+            {unlinkedGroups.map(([raw, count]) => (
+              <LinkTechnicianForm
+                key={raw}
+                tecnicoRaw={raw}
+                visitCount={count}
+                technicians={technicians ?? []}
+                returnPath="/equipe/tecnicos"
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg-1)]">
         <Table>

@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { tecnicoDisplayName, tecnicoGroupKey } from '@/lib/format/tecnico'
 import { generateExcelReport } from '@/lib/payouts'
 import type { TechWithDetails, ClosingInfo } from '@/lib/payouts/reports'
 
@@ -33,7 +34,7 @@ export async function GET(
     .select(
       `id, status, valor_calculado, valor_override, technician_id,
        technicians(nome_completo),
-       service_visits(os_num, data_execucao, finalidade, sucesso)`,
+       service_visits(os_num, data_execucao, finalidade, sucesso, tecnico_raw)`,
     )
     .eq('tenant_id', user.tenantId!)
     .eq('closing_id', closing.id)
@@ -59,9 +60,10 @@ export async function GET(
       data_execucao: string
       finalidade: string | null
       sucesso: string | null
+      tecnico_raw: string | null
     } | null
-    const techId = p.technician_id ?? 'sem_tecnico'
-    const nome = tech?.nome_completo ?? 'Sem técnico'
+    const techId = tecnicoGroupKey(p.technician_id, sv?.tecnico_raw)
+    const nome = tecnicoDisplayName(tech?.nome_completo, sv?.tecnico_raw)
     const valor = p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado)
     const valorSafe = isNaN(valor) ? 0 : valor
 

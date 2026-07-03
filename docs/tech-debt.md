@@ -149,3 +149,10 @@
 ## Itens resolvidos
 
 _(mover para cá quando resolvido, com link pro PR/commit)_
+
+## 2026-07-03 — Query mensal do dashboard sem paginação (corte de 1000 do PostgREST)
+
+`src/app/(manager)/dashboard/page.tsx` busca as visitas do mês sem `range()`/paginação —
+o PostgREST corta em 1000 linhas em silêncio. Junho tem ~602 visitas, mas meses maiores
+vão estourar. Corrigir com `fetchAllPages` (`src/lib/supabase/fetch-all.ts`), como já
+feito em financeiro/fechamento. Encaixa na paginação da Sprint 13.

@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Detalhe do Upload' }
 import type { UploadStatus } from '@/db/schema'
-import { LinkTechnicianForm } from './LinkTechnicianForm'
+import { LinkTechnicianForm } from '@/components/LinkTechnicianForm'
 import { deleteUpload, reprocessUpload, rerunUpload, recalculateUploadPayouts } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -266,7 +266,7 @@ export default async function UploadDetailPage({
                   tecnicoRaw={item.raw}
                   visitCount={item.count}
                   technicians={technicians ?? []}
-                  uploadId={id}
+                  returnPath={`/uploads/${id}`}
                 />
               ))}
             </div>

@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireRole, getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { recalculatePendingPayouts } from '@/lib/payouts'
 
 export type VisitByReasonRow = {
@@ -26,7 +27,7 @@ export async function getVisitsByReason(
   let query = supabase
     .from('service_visits')
     .select(
-      `id, os_num, data_execucao,
+      `id, os_num, data_execucao, tecnico_raw,
        technicians(nome_completo),
        payouts(status, valor_calculado, valor_override)`,
     )
@@ -63,7 +64,7 @@ export async function getVisitsByReason(
       id: v.id,
       osNum: Number(v.os_num),
       dataExecucao: v.data_execucao,
-      tecnicoNome: tech?.nome_completo ?? null,
+      tecnicoNome: tecnicoDisplayName(tech?.nome_completo, v.tecnico_raw as string | null),
       payoutStatus: payout?.status ?? null,
       valorCalculado: valorEfetivo,
     }

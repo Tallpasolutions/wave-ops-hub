@@ -103,6 +103,20 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **03/07/2026 — Fase A VERIFICADA EM PRODUÇÃO (dados):** migration 0012 aplicada via SQL
+  Editor (v2 idempotente — a v1 falhou porque o editor executa statement a statement com
+  autocommit e derrubava a temp table; `UPDATE service_visits` da execução parcial foi
+  absorvido pela idempotência). Contagens DEPOIS: **0 / 0 / 0** (service_visits, reasons,
+  service_orders). Verificação nas telas: `/motivos` e `/pagamentos` sem nenhum mojibake
+  ("Não - 01 fui no cliente...", "Instalação - Fibra - PF", "Mudança Endereço Fibra").
+  **Recálculo pós-reparo:** "1408 recalculadas · 3 preservadas" — **sem regra LPU:
+  868 → 248 global (−71%); junho 349 → 123 (−65%)**; pendências críticas globais
+  1000 (cap) → 416; junho agora: 415 Aguardando · 123 Sem regra · 61 Motivo pendente ·
+  3 Aprovado. Motivo pendente global subiu 132 → 168: improdutivas cujo motivo reparado
+  agora casa migraram de "sem regra" para o status correto.
+  **Pendente para fechar a fase:** merge + deploy da branch (o reparo no parser ainda NÃO
+  está em produção — upload feito antes do deploy voltaria a gravar mojibake) e teste com
+  a próxima planilha real.
 - **03/07/2026 — Fase A implementada** (branch `fix/sprint-12-encoding-etl`) —
   **aguardando aplicação da migration + verificação em produção**:
   - **Diagnóstico provado antes de codar (R3.3):** cadeia = bytes Latin-1/CP1252

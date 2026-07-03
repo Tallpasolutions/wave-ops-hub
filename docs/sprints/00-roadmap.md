@@ -19,7 +19,7 @@
 | 8 | Improdutivas | 0.5 semana | Tela de aprovação, sheet de motivos, UX Wave | ✅ Concluída (2026-06-30) |
 | 9 | Supervisor | 1 semana | LPU por técnico, role supervisor, portal Minha Equipe | ✅ Concluída (2026-07-01) |
 | 10 | Hotfixes + LPU Wave | 1 sessão | `nome_completo`, conflitos LPU, processo Git Flow | 🔄 Em andamento — 10-A mergeado; 10-B absorvido pelas Sprints 11–12 |
-| 11 | Estabilização Crítica (P0) | 2–4 sessões | Sessão Supabase, varredura `technicians(nome)`, recalcular 503, fechamento zerado | 📋 Planejada |
+| 11 | Estabilização Crítica (P0) | 2–4 sessões | Sessão Supabase, varredura `technicians(nome)`, recalcular 503, fechamento zerado | ✅ Concluída (2026-07-03, verificada em produção) |
 | 12 | Dados Confiáveis | 3–4 sessões | Encoding ETL, vínculo de técnicos, cobertura LPU, guard rails de aprovação | 📋 Planejada |
 | 13 | UX e Consistência | 3 sessões | Período inteligente, números reconciliados, busca+paginação, rejeição em lote | 📋 Planejada |
 | 14 | Acabamento | 1–2 sessões | Último acesso, cosméticos S1–S6, QA de regressão final | 📋 Planejada |

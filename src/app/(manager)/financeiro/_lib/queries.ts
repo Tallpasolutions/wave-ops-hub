@@ -1,3 +1,5 @@
+import { tecnicoDisplayName, tecnicoGroupKey } from '@/lib/format/tecnico'
+
 export type FinancialByFinalidade = {
   finalidade: string
   visitas: number
@@ -39,6 +41,7 @@ type VisitWithPayout = {
 }
 
 type VisitWithTech = VisitWithPayout & {
+  tecnico_raw?: string | null
   technicians: { id: string; nome_completo: string } | null
 }
 
@@ -85,8 +88,9 @@ export function aggregateByTecnico(visits: VisitWithTech[]): FinancialByTecnico[
 
   for (const v of visits) {
     const tech = v.technicians as unknown as { id: string; nome_completo: string } | null
-    const key = tech?.id ?? '__sem_tecnico__'
-    const nome = tech?.nome_completo ?? 'Sem técnico'
+    // Não vinculados agrupam pelo nome bruto da planilha, não num balde único
+    const key = tecnicoGroupKey(tech?.id, v.tecnico_raw)
+    const nome = tecnicoDisplayName(tech?.nome_completo, v.tecnico_raw)
     const rec = Number(v.valor_recebido_unetvale ?? 0)
     const pago = efetivoPago(v.payouts as unknown as VisitWithPayout['payouts'])
 

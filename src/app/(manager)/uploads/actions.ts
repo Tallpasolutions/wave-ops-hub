@@ -265,27 +265,29 @@ export async function recalculateUploadPayouts(uploadId: string): Promise<void> 
   redirect('/uploads/' + uploadId)
 }
 
+// returnPath: rota a revalidar após o vínculo — usado tanto no detalhe do upload
+// ('/uploads/<id>') quanto na seção global de vínculo ('/equipe/tecnicos').
 export async function linkTechnicianRaw(
   tecnicoRaw: string,
   tecnicoId: string,
-  uploadId: string,
+  returnPath: string,
 ): Promise<{ error?: string }> {
   const user = await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
+  if (!user.tenantId) return { error: 'Usuário sem tenant.' }
   const supabase = await createSupabaseServerClient()
 
   const { error } = await supabase
     .from('service_visits')
     .update({ tecnico_id: tecnicoId })
+    .eq('tenant_id', user.tenantId)
     .is('tecnico_id', null)
     .eq('tecnico_raw', tecnicoRaw)
 
   if (error) return { error: 'Erro ao vincular técnico.' }
 
   // Recalcula payouts das visitas recém-vinculadas
-  if (user.tenantId) {
-    await recalculatePendingPayouts(user.tenantId, supabase)
-  }
+  await recalculatePendingPayouts(user.tenantId, supabase)
 
-  revalidatePath('/uploads/' + uploadId)
+  revalidatePath(returnPath)
   return {}
 }

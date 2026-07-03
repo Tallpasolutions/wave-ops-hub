@@ -1,7 +1,10 @@
+import { tecnicoDisplayName, tecnicoGroupKey } from '@/lib/format/tecnico'
+
 export type VisitRow = {
   os_num: number | null
   data_execucao: string | null
   tecnico_id: string | null
+  tecnico_raw: string | null
   finalidade: string | null
   tipo_atendimento: string | null
   sucesso: string | null
@@ -154,14 +157,17 @@ export function aggregate(
     .map(([tipo, d]) => ({ tipo, qtd: d.qtd, valor: d.valor }))
     .sort((a, b) => b.qtd - a.qtd)
 
-  // By technician
+  // By technician — não vinculados agrupam pelo nome bruto da planilha (um por pessoa),
+  // não num balde único "Não vinculado" que mistura técnicos diferentes
   const tecMap2 = new Map<
     string | null,
     { nome: string; totalOs: number; valorTotal: number; finalizadas: number; naoFinalizadas: number; improdutivas: number }
   >()
   for (const v of visits) {
-    const key = v.tecnico_id ?? null
-    const nome = key ? (techMap.get(key) ?? 'Técnico desconhecido') : 'Não vinculado'
+    const key = tecnicoGroupKey(v.tecnico_id, v.tecnico_raw)
+    const nome = v.tecnico_id
+      ? (techMap.get(v.tecnico_id) ?? 'Técnico removido')
+      : tecnicoDisplayName(null, v.tecnico_raw)
     const cur = tecMap2.get(key) ?? { nome, totalOs: 0, valorTotal: 0, finalizadas: 0, naoFinalizadas: 0, improdutivas: 0 }
     cur.totalOs += 1
     cur.valorTotal += v.valor_recebido_unetvale ?? 0

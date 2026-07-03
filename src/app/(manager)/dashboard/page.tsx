@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     supabase
       .from('service_visits')
       .select(
-        'os_num, data_execucao, tecnico_id, finalidade, tipo_atendimento, sucesso, improdutiva, rejeitada, valor_recebido_unetvale, cidade, reason_id',
+        'os_num, data_execucao, tecnico_id, tecnico_raw, finalidade, tipo_atendimento, sucesso, improdutiva, rejeitada, valor_recebido_unetvale, cidade, reason_id',
       )
       .eq('tenant_id', user.tenantId)
       .gte('data_execucao', start)

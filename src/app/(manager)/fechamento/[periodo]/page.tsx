@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import { tecnicoDisplayName, tecnicoGroupKey } from '@/lib/format/tecnico'
 import { Button } from '@/components/ui/button'
 
 export async function generateMetadata({ params }: { params: Promise<{ periodo: string }> }): Promise<Metadata> {
@@ -94,7 +95,7 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
       .select(
         `id, status, valor_calculado, valor_override, technician_id,
          technicians(nome_completo),
-         service_visits!inner(os_num, data_execucao, finalidade)`,
+         service_visits!inner(os_num, data_execucao, finalidade, tecnico_raw)`,
       )
       .eq('tenant_id', user.tenantId!)
       .gte('service_visits.data_execucao' as never, `${periodo}-01`)
@@ -149,9 +150,10 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
   const techMap = new Map<string, TechGroup>()
   for (const p of payouts) {
     if (BLOCKING_STATUSES.includes(p.status)) continue
-    const techId = p.technician_id ?? 'sem_tecnico'
+    const sv = p.service_visits as unknown as { tecnico_raw: string | null } | null
+    const techId = tecnicoGroupKey(p.technician_id, sv?.tecnico_raw)
     const tech = p.technicians as unknown as { nome_completo: string } | null
-    const nome = tech?.nome_completo ?? 'Sem técnico'
+    const nome = tecnicoDisplayName(tech?.nome_completo, sv?.tecnico_raw)
     if (!techMap.has(techId)) techMap.set(techId, { id: techId, nome, payouts: [], total: 0 })
     const group = techMap.get(techId)!
     group.payouts.push(p)
@@ -271,8 +273,8 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
               </Link>
             )}
             {blockers.semTecnico > 0 && (
-              <Link href="/uploads" className="underline hover:text-[var(--text)]">
-                {blockers.semTecnico} sem técnico vinculado → vincular no upload
+              <Link href="/equipe/tecnicos" className="underline hover:text-[var(--text)]">
+                {blockers.semTecnico} sem técnico vinculado → vincular técnicos
               </Link>
             )}
           </div>
@@ -317,7 +319,9 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
                     {formatBRL(g.total)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {(status === 'aprovado' || status === 'pago') && (
+                    {(status === 'aprovado' || status === 'pago') &&
+                      !g.id.startsWith('raw:') &&
+                      g.id !== '__sem_tecnico__' && (
                       <a
                         href={`/fechamento/${periodo}/export/pdf/${g.id}`}
                         className="text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"

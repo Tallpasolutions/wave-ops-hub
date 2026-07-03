@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
+import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { RecalcularButton } from './_components/RecalcularButton'
 
 export const metadata: Metadata = { title: 'Pagamentos' }
@@ -56,7 +57,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
   const { data: visitsRaw } = await supabase
     .from('service_visits')
     .select(
-      `id, os_num, data_execucao, finalidade, sucesso,
+      `id, os_num, data_execucao, finalidade, sucesso, tecnico_raw,
        payouts!inner(
          id, status, valor_calculado, valor_override,
          valor_deixado_na_mesa, visit_id, technician_id,
@@ -107,7 +108,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
       valor_calculado: p.valor_calculado,
       valor_override: p.valor_override,
       technician_id: p.technician_id,
-      tecnico: tech?.nome_completo ?? null,
+      tecnico: tecnicoDisplayName(tech?.nome_completo, v.tecnico_raw as string | null),
       os_num: v.os_num as number,
       data_execucao: v.data_execucao as string,
       finalidade: v.finalidade as string | null,
@@ -290,7 +291,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
                         {new Date(p.data_execucao).toLocaleDateString('pt-BR')}
                       </td>
                       <td className="px-4 py-3 text-sm text-[var(--text)]">
-                        {p.tecnico ?? 'Sem técnico'}
+                        {p.tecnico}
                       </td>
                       <td className="px-4 py-3 text-sm text-[var(--text-3)]">
                         {p.finalidade ?? '—'}

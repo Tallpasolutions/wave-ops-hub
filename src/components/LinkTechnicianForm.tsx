@@ -4,27 +4,29 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { linkTechnicianRaw } from '../actions'
+import { stripWavePrefix } from '@/lib/format/tecnico'
+import { linkTechnicianRaw } from '@/app/(manager)/uploads/actions'
 
 type Props = {
   tecnicoRaw: string
   visitCount: number
   technicians: { id: string; nome_completo: string }[]
-  uploadId: string
+  // Rota que exibe o form — revalidada após o vínculo e usada como retorno do cadastro
+  returnPath: string
 }
 
-export function LinkTechnicianForm({ tecnicoRaw, visitCount, technicians, uploadId }: Props) {
+export function LinkTechnicianForm({ tecnicoRaw, visitCount, technicians, returnPath }: Props) {
   const [selectedId, setSelectedId] = useState('')
   const [isPending, startTransition] = useTransition()
   const [linkError, setLinkError] = useState<string | null>(null)
 
-  const cleanName = tecnicoRaw.replace(/^WAVE\s*-\s*/i, '').trim()
+  const cleanName = stripWavePrefix(tecnicoRaw)
 
   function handleLink() {
     if (!selectedId) return
     setLinkError(null)
     startTransition(async () => {
-      const result = await linkTechnicianRaw(tecnicoRaw, selectedId, uploadId)
+      const result = await linkTechnicianRaw(tecnicoRaw, selectedId, returnPath)
       if (result.error) setLinkError(result.error)
     })
   }
@@ -64,7 +66,7 @@ export function LinkTechnicianForm({ tecnicoRaw, visitCount, technicians, upload
         </Button>
 
         <Link
-          href={`/equipe/tecnicos/new?nomeCompleto=${encodeURIComponent(cleanName)}&from=/uploads/${uploadId}`}
+          href={`/equipe/tecnicos/new?nomeCompleto=${encodeURIComponent(cleanName)}&from=${encodeURIComponent(returnPath)}`}
           className="whitespace-nowrap text-xs text-[var(--blue)] underline-offset-2 hover:underline"
         >
           Cadastrar novo

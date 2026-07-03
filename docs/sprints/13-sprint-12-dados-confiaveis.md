@@ -103,6 +103,24 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **03/07/2026 — Fase B implementada** (branch `feat/sprint-12-vinculo-tecnicos`) —
+  **aguardando merge + verificação em produção**:
+  - Verificado o que já existia (R2.1): `linkTechnicianRaw` + `LinkTechnicianForm` da
+    Sprint 2 cobrem o vínculo por upload — reaproveitados, não recriados
+  - Novo `src/lib/format/tecnico.ts`: `tecnicoDisplayName()` (nome cadastrado > nome bruto
+    da planilha + "(não vinculado)" > "Sem técnico") e `tecnicoGroupKey()` (não vinculados
+    agrupam POR PESSOA pelo nome bruto, não num balde único). 7 testes
+  - Aplicado em: pagamentos (lista/detalhe/override), motivos (sheet de visitas), dashboard
+    (ranking, `tecnico_raw` no select), financeiro (por técnico), fechamento (grupos + exports
+    PDF/Excel). Rótulos unificados; simulador: "Não vinculados (agrupados)"
+  - Seção global "Técnicos da planilha sem vínculo" em `/equipe/tecnicos` (nomes agrupados
+    com contagem, paginado via `fetchAllPages`), reusando `LinkTechnicianForm` (movido para
+    `src/components/`, prop `returnPath`); action ganhou filtro explícito de `tenant_id`
+  - Blocker do fechamento agora aponta para `/equipe/tecnicos` (antes: `/uploads`)
+  - 110/110 testes · typecheck ✅ · lint ✅ · build ✅
+  - **Verificar em prod:** ranking do dashboard com "Douglas Ribeiro (não vinculado)" etc.
+    em vez de "Não vinculado" único · seção de vínculo listando os nomes reais · vincular
+    os técnicos reais da Wave (ação do gestor via UI)
 - **03/07/2026 — Fase A VERIFICADA EM PRODUÇÃO (dados):** migration 0012 aplicada via SQL
   Editor (v2 idempotente — a v1 falhou porque o editor executa statement a statement com
   autocommit e derrubava a temp table; `UPDATE service_visits` da execução parcial foi

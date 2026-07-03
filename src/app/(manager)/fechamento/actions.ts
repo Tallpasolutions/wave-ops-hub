@@ -4,27 +4,31 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireRole } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { validateClosingReadiness, buildClosingTotals } from '@/lib/payouts'
 
 export async function solicitarAprovacao(periodo: string, _formData: FormData) {
   const user = await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
   const supabase = await createSupabaseServerClient()
 
-  const { data: payouts } = await supabase
-    .from('payouts')
-    .select(
-      `id, status, valor_calculado, valor_override,
-       service_visits(tecnico_id)`,
-    )
-    .eq('tenant_id', user.tenantId!)
-    .gte('service_visits.data_execucao' as never, `${periodo}-01`)
-    .lt(
-      'service_visits.data_execucao' as never,
-      (() => {
-        const [y, m] = periodo.split('-').map(Number)
-        return new Date(y, m, 1).toISOString().slice(0, 10)
-      })(),
-    )
+  const [y, m] = periodo.split('-').map(Number)
+  const periodoFim = new Date(y, m, 1).toISOString().slice(0, 10)
+
+  // service_visits!inner: sem o !inner o gte/lt não filtra os payouts — a validação
+  // rodava sobre payouts de todos os períodos (cortados em 1000 pelo PostgREST).
+  const { data: payouts } = await fetchAllPages((from, to) =>
+    supabase
+      .from('payouts')
+      .select(
+        `id, status, valor_calculado, valor_override,
+         service_visits!inner(tecnico_id, data_execucao)`,
+      )
+      .eq('tenant_id', user.tenantId!)
+      .gte('service_visits.data_execucao' as never, `${periodo}-01`)
+      .lt('service_visits.data_execucao' as never, periodoFim)
+      .order('id')
+      .range(from, to),
+  ).then(({ rows, error }) => ({ data: error ? null : rows }))
 
   const payoutsForPeriod = (payouts ?? []).map((p) => ({
     id: p.id,

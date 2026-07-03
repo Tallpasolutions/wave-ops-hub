@@ -4,6 +4,7 @@ import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { Button } from '@/components/ui/button'
 
 export async function generateMetadata({ params }: { params: Promise<{ periodo: string }> }): Promise<Metadata> {
@@ -82,22 +83,45 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
 
   if (!closing) notFound()
 
-  const { data: payoutsRaw } = await supabase
-    .from('payouts')
-    .select(
-      `id, status, valor_calculado, valor_override, technician_id,
-       technicians(nome_completo),
-       service_visits(os_num, data_execucao, finalidade)`,
-    )
-    .eq('tenant_id', user.tenantId!)
-    .gte('service_visits.data_execucao' as never, `${periodo}-01`)
-    .lt(
-      'service_visits.data_execucao' as never,
-      (() => {
-        const [y, m] = periodo.split('-').map(Number)
-        return new Date(y, m, 1).toISOString().slice(0, 10)
-      })(),
-    )
+  const [y, m] = periodo.split('-').map(Number)
+  const periodoFim = new Date(y, m, 1).toISOString().slice(0, 10)
+
+  // service_visits!inner: sem o !inner, o gte/lt filtra apenas o embed e a query
+  // retorna payouts de TODOS os períodos (cortados em 1000 pelo PostgREST).
+  const { rows: payoutsRaw } = await fetchAllPages((from, to) =>
+    supabase
+      .from('payouts')
+      .select(
+        `id, status, valor_calculado, valor_override, technician_id,
+         technicians(nome_completo),
+         service_visits!inner(os_num, data_execucao, finalidade)`,
+      )
+      .eq('tenant_id', user.tenantId!)
+      .gte('service_visits.data_execucao' as never, `${periodo}-01`)
+      .lt('service_visits.data_execucao' as never, periodoFim)
+      .order('id')
+      .range(from, to),
+  )
+
+  // Receita do período em tempo real — closing.total_receita_unetvale só é
+  // preenchido na aprovação do fechamento.
+  const { rows: receitaRows } = await fetchAllPages((from, to) =>
+    supabase
+      .from('service_visits')
+      .select('valor_recebido_unetvale')
+      .eq('tenant_id', user.tenantId!)
+      .gte('data_execucao', `${periodo}-01`)
+      .lt('data_execucao', periodoFim)
+      .order('id')
+      .range(from, to),
+  )
+  const receitaPeriodo = (receitaRows as { valor_recebido_unetvale: string | null }[]).reduce(
+    (sum, r) => {
+      const v = Number(r.valor_recebido_unetvale ?? 0)
+      return sum + (isNaN(v) ? 0 : v)
+    },
+    0,
+  )
 
   const payouts = (payoutsRaw ?? []) as PayoutRow[]
 
@@ -202,7 +226,14 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
         </div>
         <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Receita Unetvale</p>
-          <p className="mt-1 text-xl font-bold text-[var(--text)]">{formatBRL(closing.total_receita_unetvale)}</p>
+          <p className="mt-1 text-xl font-bold text-[var(--text)]">
+            {status === 'aprovado' || status === 'pago'
+              ? formatBRL(closing.total_receita_unetvale)
+              : formatBRL(receitaPeriodo)}
+          </p>
+          {status !== 'aprovado' && status !== 'pago' && (
+            <p className="mt-0.5 text-[10px] text-[var(--text-3)]">tempo real · consolida na aprovação</p>
+          )}
         </div>
       </div>
 
@@ -307,8 +338,12 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
       <div className="flex flex-wrap gap-3">
         {canSolicitar && (
           <form action={solicitarAction}>
-            <Button type="submit" disabled={hasBlockers}>
-              {hasBlockers ? 'Resolver pendências antes de fechar' : 'Solicitar aprovação'}
+            <Button type="submit" disabled={hasBlockers || payouts.length === 0}>
+              {payouts.length === 0
+                ? 'Nenhum payout no período'
+                : hasBlockers
+                  ? 'Resolver pendências antes de fechar'
+                  : 'Solicitar aprovação'}
             </Button>
           </form>
         )}

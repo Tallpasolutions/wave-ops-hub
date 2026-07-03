@@ -107,24 +107,60 @@ export function aggregateByTecnico(visits: VisitWithTech[]): FinancialByTecnico[
     .slice(0, 10)
 }
 
-export function buildFinancialPoints(
-  closings: Array<{
-    periodo: string
-    total_receita_unetvale: string | null
-    total_a_pagar: string | null
-    margem: string | null
-  }>,
+export type FinancialTotals = {
+  visitas: number
+  receita: number
+  pago: number
+  margem: number
+  margemPct: number
+}
+
+type VisitFinancials = Pick<VisitWithPayout, 'valor_recebido_unetvale' | 'payouts'>
+
+// KPIs do período em tempo real — mesma fonte (visitas + payouts) das tabelas por
+// finalidade/técnico, eliminando a contradição com os fechamentos não aprovados
+// (decisão da Sprint 11 Fase D, 03/07/2026).
+export function aggregateTotals(visits: VisitFinancials[]): FinancialTotals {
+  let receita = 0
+  let pago = 0
+  for (const v of visits) {
+    const rec = Number(v.valor_recebido_unetvale ?? 0)
+    receita += isNaN(rec) ? 0 : rec
+    pago += efetivoPago(v.payouts as unknown as VisitWithPayout['payouts'])
+  }
+  const margem = receita - pago
+  const margemPct = receita > 0 ? Math.round((margem / receita) * 100) : 0
+  return { visitas: visits.length, receita, pago, margem, margemPct }
+}
+
+type VisitWithDate = VisitFinancials & { data_execucao: string }
+
+// Série mensal em tempo real a partir das visitas — inclui todos os `periodos`
+// pedidos (meses sem visita entram zerados, mantendo o eixo do gráfico contínuo).
+export function buildRealtimeFinancialPoints(
+  visits: VisitWithDate[],
+  periodos: string[],
 ): FinancialPoint[] {
-  return closings
-    .map((c) => {
-      const [yearStr, monthStr] = c.periodo.split('-')
-      const d = new Date(Number(yearStr), Number(monthStr) - 1, 1)
-      const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
-      const receita = Number(c.total_receita_unetvale ?? 0)
-      const pago = Number(c.total_a_pagar ?? 0)
-      const margem = Number(c.margem ?? 0)
-      const margemPct = receita > 0 ? Math.round((margem / receita) * 100) : 0
-      return { periodo: c.periodo, label, receita, pago, margem, margemPct }
-    })
-    .sort((a, b) => a.periodo.localeCompare(b.periodo))
+  const byPeriodo = new Map<string, VisitWithDate[]>()
+  for (const v of visits) {
+    const p = v.data_execucao.slice(0, 7)
+    const list = byPeriodo.get(p) ?? []
+    list.push(v)
+    byPeriodo.set(p, list)
+  }
+
+  return [...periodos].sort().map((periodo) => {
+    const [yearStr, monthStr] = periodo.split('-')
+    const d = new Date(Number(yearStr), Number(monthStr) - 1, 1)
+    const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+    const totals = aggregateTotals(byPeriodo.get(periodo) ?? [])
+    return {
+      periodo,
+      label,
+      receita: totals.receita,
+      pago: totals.pago,
+      margem: totals.margem,
+      margemPct: totals.margemPct,
+    }
+  })
 }

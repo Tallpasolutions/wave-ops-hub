@@ -145,6 +145,25 @@ Qualquer achado novo → `docs/tech-debt.md`.
   prevenção (`service_visits(technician_id)` → `tecnico_id` em `fechamento/actions.ts:17`).
   Teste novo: `src/lib/db/__tests__/schema-conventions.test.ts`. `pnpm typecheck` ✅ ·
   `pnpm lint` ✅ · `pnpm test` 73/73 ✅ · grep final vazio.
+- **03/07/2026 — Fase D implementada** (branch `fix/sprint-11-fase-d-fechamento`) —
+  **aguardando verificação em produção**. Decisão do usuário (R5.2): KPIs e comparativo do
+  Financeiro em **tempo real, sempre** (mesma fonte das tabelas), com selo quando houver
+  fechamento aprovado/pago:
+  - `service_visits!inner` + paginação em `fechamento/[periodo]/page.tsx` e
+    `fechamento/actions.ts` (`solicitarAprovacao`) — o gte/lt em embed não filtrava payouts
+    ("1000 visitas" = row-limit; valores misturavam meses)
+  - Novo `src/lib/supabase/fetch-all.ts` (`fetchAllPages`) — helper de paginação contra o
+    corte silencioso de 1000 linhas; aplicado também no `/financeiro` (o `.limit(5000)` era
+    cortado em 1000)
+  - Fechamento: card Receita Unetvale em tempo real ("consolida na aprovação") até o
+    fechamento ser aprovado; "Solicitar aprovação" desabilitado quando não há payouts
+  - Financeiro: KPIs via `aggregateTotals()` das visitas; comparativo 6 meses via
+    `buildRealtimeFinancialPoints()` (meses sem visita entram zerados); selo
+    "Fechamento aprovado/pago" quando consolidado
+  - 5 testes novos (88 total) · typecheck ✅ · lint ✅ · build ✅
+  - **Verificar em prod:** `/fechamento/2026-06` reconciliando com `/pagamentos?mes=2026-06`
+    (602 visitas, não 1000) · `/financeiro?mes=2026-06` sem contradição · comparativo com
+    maio e junho reais · exports no primeiro fechamento aprovado
 - **03/07/2026 — Fase B implementada** (branch `fix/sprint-11-sessao-supabase`) —
   **aguardando verificação em produção** (exige sessão de 30+ min pós-deploy):
   - **Causa confirmada por inspeção antes de refatorar (R3.3):** `src/middleware.ts` não fazia

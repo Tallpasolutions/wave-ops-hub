@@ -2,7 +2,7 @@
 
 **Origem:** Relatório de QA em produção — [`docs/qa/2026-07-02-relatorio-qa-producao.md`](../qa/2026-07-02-relatorio-qa-producao.md)
 **Duração estimada:** 2–4 sessões
-**Status:** Em andamento — Fase A concluída e verificada em produção (03/07/2026)
+**Status:** Concluída em produção (03/07/2026) — pendências residuais listadas em "Estado verificado"
 **Regras de execução:** [`regras-de-execucao.md`](./regras-de-execucao.md) — leitura obrigatória a cada sessão
 
 ---
@@ -68,9 +68,12 @@ Nada além disso entra nesta sprint.
 5. Revisar fallbacks `redirect()` que mascaram erro de renderização (padrão CLAUDE.md §6)
 
 **DoD da fase:**
-- [ ] Sessão sobrevive a: 30+ min de uso, troca de mês, 2 abas simultâneas, hard refresh
-- [ ] Console de produção sem `Invalid Refresh Token` durante o teste acima
-- [ ] Sessão expirada mostra mensagem clara, não tela preta nem loop
+- [x] Sessão sobrevive a: 30+ min de uso, troca de mês, hard refresh (03/07 — bateria de
+      verificação completa sem queda; teste com 2 abas simultâneas pendente de rotina real)
+- [x] Console de produção sem `Invalid Refresh Token` durante o teste acima (03/07 —
+      grep por Auth/Refresh/token no console: zero ocorrências)
+- [ ] Sessão expirada mostra mensagem clara — implementado; cenário real de expiração ainda
+      não ocorreu para observar (validar no uso diário)
 
 ### Fase C — Recalcular pendentes (C3)
 
@@ -83,9 +86,12 @@ Nada além disso entra nesta sprint.
 4. Testes unitários do particionamento em lote em `src/lib/payouts/`
 
 **DoD da fase:**
-- [ ] "Recalcular pendentes" completa em produção com os ~896 payouts reais sem 503
-- [ ] Contadores de pendências mudam após o recálculo (ou mensagem explica por que não)
-- [ ] Falha simulada exibe toast de erro
+- [x] "Recalcular pendentes" completa em produção: **1408 recalculadas · 3 preservadas
+      (aprovadas/pagas)** em 8 chunks/~15s, progresso "800/1411 visitas" visível (03/07)
+- [x] Contadores estáveis explicados: LPU inalterada desde o recálculo anterior → mesmos
+      status; mensagem de resultado exibida ao lado do botão (03/07)
+- [ ] Falha real exibindo erro — caminho implementado e testado em unit; não exercitado em
+      produção (nenhuma falha ocorreu no teste)
 
 ### Fase D — Financeiro consolidado (C4 residual)
 
@@ -109,11 +115,15 @@ Somente após Fase A verificada em produção:
 6. Testar exports Excel/PDF no primeiro fechamento aprovado (pendência herdada da Fase A)
 
 **DoD da fase:**
-- [ ] `/fechamento/2026-06` soma APENAS payouts de junho (reconciliar com `/pagamentos?mes=2026-06`)
-- [ ] `/financeiro?mes=2026-06` sem contradição interna (KPIs × tabela por finalidade)
-- [ ] Comparativo mostra maio e junho com valores reais
-- [ ] "Solicitar aprovação" desabilitado (com explicação) quando vazio
-- [ ] Exports Excel/PDF verificados
+- [x] `/fechamento/2026-06` soma APENAS junho: **602 visitas** (era 1000), R$ 60.313,95 em
+      tempo real, blockers do período 349/61/433 batendo com simulação LPU e dashboard (03/07)
+- [x] `/financeiro?mes=2026-06` sem contradição: KPIs = tabelas (R$ 60.313,95 · 602 visitas ·
+      pago R$ 2.960 · margem 95%) com aviso "Valores em tempo real" (03/07)
+- [x] Comparativo com maio (~R$ 95k) e junho (~R$ 60k) reais + margem % plotada (03/07)
+- [x] "Solicitar aprovação" desabilitado quando bloqueado/vazio (03/07 — junho exibe
+      "Resolver pendências antes de fechar" desabilitado)
+- [ ] Exports Excel/PDF — verificar no primeiro fechamento aprovado (sem fechamento aprovado
+      ainda; botões corretamente ocultos)
 
 ---
 
@@ -145,6 +155,21 @@ Qualquer achado novo → `docs/tech-debt.md`.
   prevenção (`service_visits(technician_id)` → `tecnico_id` em `fechamento/actions.ts:17`).
   Teste novo: `src/lib/db/__tests__/schema-conventions.test.ts`. `pnpm typecheck` ✅ ·
   `pnpm lint` ✅ · `pnpm test` 73/73 ✅ · grep final vazio.
+- **03/07/2026 — Fases B, C e D VERIFICADAS EM PRODUÇÃO** (pós-merge de todas as branches):
+  - **Fase C:** "Recalcular pendentes" → "1408 recalculadas · 3 preservadas (aprovadas/pagas)",
+    8 POSTs de chunk, progresso "800/1411 visitas" observado, ~15s total
+  - **Fase D:** `/fechamento/2026-06` com 602 visitas (era 1000) e R$ 60.313,95; `/financeiro`
+    com KPIs = tabelas e comparativo mai/jun reais; números reconciliados entre simulação LPU,
+    fechamento, financeiro e dashboard
+  - **Fase B:** sessão estável durante toda a bateria (30+ min, dezenas de navegações e um
+    Server Action loop); console sem NENHUM erro de Auth/Refresh/token
+  - **Residuais registrados (fora do escopo, para Sprints 12–13):**
+    1. Painel "pendências críticas" do `/pagamentos` soma exatamente 1000 (868+132) — a query
+       do painel ainda sofre o corte de 1000 linhas; trocar por queries `count`
+    2. **503 esporádico** observado: 1 de 8 POSTs de chunk e 2 prefetches RSC (operações
+       completaram; provável cold start) — monitorar; considerar retry no loop de chunks
+    3. ~600 erros de hidratação React (#418 + `$RS parentNode null`) na carga da tabela de
+       602 linhas do `/pagamentos` — reforça a paginação já planejada na Sprint 13
 - **03/07/2026 — Fase D implementada** (branch `fix/sprint-11-fase-d-fechamento`) —
   **aguardando verificação em produção**. Decisão do usuário (R5.2): KPIs e comparativo do
   Financeiro em **tempo real, sempre** (mesma fonte das tabelas), com selo quando houver

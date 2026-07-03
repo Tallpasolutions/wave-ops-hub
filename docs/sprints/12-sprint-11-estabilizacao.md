@@ -2,7 +2,7 @@
 
 **Origem:** Relatório de QA em produção — [`docs/qa/2026-07-02-relatorio-qa-producao.md`](../qa/2026-07-02-relatorio-qa-producao.md)
 **Duração estimada:** 2–4 sessões
-**Status:** Planejada
+**Status:** Em andamento — Fase A concluída e verificada em produção (03/07/2026)
 **Regras de execução:** [`regras-de-execucao.md`](./regras-de-execucao.md) — leitura obrigatória a cada sessão
 
 ---
@@ -44,12 +44,16 @@ Nada além disso entra nesta sprint.
    `technicians(nome)` sem `_completo` reaparecer em `src/`
 
 **DoD da fase (verificar em produção pós-deploy):**
-- [ ] `grep -rn "technicians(nome)" src/ | grep -v nome_completo` retorna vazio
-- [ ] `/pagamentos/{uuid}` abre o detalhe para 3 payouts reais de status diferentes
-- [ ] `/pagamentos/{uuid}/override` abre
-- [ ] `/fechamento/2026-06` exibe visitas, técnicos e Receita Unetvale > R$ 0
-- [ ] Export Excel e PDF do fechamento baixam sem erro
-- [ ] Evidências coladas na seção "Estado verificado" abaixo
+- [x] `grep -rn "technicians(nome)" src/ | grep -v nome_completo` retorna vazio (03/07)
+- [x] `/pagamentos/{uuid}` abre o detalhe para 3 payouts reais de status diferentes (03/07)
+- [x] `/pagamentos/{uuid}/override` abre (03/07)
+- [x] `/fechamento/2026-06` exibe visitas, técnicos e totais (03/07 — Receita Unetvale segue
+      R$ 0,00 por depender de `closing.total_receita_unetvale`, preenchido só na aprovação;
+      movido para a Fase D)
+- [ ] Export Excel e PDF do fechamento baixam sem erro — **não testável ainda**: os botões só
+      aparecem com fechamento `aprovado`/`pago` e nenhum fechamento foi aprovado. Verificar
+      no primeiro fechamento real (Fase D)
+- [x] Evidências coladas na seção "Estado verificado" abaixo
 
 ### Fase B — Sessão Supabase (C1)
 
@@ -87,16 +91,29 @@ Nada além disso entra nesta sprint.
 
 Somente após Fase A verificada em produção:
 
-1. Reavaliar `/financeiro`: se KPIs do topo continuarem zerados sem fechamento aprovado,
+1. **[NOVO — descoberto na verificação da Fase A, 03/07]** O filtro de período do fechamento
+   não funciona: `fechamento/[periodo]/page.tsx` e `fechamento/actions.ts` usam
+   `.gte('service_visits.data_execucao', ...)` sobre **recurso embutido** — no PostgREST isso
+   filtra o embed, NÃO as linhas de `payouts`. Evidência em produção: `/fechamento/2026-06`
+   exibe "1000 visitas" (exatamente o row-limit default do PostgREST) somando payouts de
+   TODOS os períodos (R$ 17.895,00 mistura maio+junho); blockers mostram 466/128/4/836
+   (números globais). Corrigir com `!inner` no embed + filtro, ou query por `visit_id` do
+   período. A validação de `solicitarAprovacao` sofre do mesmo problema
+2. Receita Unetvale no fechamento: `closing.total_receita_unetvale` só é preenchido na
+   aprovação — exibir a receita do período em tempo real ou rotular "consolidado após aprovação"
+3. Reavaliar `/financeiro`: se KPIs do topo continuarem zerados sem fechamento aprovado,
    decidir com o usuário (R5.2): (a) KPIs leem visitas em tempo real, ou (b) mantêm
    dependência do fechamento com aviso claro "sem fechamento para este mês"
-2. "Comparativo — últimos 6 meses" deve refletir a decisão (hoje: linha zerada com dados existentes)
-3. Desabilitar "Solicitar aprovação" quando o fechamento não tem payouts elegíveis
+4. "Comparativo — últimos 6 meses" deve refletir a decisão (hoje: linha zerada com dados existentes)
+5. Desabilitar "Solicitar aprovação" quando o fechamento não tem payouts elegíveis
+6. Testar exports Excel/PDF no primeiro fechamento aprovado (pendência herdada da Fase A)
 
 **DoD da fase:**
+- [ ] `/fechamento/2026-06` soma APENAS payouts de junho (reconciliar com `/pagamentos?mes=2026-06`)
 - [ ] `/financeiro?mes=2026-06` sem contradição interna (KPIs × tabela por finalidade)
 - [ ] Comparativo mostra maio e junho com valores reais
 - [ ] "Solicitar aprovação" desabilitado (com explicação) quando vazio
+- [ ] Exports Excel/PDF verificados
 
 ---
 
@@ -123,6 +140,24 @@ Qualquer achado novo → `docs/tech-debt.md`.
 
 - **02/07/2026 — QA:** bugs C1–C4 reproduzidos em produção; grep das 6 ocorrências rodado
   (lista no Contexto acima). Nenhuma fase iniciada.
+- **02/07/2026 — Fase A implementada** (branch `fix/sprint-11-nome-completo`, commits
+  `6c441e7` + `2f19cff`): 6 arquivos corrigidos + **7ª ocorrência** encontrada pelo teste de
+  prevenção (`service_visits(technician_id)` → `tecnico_id` em `fechamento/actions.ts:17`).
+  Teste novo: `src/lib/db/__tests__/schema-conventions.test.ts`. `pnpm typecheck` ✅ ·
+  `pnpm lint` ✅ · `pnpm test` 73/73 ✅ · grep final vazio.
+- **03/07/2026 — Fase A VERIFICADA EM PRODUÇÃO** (merge `ba782c0` em main, deploy Vercel):
+  - `/pagamentos/7e6e8846...` (Sem regra) e `/pagamentos/660f532a...` (Motivo pendente) —
+    os dois UUIDs que retornavam 404 no QA — agora renderizam visita, financeiro e auditoria
+  - `/pagamentos/81a91a76...` (Aguardando) renderiza com regra LPU aplicada e R$ 135,00
+  - `/pagamentos/81a91a76.../override` abre com valor calculado
+  - `/fechamento/2026-06` saiu de "tudo R$ 0,00 / nenhum payout elegível" para tabela por
+    técnico com "Eduardo Ribeiro de Souza" (join `nome_completo` funcionando) e painel de
+    pendências com links
+  - Sheet "Visitas" em `/motivos` lista técnicos nomeados (fix de `motivos/actions.ts` ok)
+  - **Efeito colateral positivo:** a query consertada expôs o bug do filtro de período do
+    fechamento ("1000 visitas" = row-limit PostgREST, valores misturando meses) — registrado
+    como item 1 da Fase D
+  - Exports Excel/PDF: não verificáveis (exigem fechamento aprovado) — movidos para Fase D
 
 ## Definition of Done da sprint
 

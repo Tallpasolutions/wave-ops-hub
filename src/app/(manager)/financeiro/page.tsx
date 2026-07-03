@@ -9,8 +9,10 @@ export const metadata: Metadata = { title: 'Financeiro' }
 import {
   aggregateByFinalidade,
   aggregateByTecnico,
-  buildFinancialPoints,
+  aggregateTotals,
+  buildRealtimeFinancialPoints,
 } from './_lib/queries'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { FinanceiroChart } from './_components/FinanceiroChart'
 
 export const dynamic = 'force-dynamic'
@@ -51,31 +53,46 @@ export default async function FinanceiroPage({ searchParams }: Props) {
     periodos.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
 
-  const [{ data: closingAtual }, { data: closingsHistorico }, { data: visitsRaw }] =
+  // Range dos 6 meses do comparativo (do primeiro período até o fim do mês atual)
+  const historicoStart = `${periodos[0]}-01`
+  const [hy, hm] = periodos[periodos.length - 1].split('-').map(Number)
+  const historicoEnd = new Date(hy, hm, 1).toISOString().slice(0, 10)
+
+  // Toda leitura de visitas é paginada — .limit(5000) era cortado em 1000 pelo PostgREST
+  const [{ data: closingAtual }, { rows: visitsRaw }, { rows: historicoRaw }] =
     await Promise.all([
       supabase
         .from('monthly_closings')
-        .select('total_receita_unetvale, total_a_pagar, margem, total_visitas')
+        .select('status')
         .eq('tenant_id', user.tenantId!)
         .eq('periodo', mesAtual)
         .maybeSingle(),
-      supabase
-        .from('monthly_closings')
-        .select('periodo, total_receita_unetvale, total_a_pagar, margem')
-        .eq('tenant_id', user.tenantId!)
-        .in('periodo', periodos)
-        .order('periodo', { ascending: true }),
-      supabase
-        .from('service_visits')
-        .select(
-          `finalidade, valor_recebido_unetvale,
-           technicians(id, nome_completo),
-           payouts(status, valor_calculado, valor_override)`,
-        )
-        .eq('tenant_id', user.tenantId!)
-        .gte('data_execucao', start)
-        .lt('data_execucao', end)
-        .limit(5000),
+      fetchAllPages((from, to) =>
+        supabase
+          .from('service_visits')
+          .select(
+            `finalidade, valor_recebido_unetvale,
+             technicians(id, nome_completo),
+             payouts(status, valor_calculado, valor_override)`,
+          )
+          .eq('tenant_id', user.tenantId!)
+          .gte('data_execucao', start)
+          .lt('data_execucao', end)
+          .order('id')
+          .range(from, to),
+      ),
+      fetchAllPages((from, to) =>
+        supabase
+          .from('service_visits')
+          .select(
+            'data_execucao, valor_recebido_unetvale, payouts(status, valor_calculado, valor_override)',
+          )
+          .eq('tenant_id', user.tenantId!)
+          .gte('data_execucao', historicoStart)
+          .lt('data_execucao', historicoEnd)
+          .order('id')
+          .range(from, to),
+      ),
     ])
 
   type VisitRow = {
@@ -84,19 +101,25 @@ export default async function FinanceiroPage({ searchParams }: Props) {
     technicians: { id: string; nome_completo: string } | null
     payouts: { status: string; valor_calculado: string | null; valor_override: string | null } | null
   }
+  type HistoricoRow = {
+    data_execucao: string
+    valor_recebido_unetvale: string | null
+    payouts: { status: string; valor_calculado: string | null; valor_override: string | null } | null
+  }
 
   const visits = (visitsRaw ?? []) as unknown as VisitRow[]
 
   const byFinalidade = aggregateByFinalidade(visits)
   const byTecnico = aggregateByTecnico(visits)
-  const historico = buildFinancialPoints(closingsHistorico ?? [])
+  const historico = buildRealtimeFinancialPoints(
+    (historicoRaw ?? []) as unknown as HistoricoRow[],
+    periodos,
+  )
 
-  // KPIs do período
-  const receita = Number(closingAtual?.total_receita_unetvale ?? 0)
-  const pago = Number(closingAtual?.total_a_pagar ?? 0)
-  const margem = Number(closingAtual?.margem ?? 0)
-  const margemPct = receita > 0 ? Math.round((margem / receita) * 100) : 0
-  const temFechamento = closingAtual !== null
+  // KPIs do período em tempo real (mesma fonte das tabelas abaixo)
+  const { receita, pago, margem, margemPct } = aggregateTotals(visits)
+  const fechamentoConsolidado =
+    closingAtual?.status === 'aprovado' || closingAtual?.status === 'pago'
 
 
   return (
@@ -109,25 +132,24 @@ export default async function FinanceiroPage({ searchParams }: Props) {
         </p>
       </div>
 
-      {/* KPI cards */}
-      {!temFechamento ? (
-        <div className="mb-8 rounded-xl border border-dashed border-[var(--line)] bg-[var(--bg-1)] px-6 py-8 text-center">
-          <p className="text-sm font-medium text-[var(--text-2)]">
-            Nenhum fechamento encontrado para {periodoLabel}.
-          </p>
-          <p className="mt-1 text-xs text-[var(--text-3)]">
-            Solicite um fechamento em{' '}
-            <Link href={`/fechamento/${mesAtual}`} className="text-[var(--cyan)] hover:underline">
-              Fechamento → {periodoLabel}
-            </Link>{' '}
-            para ver os KPIs financeiros consolidados.
-          </p>
-          <p className="mt-3 text-xs text-[var(--text-3)]">
-            Os dados por finalidade e por técnico abaixo são calculados em tempo real a partir das
-            visitas do período.
-          </p>
+      {/* KPI cards — sempre em tempo real, mesma fonte das tabelas abaixo */}
+      {visits.length > 0 && (
+        <div className="mb-3 flex items-center gap-2">
+          {fechamentoConsolidado ? (
+            <span className="rounded-full bg-[rgba(46,230,168,0.12)] px-2.5 py-1 text-[10px] font-semibold text-[var(--green)]">
+              Fechamento {closingAtual?.status === 'pago' ? 'pago' : 'aprovado'}
+            </span>
+          ) : (
+            <span className="text-[10px] text-[var(--text-3)]">
+              Valores em tempo real ·{' '}
+              <Link href={`/fechamento/${mesAtual}`} className="text-[var(--cyan)] hover:underline">
+                consolidar no fechamento →
+              </Link>
+            </span>
+          )}
         </div>
-      ) : (
+      )}
+      {visits.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
@@ -135,7 +157,7 @@ export default async function FinanceiroPage({ searchParams }: Props) {
             </p>
             <p className="mt-1 text-2xl font-bold text-[var(--cyan)]">{formatBRL(receita)}</p>
             <p className="mt-0.5 text-xs text-[var(--text-3)]">
-              {closingAtual?.total_visitas ?? 0} visitas
+              {visits.length} visitas
             </p>
           </div>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-5 py-4">

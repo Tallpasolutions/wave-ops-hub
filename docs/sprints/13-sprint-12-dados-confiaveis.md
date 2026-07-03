@@ -103,6 +103,42 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **03/07/2026 — Fase A VERIFICADA EM PRODUÇÃO (dados):** migration 0012 aplicada via SQL
+  Editor (v2 idempotente — a v1 falhou porque o editor executa statement a statement com
+  autocommit e derrubava a temp table; `UPDATE service_visits` da execução parcial foi
+  absorvido pela idempotência). Contagens DEPOIS: **0 / 0 / 0** (service_visits, reasons,
+  service_orders). Verificação nas telas: `/motivos` e `/pagamentos` sem nenhum mojibake
+  ("Não - 01 fui no cliente...", "Instalação - Fibra - PF", "Mudança Endereço Fibra").
+  **Recálculo pós-reparo:** "1408 recalculadas · 3 preservadas" — **sem regra LPU:
+  868 → 248 global (−71%); junho 349 → 123 (−65%)**; pendências críticas globais
+  1000 (cap) → 416; junho agora: 415 Aguardando · 123 Sem regra · 61 Motivo pendente ·
+  3 Aprovado. Motivo pendente global subiu 132 → 168: improdutivas cujo motivo reparado
+  agora casa migraram de "sem regra" para o status correto.
+  **Pendente para fechar a fase:** merge + deploy da branch (o reparo no parser ainda NÃO
+  está em produção — upload feito antes do deploy voltaria a gravar mojibake) e teste com
+  a próxima planilha real.
+- **03/07/2026 — Fase A implementada** (branch `fix/sprint-12-encoding-etl`) —
+  **aguardando aplicação da migration + verificação em produção**:
+  - **Diagnóstico provado antes de codar (R3.3):** cadeia = bytes Latin-1/CP1252
+    decodificados como **Mac Roman**. Script contra o corpus real do QA: 6/9 exatos +
+    3/9 explicados (campos `motivo_normalizado` são `toLowerCase()` do mojibake:
+    `"EndereÁo".toLowerCase()="endereáo"`). A corrupção JÁ VEM na planilha da Unetvale —
+    o parser (.xlsx/UTF-8) apenas a preserva
+  - Novo `src/lib/etl/encoding.ts`: `repairMojibake()` (inverso byte-exato da tabela Mac
+    Roman) + `hasMojibake()` (indicador: „ ‚ · ou maiúscula acentuada após minúscula —
+    PT legítimo "Água" não dispara). Bail-out conservador: char fora da tabela ou reparo
+    virando controle → string original intacta
+  - `parser.ts` aplica o reparo em todo valor string na ingestão — ponto único; reasons,
+    match de técnico e visitas recebem texto limpo
+  - **Migration `0012_fix_macroman_mojibake.sql`** (aplicar manualmente via SQL Editor):
+    repara `service_visits` (8 colunas), `reasons` (com de-dup por UNIQUE tenant+motivo,
+    reapontando visitas/payouts), `service_orders`, `technicians`; re-deriva
+    `motivo_normalizado`; imprime contagens ANTES/DEPOIS (colar aqui — R2.4) e diagnóstico
+    de `lpu_rules` com mojibake (LPU ativa é limpa, seed verificado)
+  - 13 testes novos com o corpus real (103 total) · typecheck ✅ · lint ✅
+  - **Passos de verificação:** aplicar 0012 → conferir contagens DEPOIS = 0 → "Recalcular
+    pendentes" → conferir `no_rule_match` (esperado: cair — regras de Instalação/Mudança
+    passam a casar) → telas sem "InstalaÁ„o"
 
 ## Definition of Done da sprint
 

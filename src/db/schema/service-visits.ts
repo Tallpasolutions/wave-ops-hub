@@ -77,6 +77,8 @@ export const serviceVisits = pgTable(
     explicacaoValor: text("explicacao_valor"),
     observacoes: text("observacoes"),
     numTecnicos: integer("num_tecnicos"),
+    // Finalidades de infraestrutura (ADR-008): ingeridas mas excluídas de payout e KPIs
+    foraEscopo: boolean("fora_escopo").notNull().default(false),
     contentHash: text("content_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

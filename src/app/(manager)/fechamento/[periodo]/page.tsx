@@ -111,6 +111,7 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
       .from('service_visits')
       .select('valor_recebido_unetvale')
       .eq('tenant_id', user.tenantId!)
+      .eq('fora_escopo', false)
       .gte('data_execucao', `${periodo}-01`)
       .lt('data_execucao', periodoFim)
       .order('id')

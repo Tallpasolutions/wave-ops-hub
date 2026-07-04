@@ -55,6 +55,7 @@ export type NormalizedRow = {
   explicacaoValor: string | null
   observacoes: string | null
   numTecnicos: number | null
+  foraEscopo: boolean
   contentHash: string
   clienteUsuario: string | null
   contrato: string | null

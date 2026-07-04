@@ -65,6 +65,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
        )`,
     )
     .eq('tenant_id', user.tenantId!)
+    .eq('fora_escopo', false)
     .gte('data_execucao', inicio)
     .lt('data_execucao', fimExclusivo)
     .order('data_execucao', { ascending: false })

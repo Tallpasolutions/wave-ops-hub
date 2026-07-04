@@ -103,6 +103,32 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **03/07/2026 — Fase C: diagnóstico + exclusão de infra implementados**
+  (branch `feat/sprint-12-exclusao-infra`) — **aguardando merge + migrations em produção**:
+  - **Diagnóstico dos 248 "sem regra"** (SQL rodado pelo usuário + cruzamento com a planilha
+    real): 100% são finalidade sem regra (nenhum é encoding/atributo). A coluna Z (explicação)
+    é a receita Unetvale já calculada (base × 1,0654), não o payout — confirmou o modelo de
+    margem. Os 248 se dividem em: infra (98), Venda Produto Externo (45), Troca de
+    Equipamentos (32), Cabeamento/col-Z (73)
+  - **Decisões da Wave:** infra (Projeto Infra, Manutenção Infra, Adequação de Rede, Massiva +
+    Manutenção Programada, Ativação Infra, Troca de postes, Viabilidade Infra, Notificação
+    Celesc, Genérico, Parcial) **não contabilizam em nada**; Venda Produto Externo = R$ 0;
+    Troca de Equipamentos (+ de Local) = valor de Suporte Fibra
+  - **ADR-008** (exclusão de infra): flag `service_visits.fora_escopo`, lista em
+    `tenants.config.finalidades_infra`, exclusão em 2 camadas (não gera payout + filtro nas
+    leituras que contabilizam)
+  - **Migration 0013**: coluna `fora_escopo`, seed da config, backfill, remoção dos payouts
+    de infra. ETL (`normalizer`/`ingestor`) marca `fora_escopo` no upload; `recalculate-batch`
+    pula infra; filtros aplicados em dashboard, financeiro, fechamento, OSs, perfil de técnico,
+    técnicos não vinculados, simulação e pagamentos (grep completo das 4 superfícies +
+    payout-based auto-excluídas)
+  - **Script `supabase/2026-07-lpu-finalidades-extras.sql`**: Venda Produto Externo R$ 0 +
+    Troca de Equipamentos anexada às regras de Suporte Fibra (idempotente)
+  - 114/114 testes · typecheck ✅ · lint ✅ · build ✅
+  - **Passos em produção:** aplicar 0013 → aplicar o script de LPU → "Recalcular pendentes".
+    Esperado: total de junho 602 → ~504, "sem regra" 248 → ~73 (só o grupo Cabeamento)
+  - **Restante da Fase C (grupo Cabeamento, 73):** match por explicação de valor (coluna Z) —
+    exige ADR do motor de LPU; fica para sprint dedicada
 - **03/07/2026 — Fase D implementada** (branch `feat/sprint-12-guard-rails`) —
   **aguardando merge + verificação em produção**:
   - Guards no servidor (defesa em profundidade): `approveImprodutiva` e

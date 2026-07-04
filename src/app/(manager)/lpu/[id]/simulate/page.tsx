@@ -102,6 +102,7 @@ export default async function SimulatePage({ params, searchParams }: Props) {
         'id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada',
       )
       .eq('tenant_id', user.tenantId!)
+      .eq('fora_escopo', false)
       .gte('data_execucao', inicio)
       .lt('data_execucao', fimExclusivo),
     supabase

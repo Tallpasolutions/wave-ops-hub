@@ -55,6 +55,7 @@ export default async function TecnicosPage() {
         .from('service_visits')
         .select('tecnico_raw')
         .eq('tenant_id', user.tenantId!)
+        .eq('fora_escopo', false)
         .is('tecnico_id', null)
         .order('id')
         .range(from, to),

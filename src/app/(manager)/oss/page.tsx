@@ -83,6 +83,7 @@ export default async function OssPage({ searchParams }: Props) {
     .from('service_visits')
     .select('os_num, finalidade, cidade, sucesso, data_execucao, valor_recebido_unetvale')
     .eq('tenant_id', user.tenantId!)
+    .eq('fora_escopo', false)
     .gte('data_execucao', start)
     .lt('data_execucao', end)
     .order('data_execucao', { ascending: false })

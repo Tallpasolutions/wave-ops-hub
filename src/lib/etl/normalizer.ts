@@ -10,6 +10,15 @@ function parseNullableInt(value: number | null | undefined): number | null {
   return Math.round(value)
 }
 
+// Finalidades de infra (ADR-008) vêm normalizadas (trim+lower) do tenant config.
+export function isFinalidadeInfra(
+  finalidade: string | null | undefined,
+  infraSet: ReadonlySet<string>,
+): boolean {
+  if (!finalidade) return false
+  return infraSet.has(finalidade.trim().toLowerCase())
+}
+
 export function normalize(
   row: RawRow,
   tenantId: string,
@@ -17,6 +26,7 @@ export function normalize(
   tecnicoId: string | null,
   reasonId: string | null,
   contentHash: string,
+  infraSet: ReadonlySet<string> = new Set(),
 ): NormalizedRow {
   const isSuccess = row.Sucesso.trim().toLowerCase().startsWith('sim')
 
@@ -59,6 +69,7 @@ export function normalize(
     explicacaoValor: row.ExplicacaoValor?.trim() ?? null,
     observacoes: row.Observacoes?.trim() ?? null,
     numTecnicos: parseNullableInt(row.NumTecnicos),
+    foraEscopo: isFinalidadeInfra(row.Finalidade, infraSet),
     contentHash,
     clienteUsuario: row.Usuario?.trim() ?? null,
     contrato: row.Contrato?.trim() ?? null,

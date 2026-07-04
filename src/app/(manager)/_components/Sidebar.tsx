@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { isValidMes } from '../_lib/period'
 import {
   LayoutDashboard,
   Users,
@@ -25,6 +26,11 @@ type NavItem = {
   icon: React.ElementType
   disabled?: boolean
 }
+
+// Telas cujo link deve carregar o período atual na URL, para o mês escolhido se manter
+// ao navegar (URLs distintas por mês evitam o staleness do Router Cache do Next).
+// /improdutivas fica de fora de propósito: é fila de aprovação, default "todos os períodos".
+const PERIOD_NAV = new Set(['/dashboard', '/oss', '/financeiro', '/pagamentos'])
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -57,6 +63,13 @@ export function ManagerSidebar({
   onClose,
 }: ManagerSidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Propaga o período atual (só o ?mes= da URL, para não quebrar a hidratação — o cookie
+  // é lido no servidor). Sem ?mes=, o link fica limpo e o servidor cai no default
+  // (último mês com dados / cookie).
+  const spMes = searchParams.get('mes')
+  const currentMes = isValidMes(spMes) ? spMes : undefined
 
   return (
     <aside className="flex w-[220px] shrink-0 flex-col border-r border-[var(--line)] bg-[var(--bg-1)]">
@@ -94,10 +107,13 @@ export function ManagerSidebar({
               ? pathname === '/equipe'
               : pathname === href || pathname.startsWith(href + '/')
 
+          const linkHref =
+            PERIOD_NAV.has(href) && isValidMes(currentMes) ? `${href}?mes=${currentMes}` : href
+
           return (
             <Link
               key={href}
-              href={href}
+              href={linkHref}
               onClick={onClose}
               className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 active

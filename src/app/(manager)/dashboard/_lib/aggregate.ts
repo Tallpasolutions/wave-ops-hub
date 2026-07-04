@@ -19,6 +19,8 @@ export type TechRow = { id: string; nome_completo: string }
 export type ReasonRow = { id: string; motivo_normalizado: string | null; categoria: string | null }
 
 export type DashKpis = {
+  totalOss: number
+  ossPorDia: number
   totalVisitas: number
   mediaDiaria: number
   totalArrecadacao: number
@@ -86,6 +88,10 @@ export function aggregate(
   const reasonMap = new Map(reasons.map((r) => [r.id, r]))
 
   const totalVisitas = visits.length
+  // OS = entidade (chave os_num); Visita = cada execução (linha). Uma OS tem N visitas.
+  const totalOss = new Set(
+    visits.map((v) => v.os_num).filter((n): n is number => n != null),
+  ).size
   const totalArrecadacao = sum(visits.map((v) => v.valor_recebido_unetvale))
   const isSuccess = (v: VisitRow) => v.sucesso?.trim().toLowerCase().startsWith('sim') ?? false
   const finalizadas = visits.filter(isSuccess)
@@ -95,11 +101,14 @@ export function aggregate(
   const cidades = new Set(visits.filter((v) => v.cidade).map((v) => v.cidade))
 
   const kpis: DashKpis = {
+    totalOss,
+    ossPorDia: daysInPeriod > 0 ? totalOss / daysInPeriod : 0,
     totalVisitas,
     mediaDiaria: daysInPeriod > 0 ? totalVisitas / daysInPeriod : 0,
     totalArrecadacao,
     arrecadacaoPorDia: daysInPeriod > 0 ? totalArrecadacao / daysInPeriod : 0,
-    ticketMedio: finalizadas.length > 0 ? sum(finalizadas.map((v) => v.valor_recebido_unetvale)) / finalizadas.length : 0,
+    // Ticket médio POR OS = receita total ÷ OSs distintas (definição no glossário)
+    ticketMedio: totalOss > 0 ? totalArrecadacao / totalOss : 0,
     taxaFinalizacao: totalVisitas > 0 ? (finalizadas.length / totalVisitas) * 100 : 0,
     totalFinalizadas: finalizadas.length,
     improdutividade: totalVisitas > 0 ? (improdutivas.length / totalVisitas) * 100 : 0,

@@ -89,6 +89,13 @@ Valor de payout que o técnico **deixou de receber** por falha atribuível a ele
 
 **Exemplo:** Visita com motivo "Endereço não encontrado" — categorizado como falha do técnico — vale R$ 80 pela LPU se desse certo. O técnico recebeu R$ 0 (não paga improdutiva nesse motivo). **Deixado na mesa = R$ 80.**
 
+### Ticket médio por OS
+Receita total do período (soma de `valor_recebido_unetvale` de todas as visitas) **dividida pelo número de OSs distintas** (`os_num` únicos), não por visitas. Reflete o valor médio que a Unetvale paga por ordem de serviço. Definido na Sprint 13 (Fase B) para reconciliar o dashboard com as páginas `/oss` e `/pagamentos`.
+
+**Métricas de volume no dashboard:**
+- **Total de OSs** = contagem de `os_num` distintos (mesma base de `/oss`).
+- **Visitas** = número de linhas/execuções (uma OS pode ter várias). É a base de "taxa de finalização", "improdutividade" e das quebras por finalidade/cidade.
+
 ---
 
 ## Conceitos técnicos do domínio

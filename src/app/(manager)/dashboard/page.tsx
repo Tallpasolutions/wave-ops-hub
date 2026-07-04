@@ -109,13 +109,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       ) : (
         <>
           {/* ── KPI Strip ── */}
-          <section className="mb-7 grid grid-cols-3 gap-3.5 xl:grid-cols-6">
+          <section className="mb-7 grid grid-cols-3 gap-3.5 xl:grid-cols-7">
             <KpiCard
               label="Total de OSs"
-              value={fmtNum(kpis.totalVisitas)}
+              value={fmtNum(kpis.totalOss)}
               valueGradient
+              pill={{ text: `${kpis.ossPorDia.toFixed(1)}/dia`, variant: 'cyan' }}
+              foot="OSs distintas"
+            />
+            <KpiCard
+              label="Visitas"
+              value={fmtNum(kpis.totalVisitas)}
               pill={{ text: `${kpis.mediaDiaria.toFixed(1)}/dia`, variant: 'cyan' }}
-              foot="média diária"
+              foot="atendimentos"
             />
             <KpiCard
               label="Valor Total Recebido"
@@ -130,20 +136,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               label="Ticket Médio por OS"
               value={fmtBRL(kpis.ticketMedio)}
               pill={{ text: 'por OS', variant: 'cyan' }}
-              foot="finalizada"
+              foot="receita ÷ OSs"
             />
             <KpiCard
               label="Taxa de Finalização"
               value={kpis.taxaFinalizacao.toFixed(1)}
               valueSuffix="%"
-              pill={{ text: `${fmtNum(kpis.totalFinalizadas)} OSs`, variant: 'green' }}
+              pill={{ text: `${fmtNum(kpis.totalFinalizadas)} visitas`, variant: 'green' }}
               foot="com sucesso"
             />
             <KpiCard
               label="Improdutividade"
               value={kpis.improdutividade.toFixed(1)}
               valueSuffix="%"
-              pill={{ text: `${fmtNum(kpis.totalImprodutivas)} OSs`, variant: 'amber' }}
+              pill={{ text: `${fmtNum(kpis.totalImprodutivas)} visitas`, variant: 'amber' }}
               foot="sem produção"
             />
             <KpiCard

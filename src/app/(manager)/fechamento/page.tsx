@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { computeRealtimeClosingTotals } from '@/lib/payouts'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +47,29 @@ export default async function FechamentoPage() {
     .order('periodo', { ascending: false })
     .limit(12)
 
-  const list = closings ?? []
+  // O snapshot total_a_pagar/total_visitas só é gravado na aprovação. Para
+  // fechamentos não consolidados exibimos os mesmos números que a página de
+  // detalhe calcula em tempo real, evitando o card zerado enganoso.
+  const cards = await Promise.all(
+    (closings ?? []).map(async (c) => {
+      const consolidado = c.status === 'aprovado' || c.status === 'pago'
+      if (consolidado) {
+        return {
+          ...c,
+          totalAPagar: c.total_a_pagar as number | string | null,
+          totalVisitas: c.total_visitas as number | null,
+          tempoReal: false,
+        }
+      }
+      const rt = await computeRealtimeClosingTotals(supabase, user.tenantId!, c.periodo)
+      return {
+        ...c,
+        totalAPagar: rt.totalAPagar,
+        totalVisitas: rt.totalVisitas,
+        tempoReal: true,
+      }
+    }),
+  )
 
   return (
     <div className="p-4 lg:p-8">
@@ -57,7 +80,7 @@ export default async function FechamentoPage() {
         </p>
       </div>
 
-      {list.length === 0 ? (
+      {cards.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--line)] py-16">
           <p className="text-sm text-[var(--text-3)]">Nenhum fechamento encontrado.</p>
           <p className="mt-1 text-xs text-[var(--text-3)]">
@@ -66,7 +89,7 @@ export default async function FechamentoPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {list.map((c) => (
+          {cards.map((c) => (
             <Link
               key={c.id}
               href={`/fechamento/${c.periodo}`}
@@ -87,7 +110,7 @@ export default async function FechamentoPage() {
                     Total a pagar
                   </p>
                   <p className="mt-0.5 text-base font-bold text-[var(--text)]">
-                    {formatBRL(c.total_a_pagar)}
+                    {formatBRL(c.totalAPagar)}
                   </p>
                 </div>
                 <div>
@@ -95,13 +118,18 @@ export default async function FechamentoPage() {
                     Visitas
                   </p>
                   <p className="mt-0.5 text-base font-bold text-[var(--text)]">
-                    {c.total_visitas}
+                    {c.totalVisitas ?? '—'}
                   </p>
                 </div>
               </div>
-              <p className="mt-3 text-right text-xs text-[var(--text-3)] transition-colors group-hover:text-[var(--cyan)]">
-                Ver detalhes →
-              </p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-[10px] text-[var(--text-3)]">
+                  {c.tempoReal ? 'tempo real · consolida na aprovação' : ''}
+                </span>
+                <span className="text-xs text-[var(--text-3)] transition-colors group-hover:text-[var(--cyan)]">
+                  Ver detalhes →
+                </span>
+              </div>
             </Link>
           ))}
         </div>

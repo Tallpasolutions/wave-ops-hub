@@ -68,10 +68,33 @@ Qualquer item novo descoberto durante a execução → `docs/tech-debt.md` (R5.1
 ## Estado verificado
 
 - **02/07/2026 — QA:** itens registrados com URLs de reprodução. Nenhum iniciado.
+- **04/07/2026 — Fase A CONCLUÍDA e verificada em produção** (branch `feat/sprint-14-ultimo-acesso`,
+  mergeada). A coluna `users.ultimo_acesso` era lida em 3 telas mas nunca escrita → sempre "—".
+  Solução: helper `src/lib/auth/last-access.ts` lê `auth.users.last_sign_in_at` via
+  `auth.admin.listUsers` (paginado) — sem migration nem write path. Ligado em `/equipe`,
+  `/equipe/supervisores` e `(admin)/admin/users`. **Verificação no navegador (`/equipe`):** coluna
+  "Último acesso" com timestamps reais — usuário logado (Gestor Wave) exibe `04/07/2026, 13:48`
+  (login do dia, com hora), demais usuários com datas/horas próprias. `/equipe/supervisores` sem
+  supervisores → empty state OK (helper trata lista vazia sem chamar o Auth).
+- **04/07/2026 — Fase B CONCLUÍDA e verificada em produção** (branch `feat/sprint-14-cosmeticos`,
+  mergeada). Cosméticos S1/S2/S3:
+  - **S1** `/oss/[osNum]`: `{valor && …}` renderizava "0" órfão quando receita=0 (o número 0 é
+    falsy e o React imprime o 0). Trocado por `!= null` → exibe "R$ 0,00". Varredura R3.1: nenhum
+    outro guard numérico com o padrão. **Verificado em `/oss/569195`:** card mostra
+    "Receita Unetvale · R$ 0,00", sem "0" solto.
+  - **S2** Resumo Executivo: números eram hardcoded (01–04) com itens condicionais + `filter` →
+    item oculto deixava buraco (01, 02, 04). Agora numera pela posição pós-filtro. **Verificado:**
+    junho renderiza 01, 02, 03, 04 em sequência.
+  - **S3** eixo X do volume diário pulava dias sem visita. `aggregate` recebe `periodStart` e
+    preenche todos os dias do mês com zeros (chaves por string, timezone-safe; +2 testes).
+    **Verificado:** junho mostra "30 DIAS" com o eixo 01…13…30 completo (o dia 13 que o QA viu
+    sumido está presente).
+  - Nota: no mês corrente, dias futuros aparecem zerados até o fim do mês (consistente com
+    "range do mês"; ajustável para cortar em "hoje" se o gestor preferir).
 
 ## Definition of Done da sprint
 
-- [ ] Itens A–C verificados em produção
+- [ ] Itens A–C verificados em produção _(A e B ✅ 04/07; falta C)_
 - [ ] typecheck · lint · test verdes
 - [ ] `00-roadmap.md` atualizado — QA de regressão completo do relatório de 02/07 refeito
       ao final desta sprint (fecha o ciclo do QA)

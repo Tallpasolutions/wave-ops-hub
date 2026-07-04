@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { parsePeriod } from '../_lib/period'
 import { ImprodutivasTable } from './_components/ImprodutivasTable'
 import type { ImprodutivaRow } from './_components/ImprodutivasTable'
@@ -29,7 +30,7 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
     .from('payouts')
     .select(
       `id, valor_calculado, technician_id,
-       service_visits!inner(os_num, data_execucao),
+       service_visits!inner(os_num, data_execucao, tecnico_raw),
        technicians(id, nome_completo),
        reasons!inner(motivo_normalizado, motivo_original, categoria)`,
     )
@@ -70,7 +71,11 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
   const { data: raw } = await payoutsQuery
 
   const rows: ImprodutivaRow[] = (raw ?? []).map((p) => {
-    const visit = p.service_visits as unknown as { os_num: number; data_execucao: string }
+    const visit = p.service_visits as unknown as {
+      os_num: number
+      data_execucao: string
+      tecnico_raw: string | null
+    }
     const tech = p.technicians as unknown as { id: string; nome_completo: string } | null
     const reason = p.reasons as unknown as {
       motivo_normalizado: string | null
@@ -82,7 +87,7 @@ export default async function ImprodutivasPage({ searchParams }: Props) {
       osNum: Number(visit.os_num),
       dataExecucao: visit.data_execucao,
       tecnicoId: tech?.id ?? null,
-      tecnicoNome: tech?.nome_completo ?? null,
+      tecnicoNome: tecnicoDisplayName(tech?.nome_completo, visit.tecnico_raw),
       motivo: reason.motivo_normalizado ?? reason.motivo_original,
       categoria: reason.categoria,
       valorCalculado: p.valor_calculado !== null ? Number(p.valor_calculado) : null,

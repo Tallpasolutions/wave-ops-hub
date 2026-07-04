@@ -103,6 +103,23 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **03/07/2026 — Fase D implementada** (branch `feat/sprint-12-guard-rails`) —
+  **aguardando merge + verificação em produção**:
+  - Guards no servidor (defesa em profundidade): `approveImprodutiva` e
+    `bulkApproveImprodutivas` recusam payouts `pending_classification`; o lote reporta
+    quantas foram ignoradas por motivo pendente
+  - UI: botão Aprovar desabilitado para categoria PENDENTE com tooltip + link
+    "Classificar →" para `/motivos`; barra de lote com resumo ("aprovar N (R$ X) · M com
+    motivo pendente serão ignoradas")
+  - Rejeição com confirmação inline explícita ("Confirmar R$ 0" / Cancelar) e
+    **justificativa opcional** gravada em `override_motivo` + `override_by/at` (decisão:
+    opcional para não travar o fluxo — trocar para obrigatória é 1 linha se o uso mostrar
+    necessidade)
+  - **Desfazer**: barra pós-ação ("OS #N aprovada/rejeitada · Desfazer") — nova action
+    `undoImprodutivaDecision` limpa a decisão/override e recalcula a visita para restaurar
+    o status verdadeiro; bloqueada se o payout já entrou em fechamento/pagamento
+  - Bônus Fase B: fila de aprovação agora mostra nome bruto "(não vinculado)" em vez de "—"
+  - 110/110 testes · typecheck ✅ · lint ✅ · build ✅
 - **03/07/2026 — Fase B implementada** (branch `feat/sprint-12-vinculo-tecnicos`) —
   **aguardando merge + verificação em produção**:
   - Verificado o que já existia (R2.1): `linkTechnicianRaw` + `LinkTechnicianForm` da

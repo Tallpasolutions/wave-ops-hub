@@ -195,11 +195,20 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
     `pendente_classificacao`
   - Limpeza: branch órfã `fix/audit-triggers-security-definer` (0010 nunca mergeado) deletada —
     seu conteúdo já vive na migration `0014` e está aplicado em produção
-  - **Verificação visual em prod da Fase D:** leve/não-bloqueadora, pendente (labels e títulos)
+- **04/07/2026 — Fase D VERIFICADA EM PRODUÇÃO** (navegador, `wave.tallpa.com.br`):
+  - §1 `/motivos`: chips de filtro "Falha do Técnico · **Falha do Cliente** · Força Maior ·
+    Falha do Sistema" e badges "FALHA DO CLIENTE"/"FALHA DO SISTEMA" ✓
+  - §1 `/improdutivas`: badges idênticos aos de `/motivos` ("FALHA DO CLIENTE") — unificação
+    confirmada entre telas; nenhum resquício de "Falha Cliente" ✓
+  - §4 header do dashboard = **"Visão Geral"** (era "Ordens de Serviço") ✓
+  - §4 `<title>` por rota: "Dashboard", "Aprovação de Improdutivas", **"Novo Upload"** (sub-rota
+    que antes caía no default "Painel do Gestor"), todas `| Wave Ops Hub` ✓
+  - Link "Classificar →" ativo nas linhas PENDENTE (fix mergeado) ✓
+  - **Sprint 13 FECHADA.**
 
 ## Definition of Done da sprint
 
-- [x] Fases A–C verificadas em produção · Fase D mergeada/deployada (verificação visual leve pendente)
+- [x] Fases A–D verificadas em produção (D confirmada no navegador em 04/07)
 - [x] typecheck · lint · test verdes (137 testes) · E2E dos fluxos alterados atualizados
 - [x] Glossário atualizado (ticket médio, OSs × visitas)
 - [x] `00-roadmap.md` atualizado

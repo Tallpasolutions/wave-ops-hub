@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 export const metadata: Metadata = { title: 'Perfil do Técnico' }
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../../../_lib/period'
+import { getEffectivePeriod } from '../../../_lib/period-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,12 +45,16 @@ function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
 export default async function TechnicianProfilePage({ params, searchParams }: Props) {
   const { id } = await params
   const { mes } = await searchParams
-  const { start, end, label: periodoLabel } = parsePeriod(mes)
 
   const user = await getCurrentUser()
   if (!user) notFound()
 
   const supabase = await createSupabaseServerClient()
+
+  // Default = último mês com dados (não o mês corrente vazio). Antes o perfil abria em
+  // julho vazio mesmo quando o técnico tinha visitas em junho.
+  const mesEfetivo = await getEffectivePeriod(mes, supabase, user.tenantId!)
+  const { start, end, label: periodoLabel } = parsePeriod(mesEfetivo)
 
   const [{ data: tech }, { data: visitsRaw }, { data: payoutsRaw }] = await Promise.all([
     supabase

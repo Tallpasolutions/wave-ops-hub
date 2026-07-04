@@ -399,7 +399,7 @@ export function ImprodutivasTable({ rows }: { rows: ImprodutivaRow[] }) {
                   </span>
                   {row.categoria === PENDENTE && (
                     <Link
-                      href="/motivos?categoria=pendente"
+                      href="/motivos?categoria=pendente_classificacao"
                       className="ml-2 text-[10px] text-[var(--cyan)] underline-offset-2 hover:underline"
                     >
                       Classificar →

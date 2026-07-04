@@ -8,8 +8,11 @@ import { simulate } from '@/lib/lpu'
 import type { LpuRuleNarrowed, ReasonForPayout, SimVisit } from '@/lib/lpu'
 import { activateLpu } from '../../actions'
 import { parsePeriod, buildPeriodOptions } from '../../../_lib/period'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Simular LPU' }
 
 // ── Helpers de display ────────────────────────────────────────────────────────
 

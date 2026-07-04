@@ -4,6 +4,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { EditRuleForm } from './_components/EditRuleForm'
 import { getTechniciansForRule } from '../../../../actions'
 import type { LpuRuleNarrowed } from '@/lib/lpu'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Editar Regra' }
 
 export const dynamic = 'force-dynamic'
 

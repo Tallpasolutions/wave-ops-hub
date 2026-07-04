@@ -3,8 +3,11 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Auditoria do Upload' }
 
 type AuditRecord = {
   id: string

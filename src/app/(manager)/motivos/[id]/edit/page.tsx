@@ -5,8 +5,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { ReasonCategoria } from '@/db/schema'
 import { EditReasonForm } from './_components/EditReasonForm'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Editar Motivo' }
 
 type ReasonDetail = {
   id: string

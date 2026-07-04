@@ -95,7 +95,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             Painel Operacional · Mensal
           </span>
           <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-[var(--text)]">
-            Ordens de Serviço
+            Visão Geral
           </h1>
           <p className="mt-1.5 text-[13px] text-[var(--text-2)]">
             Visão consolidada de produtividade, finanças e performance da equipe técnica ·{' '}

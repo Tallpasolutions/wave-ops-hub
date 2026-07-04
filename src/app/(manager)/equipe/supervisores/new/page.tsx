@@ -2,8 +2,11 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser, canManageUsers } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { CreateSupervisorForm } from './_components/CreateSupervisorForm'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Novo Supervisor' }
 
 export default async function SupervisorNewPage() {
   const user = await getCurrentUser()

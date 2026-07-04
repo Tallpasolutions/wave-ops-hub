@@ -160,8 +160,31 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
   - **Feedback do gestor anotado** (`tech-debt.md` D1–D3 + roadmap): números estourando o card
     do dashboard, copy dos cards, e gráficos não interativos (deveriam filtrar ao clicar) →
     viraram sprint "Dashboard & Interatividade".
-- **Falta só a Fase D** (taxonomia única de categoria + motivo normalizado nas listas +
-  títulos de página) para encerrar a Sprint 13.
+- **04/07/2026 — Fase D implementada** (branch `feat/sprint-13-taxonomia-titulos`) —
+  **aguardando merge + verificação em produção**:
+  - **§1 Taxonomia única** (grep completo antes — R3.1): a divergência era "Falha Cliente"
+    (filtro/improdutivas) × "Falha do Cliente" (badge/form). Novo `src/lib/reasons/categoria.ts`
+    como fonte única: `CATEGORIA_LABEL`, `CATEGORIA_BADGE_CLASS`, `categoriaLabel/BadgeClass`
+    (com fallback), `CATEGORIA_CLASSIFICAVEL_OPTIONS` (form). Ligado em `motivos/page.tsx`
+    (badge + chips de filtro), `improdutivas/ImprodutivasTable` (badge) e `EditReasonForm`
+    (radios). Rótulo único em toda a UI: "Falha do Técnico/Cliente/Sistema", "Força Maior",
+    "Pendente". Cores de badge preservadas (eram idênticas nos dois pontos)
+  - **§2 Motivo normalizado:** verificado — listas e dashboard já usavam
+    `motivo_normalizado ?? motivo_original` (improdutivas, dashboard `porMotivo`, detalhes de
+    oss/visitas/pagamentos). Nenhuma string bruta de motivo em lista principal. Sem mudança
+  - **§3 Escopo global de pendências:** já rotulado "· todas as competências" na Fase B
+    (`pagamentos/page.tsx:178`). Verificado, sem mudança
+  - **§4 Títulos:** header do dashboard `<h1>` "Ordens de Serviço" → **"Visão Geral"** (colidia
+    com /oss e enganava). `<title>` adicionado nas 12 sub-rotas que caíam no default do layout
+    (uploads/new, equipe/new, equipe/tecnicos/new, equipe/supervisores/new, lpu/new,
+    lpu/[id]/simulate, lpu/[id]/rules/new, lpu/[id]/rules/[ruleId]/edit, motivos/[id]/edit,
+    pagamentos/[id]/override, uploads/[id]/audit, visitas/[id])
+  - 5 testes novos da taxonomia (137 total) · typecheck ✅ · lint ✅ · build ✅
+  - **Bug fora de escopo anotado** (não corrigido — R5.3): em `ImprodutivasTable`, o link
+    "Classificar →" aponta para `/motivos?categoria=pendente` (valor inválido; o correto é
+    `pendente_classificacao`) — o filtro é ignorado e a página mostra tudo. Candidato a issue
+  - **Verificar em prod:** badge/filtro/form exibindo "Falha do Cliente" idêntico nas 3 telas ·
+    header do dashboard "Visão Geral" · aba do navegador com título específico em cada sub-rota
 
 ## Definition of Done da sprint
 

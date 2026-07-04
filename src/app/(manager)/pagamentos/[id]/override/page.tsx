@@ -4,9 +4,12 @@ import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
+import type { Metadata } from 'next'
 import { OverridePayoutForm } from './_components/OverridePayoutForm'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Override Manual' }
 
 type Props = {
   params: Promise<{ id: string }>

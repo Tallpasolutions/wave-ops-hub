@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { UploadForm } from './UploadForm'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Novo Upload' }
 
 export default function NewUploadPage() {
   return (

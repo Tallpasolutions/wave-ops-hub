@@ -3,8 +3,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { CreateRuleForm } from './_components/CreateRuleForm'
 import { getDistinctValues, getTechniciansForRule } from '../../../actions'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Nova Regra' }
 
 type Props = { params: Promise<{ id: string }> }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CheckSquare, Square, ThumbsUp, ThumbsDown, Undo2 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { categoriaLabel, categoriaBadgeClass } from '@/lib/reasons/categoria'
 import {
   approveImprodutiva,
   rejectImprodutiva,
@@ -25,22 +26,6 @@ export type ImprodutivaRow = {
 }
 
 const PENDENTE = 'pendente_classificacao'
-
-const CATEGORIA_LABELS: Record<string, string> = {
-  falha_tecnico: 'Falha Técnico',
-  falha_cliente: 'Falha Cliente',
-  forca_maior: 'Força Maior',
-  falha_sistema: 'Falha Sistema',
-  pendente_classificacao: 'Pendente',
-}
-
-const CATEGORIA_CLASSES: Record<string, string> = {
-  falha_tecnico: 'bg-[rgba(255,184,0,0.12)] text-[#ffb800]',
-  falha_cliente: 'bg-[rgba(30,107,255,0.12)] text-[var(--blue)]',
-  forca_maior: 'bg-[rgba(160,100,255,0.12)] text-[#a064ff]',
-  falha_sistema: 'bg-[rgba(255,200,0,0.10)] text-[#ffc800]',
-  pendente_classificacao: 'bg-[rgba(255,84,112,0.13)] text-[var(--red)]',
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', {
@@ -406,11 +391,11 @@ export function ImprodutivasTable({ rows }: { rows: ImprodutivaRow[] }) {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      CATEGORIA_CLASSES[row.categoria] ?? 'bg-white/5 text-[var(--text-3)]'
-                    }`}
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${categoriaBadgeClass(
+                      row.categoria,
+                    )}`}
                   >
-                    {CATEGORIA_LABELS[row.categoria] ?? row.categoria}
+                    {categoriaLabel(row.categoria)}
                   </span>
                   {row.categoria === PENDENTE && (
                     <Link

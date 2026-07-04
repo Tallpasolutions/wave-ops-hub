@@ -212,6 +212,7 @@ export async function recalculatePendingPayouts(
         .from("service_visits")
         .select(VISIT_COLUMNS)
         .eq("tenant_id", tenantId)
+        .eq("fora_escopo", false)
         .in("id", idChunk);
       if (error) {
         totals.errors += 1;
@@ -225,7 +226,8 @@ export async function recalculatePendingPayouts(
       let query = supabase
         .from("service_visits")
         .select(VISIT_COLUMNS)
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .eq("fora_escopo", false);
 
       if (options?.periodo) {
         const [year, month] = options.periodo.split("-").map(Number);
@@ -267,7 +269,8 @@ export async function recalculatePendingPayoutsChunk(
   const { count } = await supabase
     .from("service_visits")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("fora_escopo", false);
   const total = count ?? 0;
 
   const ctx = await loadRecalcContext(tenantId, supabase);
@@ -276,6 +279,7 @@ export async function recalculatePendingPayoutsChunk(
     .from("service_visits")
     .select(VISIT_COLUMNS)
     .eq("tenant_id", tenantId)
+    .eq("fora_escopo", false)
     .order("id")
     .range(offset, offset + RECALC_CHUNK_SIZE - 1);
 

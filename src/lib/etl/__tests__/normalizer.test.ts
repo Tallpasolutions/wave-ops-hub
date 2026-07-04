@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalize } from '../normalizer'
+import { normalize, isFinalidadeInfra } from '../normalizer'
 import type { RawRow } from '../schemas'
 
 const BASE_RAW: RawRow = {
@@ -22,10 +22,41 @@ const BASE_ARGS = {
   contentHash: 'abc123',
 }
 
+// ADR-008: finalidades de infra são marcadas fora_escopo (excluídas de payout e KPIs)
+describe('isFinalidadeInfra', () => {
+  const infra = new Set(['projeto infra', 'manutenção infra', 'massiva'])
+
+  it('detecta finalidade de infra (case/trim-insensitive)', () => {
+    expect(isFinalidadeInfra('Projeto Infra', infra)).toBe(true)
+    expect(isFinalidadeInfra('  PROJETO INFRA ', infra)).toBe(true)
+    expect(isFinalidadeInfra('Massiva', infra)).toBe(true)
+  })
+
+  it('não marca finalidades operacionais', () => {
+    expect(isFinalidadeInfra('Instalação - Fibra - PF', infra)).toBe(false)
+    expect(isFinalidadeInfra('Suporte Fibra', infra)).toBe(false)
+    expect(isFinalidadeInfra(null, infra)).toBe(false)
+  })
+
+  it('conjunto vazio não marca nada (default)', () => {
+    expect(isFinalidadeInfra('Projeto Infra', new Set())).toBe(false)
+  })
+})
+
 describe('normalize', () => {
   it('mapeia campos básicos corretamente', () => {
     const result = normalize(BASE_RAW, BASE_ARGS.tenantId, BASE_ARGS.uploadId, BASE_ARGS.tecnicoId, BASE_ARGS.reasonId, BASE_ARGS.contentHash)
     expect(result.tenantId).toBe('tenant-1')
+    expect(result.foraEscopo).toBe(false)
+  })
+
+  it('marca foraEscopo quando a finalidade é de infra', () => {
+    const result = normalize(
+      { ...BASE_RAW, Finalidade: 'Projeto Infra' },
+      BASE_ARGS.tenantId, BASE_ARGS.uploadId, BASE_ARGS.tecnicoId, BASE_ARGS.reasonId, BASE_ARGS.contentHash,
+      new Set(['projeto infra']),
+    )
+    expect(result.foraEscopo).toBe(true)
     expect(result.osNum).toBe(12345)
     expect(result.dataExecucao).toEqual(new Date('2026-04-01'))
     expect(result.tecnicoId).toBe('tech-1')

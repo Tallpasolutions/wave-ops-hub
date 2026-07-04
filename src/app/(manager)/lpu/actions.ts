@@ -198,6 +198,7 @@ export async function getDistinctValues(
     .from('service_visits')
     .select(field)
     .eq('tenant_id', tenantId)
+    .eq('fora_escopo', false)
     .not(field, 'is', null)
     .order(field)
   const seen = new Set<string>()

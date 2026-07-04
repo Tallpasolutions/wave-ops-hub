@@ -72,6 +72,7 @@ function buildDbRow(row: NormalizedRow) {
     explicacao_valor: row.explicacaoValor,
     observacoes: row.observacoes,
     num_tecnicos: row.numTecnicos,
+    fora_escopo: row.foraEscopo,
     content_hash: row.contentHash,
   }
 }
@@ -111,7 +112,7 @@ export async function run(
     const periodoFim = new Date(Math.max(...timestamps)).toISOString().split('T')[0]!
 
     // 3. Carrega referências do banco em paralelo (uma única rodada de queries)
-    const [techRes, reasonRes, existingRes] = await Promise.all([
+    const [techRes, reasonRes, existingRes, tenantRes] = await Promise.all([
       supabase
         .from('technicians')
         .select('id, nome_completo')
@@ -128,10 +129,19 @@ export async function run(
         .eq('tenant_id', tenantId)
         .gte('data_execucao', periodoInicio)
         .lte('data_execucao', periodoFim + 'T23:59:59.999Z'),
+      supabase.from('tenants').select('config').eq('id', tenantId).single(),
     ])
 
     const techList: TechnicianRef[] = techRes.data ?? []
     const reasonList: ReasonRef[] = reasonRes.data ?? []
+
+    // Finalidades de infra do tenant (ADR-008) — normalizadas para match tolerante
+    const tenantConfig = (tenantRes.data?.config ?? {}) as { finalidades_infra?: unknown }
+    const infraSet = new Set(
+      (Array.isArray(tenantConfig.finalidades_infra) ? tenantConfig.finalidades_infra : [])
+        .filter((f): f is string => typeof f === 'string')
+        .map((f) => f.trim().toLowerCase()),
+    )
 
     // Mapa em memória: chave → { id, content_hash }
     type ExistingVisit = { id: string; content_hash: string }
@@ -196,7 +206,7 @@ export async function run(
         }
 
         const contentHash = computeContentHash(rawRow)
-        const normalized = normalize(rawRow, tenantId, uploadId, tecnico?.id ?? null, reasonId, contentHash)
+        const normalized = normalize(rawRow, tenantId, uploadId, tecnico?.id ?? null, reasonId, contentHash, infraSet)
         const dbRow = buildDbRow(normalized)
 
         const key = visitKey(

@@ -76,6 +76,7 @@ export default async function FinanceiroPage({ searchParams }: Props) {
              payouts(status, valor_calculado, valor_override)`,
           )
           .eq('tenant_id', user.tenantId!)
+          .eq('fora_escopo', false)
           .gte('data_execucao', start)
           .lt('data_execucao', end)
           .order('id')
@@ -88,6 +89,7 @@ export default async function FinanceiroPage({ searchParams }: Props) {
             'data_execucao, valor_recebido_unetvale, payouts(status, valor_calculado, valor_override)',
           )
           .eq('tenant_id', user.tenantId!)
+          .eq('fora_escopo', false)
           .gte('data_execucao', historicoStart)
           .lt('data_execucao', historicoEnd)
           .order('id')

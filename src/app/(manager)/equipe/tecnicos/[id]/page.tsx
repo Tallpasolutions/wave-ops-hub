@@ -62,6 +62,7 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
       .from('service_visits')
       .select('id, os_num, data_execucao, sucesso, finalidade, cidade, valor_recebido_unetvale, reasons(motivo_normalizado, motivo_original)')
       .eq('tenant_id', user.tenantId!)
+      .eq('fora_escopo', false)
       .eq('tecnico_id', id)
       .gte('data_execucao', start)
       .lt('data_execucao', end)

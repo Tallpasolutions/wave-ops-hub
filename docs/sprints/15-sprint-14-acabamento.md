@@ -119,9 +119,11 @@ Qualquer item novo descoberto durante a execução → `docs/tech-debt.md` (R5.1
     financeiro e perfil (Douglas R$ 11.090) ✓ · perfil de técnico renderizando (fix Sprint 13) ✓
   - Join de técnicos (`nome_completo`) OK em todas as telas de dinheiro → o 404/zeramento da
     Sprint 11 não voltou ✓ · último acesso real em `/equipe` ✓
-  - **Observação menor (não-regressão, pré-existente):** na *lista* `/fechamento`, o card de um
-    fechamento "Aberto" mostra R$ 0,00 / 0 visitas (snapshot não-consolidado), enquanto o detalhe
-    é tempo real. Candidato a polimento (mostrar tempo real ou "não consolidado" no card).
+  - **Observação menor (RESOLVIDA — commit `70f11b8`):** a *lista* `/fechamento` mostrava
+    R$ 0,00 / 0 visitas no card de fechamento não-consolidado (só o snapshot). Corrigido: novo
+    `src/lib/payouts/realtime-totals.ts` (`computeRealtimeClosingTotals`, com `fetchAllPages` +
+    `service_visits!inner`, reusando `buildClosingTotals`) calcula total/visitas em tempo real
+    para fechamentos abertos/aguardando/reabertos. +3 testes (146 no total). Verificado em prod.
 
 ## Definition of Done da sprint
 

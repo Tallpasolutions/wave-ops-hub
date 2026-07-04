@@ -68,10 +68,18 @@ Qualquer item novo descoberto durante a execução → `docs/tech-debt.md` (R5.1
 ## Estado verificado
 
 - **02/07/2026 — QA:** itens registrados com URLs de reprodução. Nenhum iniciado.
+- **04/07/2026 — Fase A CONCLUÍDA e verificada em produção** (branch `feat/sprint-14-ultimo-acesso`,
+  mergeada). A coluna `users.ultimo_acesso` era lida em 3 telas mas nunca escrita → sempre "—".
+  Solução: helper `src/lib/auth/last-access.ts` lê `auth.users.last_sign_in_at` via
+  `auth.admin.listUsers` (paginado) — sem migration nem write path. Ligado em `/equipe`,
+  `/equipe/supervisores` e `(admin)/admin/users`. **Verificação no navegador (`/equipe`):** coluna
+  "Último acesso" com timestamps reais — usuário logado (Gestor Wave) exibe `04/07/2026, 13:48`
+  (login do dia, com hora), demais usuários com datas/horas próprias. `/equipe/supervisores` sem
+  supervisores → empty state OK (helper trata lista vazia sem chamar o Auth).
 
 ## Definition of Done da sprint
 
-- [ ] Itens A–C verificados em produção
+- [ ] Itens A–C verificados em produção _(A ✅ 04/07; faltam B e C)_
 - [ ] typecheck · lint · test verdes
 - [ ] `00-roadmap.md` atualizado — QA de regressão completo do relatório de 02/07 refeito
       ao final desta sprint (fecha o ciclo do QA)

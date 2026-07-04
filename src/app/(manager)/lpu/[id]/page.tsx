@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { detectConflicts } from '@/lib/lpu'
 import type { LpuRuleNarrowed } from '@/lib/lpu'
 import { activateLpu, deactivateLpuRule, duplicateLpuRule } from '../actions'
+import { lpuStatus, LPU_STATUS_LABEL, LPU_STATUS_CLASS } from '../_lib/status'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,15 +95,16 @@ export default async function LpuDetailPage({ params }: Props) {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-2xl font-bold text-[var(--text)]">{lpu.nome}</h1>
-              {lpu.ativa ? (
-                <span className="rounded-full bg-[rgba(46,230,168,0.12)] px-2.5 py-0.5 text-xs font-semibold text-[var(--green)]">
-                  Ativa
-                </span>
-              ) : (
-                <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-[var(--text-3)]">
-                  Rascunho
-                </span>
-              )}
+              {(() => {
+                const status = lpuStatus(lpu.ativa, lpu.vigencia_fim)
+                return (
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${LPU_STATUS_CLASS[status]}`}
+                  >
+                    {LPU_STATUS_LABEL[status]}
+                  </span>
+                )
+              })()}
             </div>
             <p className="mt-1 text-sm text-[var(--text-3)]">
               {formatVigencia(lpu.vigencia_inicio, lpu.vigencia_fim)}

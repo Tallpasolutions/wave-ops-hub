@@ -227,6 +227,13 @@ export default async function UploadDetailPage({
         <CountCard label="Erros" value={u.erros} highlight />
       </div>
 
+      {u.status === 'success' && u.inseridas === 0 && u.ignoradas > 0 && (
+        <div className="mb-6 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-3 text-sm text-[var(--text-2)]">
+          Todas as {u.ignoradas} linhas já existiam no banco — nada novo foi inserido. Normalmente
+          é re-envio da mesma planilha (deduplicação por conteúdo), não uma falha.
+        </div>
+      )}
+
       {u.status === 'success' && u.atualizadas > 0 && (
         <div className="mb-6 flex justify-end">
           <Link

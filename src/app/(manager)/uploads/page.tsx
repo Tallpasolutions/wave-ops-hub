@@ -26,6 +26,7 @@ type UploadRow = {
   periodo_fim: string | null
   total_linhas: number
   inseridas: number
+  ignoradas: number
   erros: number
   uploaded_at: string
 }
@@ -75,7 +76,7 @@ export default async function UploadsPage() {
   const supabase = await createSupabaseServerClient()
   const { data: uploads } = await supabase
     .from('uploads')
-    .select('id, file_name, status, periodo_inicio, periodo_fim, total_linhas, inseridas, erros, uploaded_at')
+    .select('id, file_name, status, periodo_inicio, periodo_fim, total_linhas, inseridas, ignoradas, erros, uploaded_at')
     .eq('tenant_id', user.tenantId!)
     .order('uploaded_at', { ascending: false })
 
@@ -110,7 +111,7 @@ export default async function UploadsPage() {
                 Status
               </TableHead>
               <TableHead className="text-[10px] uppercase tracking-widest text-[var(--text-3)]">
-                Linhas / Ins / Erros
+                Linhas / Inseridas / Ignoradas / Erros
               </TableHead>
               <TableHead className="text-[10px] uppercase tracking-widest text-[var(--text-3)]">
                 Data
@@ -142,7 +143,12 @@ export default async function UploadsPage() {
                 </TableCell>
                 <TableCell className="font-mono text-xs text-[var(--text-2)]">
                   <Link href={`/uploads/${u.id}`} className="block">
-                    {u.total_linhas} / {u.inseridas} / {u.erros}
+                    {u.total_linhas} / {u.inseridas} / {u.ignoradas} / {u.erros}
+                    {u.status === 'success' && u.inseridas === 0 && u.ignoradas > 0 && (
+                      <span className="mt-0.5 block font-sans text-[10px] not-italic text-[var(--text-3)]">
+                        já existiam (re-envio)
+                      </span>
+                    )}
                   </Link>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-[var(--text-3)]">

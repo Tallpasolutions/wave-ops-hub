@@ -1,5 +1,32 @@
 export type PeriodMes = { label: string; value: string }
 
+// Cookie que persiste o período escolhido entre rotas (client seta, server lê).
+export const PERIODO_COOKIE = 'wave_periodo'
+
+export function isValidMes(mes: string | null | undefined): mes is string {
+  return typeof mes === 'string' && /^\d{4}-\d{2}$/.test(mes)
+}
+
+// Lista de meses 'YYYY-MM' de maxMes até minMes (descendente, mais recente primeiro).
+// Limitada a 12 meses para não gerar um seletor gigante.
+export function generateMonthRange(minMes: string, maxMes: string, limit = 12): string[] {
+  if (!isValidMes(minMes) || !isValidMes(maxMes)) return []
+  const [minY, minM] = minMes.split('-').map(Number)
+  const [maxY, maxM] = maxMes.split('-').map(Number)
+  const out: string[] = []
+  let y = maxY
+  let m = maxM
+  while ((y > minY || (y === minY && m >= minM)) && out.length < limit) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    m -= 1
+    if (m === 0) {
+      m = 12
+      y -= 1
+    }
+  }
+  return out
+}
+
 export function parsePeriod(mes: string | undefined): { start: string; end: string; label: string } {
   const now = new Date()
 

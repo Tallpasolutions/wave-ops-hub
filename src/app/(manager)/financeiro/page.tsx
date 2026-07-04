@@ -12,6 +12,7 @@ import {
   aggregateTotals,
   buildRealtimeFinancialPoints,
 } from './_lib/queries'
+import { getEffectivePeriod } from '../_lib/period-server'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { FinanceiroChart } from './_components/FinanceiroChart'
 
@@ -37,13 +38,14 @@ function MargemBadge({ pct }: { pct: number }) {
 
 export default async function FinanceiroPage({ searchParams }: Props) {
   const { mes } = await searchParams
-  const { start, end, label: periodoLabel } = parsePeriod(mes)
-  const mesAtual = mes ?? start.slice(0, 7)
 
   const user = await getCurrentUser()
   if (!user) notFound()
 
   const supabase = await createSupabaseServerClient()
+
+  const mesAtual = await getEffectivePeriod(mes, supabase, user.tenantId!)
+  const { start, end, label: periodoLabel } = parsePeriod(mesAtual)
 
   // Série histórica (últimos 6 meses de fechamentos)
   const now = new Date()

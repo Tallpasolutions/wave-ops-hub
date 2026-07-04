@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { getCurrentUser, canManageUsers } from '@/lib/auth'
+import { getLastAccessMap, formatLastAccess } from '@/lib/auth/last-access'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 
@@ -25,7 +26,6 @@ type UserRow = {
   nome_completo: string
   role: string
   ativo: boolean
-  ultimo_acesso: string | null
 }
 
 export default async function EquipePage() {
@@ -35,10 +35,12 @@ export default async function EquipePage() {
   const supabase = await createSupabaseServerClient()
   const { data: users } = await supabase
     .from('users')
-    .select('id, email, nome_completo, role, ativo, ultimo_acesso')
+    .select('id, email, nome_completo, role, ativo')
     .eq('tenant_id', user.tenantId!)
     .in('role', ['tenant_owner', 'tenant_manager'])
     .order('created_at', { ascending: false })
+
+  const lastAccess = await getLastAccessMap((users ?? []).map((u) => u.id))
 
   const canCreate = canManageUsers(user)
 
@@ -109,9 +111,7 @@ export default async function EquipePage() {
                     <StatusBadge ativo={u.ativo} />
                   </TableCell>
                   <TableCell className="font-mono text-xs text-[var(--text-3)]">
-                    {u.ultimo_acesso
-                      ? new Date(u.ultimo_acesso).toLocaleDateString('pt-BR')
-                      : '—'}
+                    {formatLastAccess(lastAccess.get(u.id))}
                   </TableCell>
                   {canCreate && (
                     <TableCell>

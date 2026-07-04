@@ -148,6 +148,20 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
   - 3 testes novos (126 total) · typecheck ✅ · lint ✅ · build ✅
   - **Verificar em prod:** reconciliar dashboard (Total de OSs) com /oss e /pagamentos para
     junho (colar tabela de reconciliação aqui)
+- **04/07/2026 — Fases A, B, C VERIFICADAS EM PRODUÇÃO** (mergeadas):
+  - **Reconciliação B (junho):** dashboard "Total de OSs" **459** = /oss **459** ✓;
+    dashboard "Visitas" **545** = /pagamentos **545** ✓. Ticket médio R$ 129,43 (receita ÷ OSs).
+    Painel de pendências rotulado "· todas as competências".
+  - **Fase C:** busca `/oss?q=569020` → "1 OS" ✓. Paginação e rejeição em lote deployadas.
+  - **Fase C — bug do perfil de técnico** (branch `fix/sprint-13-perfil-tecnico`, mergeado):
+    `/equipe/tecnicos/[id]` abria em julho (mês corrente vazio) → 0 visitas / R$ 0. Causa:
+    usava `parsePeriod(mes)` (default mês atual) em vez de `getEffectivePeriod`. Corrigido —
+    o cálculo já estava certo, só o período. **Fecha o DoD "perfil acessível E renderizando".**
+  - **Feedback do gestor anotado** (`tech-debt.md` D1–D3 + roadmap): números estourando o card
+    do dashboard, copy dos cards, e gráficos não interativos (deveriam filtrar ao clicar) →
+    viraram sprint "Dashboard & Interatividade".
+- **Falta só a Fase D** (taxonomia única de categoria + motivo normalizado nas listas +
+  títulos de página) para encerrar a Sprint 13.
 
 ## Definition of Done da sprint
 

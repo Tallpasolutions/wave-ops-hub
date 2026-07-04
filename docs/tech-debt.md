@@ -156,3 +156,32 @@ _(mover para cá quando resolvido, com link pro PR/commit)_
 o PostgREST corta em 1000 linhas em silêncio. Junho tem ~602 visitas, mas meses maiores
 vão estourar. Corrigir com `fetchAllPages` (`src/lib/supabase/fetch-all.ts`), como já
 feito em financeiro/fechamento. Encaixa na paginação da Sprint 13.
+
+## 2026-07-04 — Feedback de QA do gestor (Sprint 13): dashboard e interatividade
+
+Anotado a partir do teste do usuário em produção, pós-Sprint 13. Candidatos a uma
+**Sprint de Dashboard & Interatividade** (ver 00-roadmap.md).
+
+### D1 — Números estourando a largura do card (dashboard)
+Com 7 cards na faixa de KPIs (`grid xl:grid-cols-7`), valores grandes (ex.: "R$ 59.408,36")
+passam do tamanho do card e atrapalham a leitura. Rever tipografia responsiva / truncamento /
+layout dos KpiCard. Talvez 2 linhas de cards em vez de 7 numa linha só.
+**Esforço:** S · **Onde:** `dashboard/page.tsx` (KPI strip), `dashboard/_components/KpiCard.tsx`
+
+### D2 — Informação dos cards pouco clara
+O gestor apontou que algumas informações do card confundem (pill/foot). Revisar copy e
+hierarquia visual de cada KpiCard (o que é valor principal, o que é contexto).
+**Esforço:** S · **Onde:** `dashboard/page.tsx`
+
+### D3 — Gráficos não interativos (deveriam filtrar ao clicar)
+Os gráficos do dashboard (volume diário, tipos de OS, ranking, distribuição geográfica) eram
+esperados como **interativos** — clicar num segmento/barra deveria filtrar o painel. Hoje o
+clique não faz nada. Definir o comportamento (drill-down por finalidade/cidade/técnico via
+querystring) e implementar nos componentes Recharts.
+**Esforço:** M–L · **Onde:** `dashboard/_components/*Chart*.tsx`, `VolumeChart`, `AttendanceDonut`,
+`GeoDistribution`, `TechValueChart`
+
+### D4 — Perfil do técnico abria vazio (RESOLVIDO na Sprint 13)
+`/equipe/tecnicos/[id]` usava `parsePeriod(mes)` → caía no mês corrente vazio. Corrigido para
+`getEffectivePeriod` (último mês com dados). Movido para "Itens resolvidos" quando verificado
+em produção.

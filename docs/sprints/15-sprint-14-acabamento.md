@@ -91,10 +91,26 @@ Qualquer item novo descoberto durante a execução → `docs/tech-debt.md` (R5.1
     sumido está presente).
   - Nota: no mês corrente, dias futuros aparecem zerados até o fim do mês (consistente com
     "range do mês"; ajustável para cortar em "hoje" se o gestor preferir).
+- **04/07/2026 — Fase C implementada** (branch `feat/sprint-14-estados-textos`) —
+  **aguardando merge + verificação em produção**. Estados e textos S5/S6:
+  - **S5** LPU: a `StatusBadge` só tinha 2 estados → qualquer LPU não-ativa (inclusive a
+    encerrada) virava "Rascunho" (visto em prod: LPU-Unetvale, vigência 01/01→01/06, marcada
+    "Rascunho"). Decisão do usuário (R5.2): rótulo **"Encerrada"**. Novo helper
+    `lpu/_lib/status.ts` `lpuStatus(ativa, vigenciaFim)` deriva **Ativa / Encerrada / Rascunho**
+    dos campos existentes — **sem alterar dados** (a encerrada já tem `vigencia_fim`; rascunho =
+    criada e nunca ativada). Ligado na lista e no detalhe (R3.1). +4 testes.
+  - **S6** Upload: a lista mostrava `Linhas/Ins/Erros` = "812 / 0 / 0" sem `ignoradas` → um
+    re-envio (tudo duplicado) parecia falha. Agora coluna "Linhas / Inseridas / Ignoradas /
+    Erros" + hint "já existiam (re-envio)"; e banner no detalhe quando `inseridas=0 & ignoradas>0`.
+  - 143 testes · typecheck ✅ · lint ✅ · build ✅
+  - **Verificar em prod (pós-deploy):** `/lpu` → LPU-Unetvale como "Encerrada" (não "Rascunho");
+    `/uploads` → contadores com ignoradas + explicação do re-envio.
+- **QA de regressão do relatório 02/07 (pós-deploy):** rodar após o merge da Fase C, junto com a
+  verificação de C — fecha o ciclo do QA e a Sprint 14.
 
 ## Definition of Done da sprint
 
-- [ ] Itens A–C verificados em produção _(A e B ✅ 04/07; falta C)_
-- [ ] typecheck · lint · test verdes
-- [ ] `00-roadmap.md` atualizado — QA de regressão completo do relatório de 02/07 refeito
-      ao final desta sprint (fecha o ciclo do QA)
+- [x] Itens A e B verificados em produção · **Fase C implementada, aguardando verificação pós-deploy**
+- [x] typecheck · lint · test verdes (143 testes)
+- [ ] `00-roadmap.md` atualizado _(feito)_ · **QA de regressão completo do relatório 02/07** a rodar
+      após o deploy da Fase C (fecha o ciclo do QA)

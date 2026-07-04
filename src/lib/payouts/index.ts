@@ -22,6 +22,7 @@ export {
   buildClosingTotals,
   BLOCKING_STATUSES,
 } from "./closing";
+export { computeRealtimeClosingTotals } from "./realtime-totals";
 export type {
   ClosingInfo,
   TechSummary,

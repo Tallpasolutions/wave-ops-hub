@@ -8,12 +8,16 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Ordens de Serviço' }
 import { parsePeriod } from '../_lib/period'
 import { getEffectivePeriod } from '../_lib/period-server'
+import { paginate } from '../_lib/pagination'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import { OsSearchInput } from '../_components/OsSearchInput'
+import { Pagination } from '../_components/Pagination'
 import { EmptyState } from '@/components/EmptyState'
 
 export const dynamic = 'force-dynamic'
 
 type Props = {
-  searchParams: Promise<{ mes?: string; finalidade?: string; cidade?: string }>
+  searchParams: Promise<{ mes?: string; finalidade?: string; cidade?: string; q?: string; page?: string }>
 }
 
 const isSuccess = (sucesso: string | null) =>
@@ -71,7 +75,7 @@ function groupByOs(
 }
 
 export default async function OssPage({ searchParams }: Props) {
-  const { mes, finalidade: finalidadeFiltro, cidade: cidadeFiltro } = await searchParams
+  const { mes, finalidade: finalidadeFiltro, cidade: cidadeFiltro, q, page } = await searchParams
 
   const user = await getCurrentUser()
   if (!user) notFound()
@@ -81,15 +85,18 @@ export default async function OssPage({ searchParams }: Props) {
   const mesAtual = await getEffectivePeriod(mes, supabase, user.tenantId!)
   const { start, end, label: periodoLabel } = parsePeriod(mesAtual)
 
-  const { data: visitsRaw } = await supabase
-    .from('service_visits')
-    .select('os_num, finalidade, cidade, sucesso, data_execucao, valor_recebido_unetvale')
-    .eq('tenant_id', user.tenantId!)
-    .eq('fora_escopo', false)
-    .gte('data_execucao', start)
-    .lt('data_execucao', end)
-    .order('data_execucao', { ascending: false })
-    .limit(5000)
+  // fetchAllPages: sem paginação o PostgREST cortava em 1000 (a limit(5000) não ajudava)
+  const { rows: visitsRaw } = await fetchAllPages((from, to) =>
+    supabase
+      .from('service_visits')
+      .select('os_num, finalidade, cidade, sucesso, data_execucao, valor_recebido_unetvale')
+      .eq('tenant_id', user.tenantId!)
+      .eq('fora_escopo', false)
+      .gte('data_execucao', start)
+      .lt('data_execucao', end)
+      .order('os_num')
+      .range(from, to),
+  )
 
   const visits = visitsRaw ?? []
   let osGroups = groupByOs(visits)
@@ -101,6 +108,14 @@ export default async function OssPage({ searchParams }: Props) {
   if (cidadeFiltro) {
     osGroups = osGroups.filter((o) => o.cidade === cidadeFiltro)
   }
+  // Busca por nº de OS (substring)
+  const query = q?.trim()
+  if (query) {
+    osGroups = osGroups.filter((o) => String(o.osNum).includes(query))
+  }
+
+  // Paginação (50/página) — evita renderizar centenas de linhas de uma vez
+  const { pageItems: osPage, info: pageInfo } = paginate(osGroups, page)
 
   // Opções únicas de filtro
   const allGroups = groupByOs(visits)
@@ -148,6 +163,11 @@ export default async function OssPage({ searchParams }: Props) {
         </div>
       </div>
 
+      {/* Busca por nº de OS */}
+      <div className="mb-4">
+        <OsSearchInput />
+      </div>
+
       {/* Filtros de finalidade e cidade */}
       {(finalidades.length > 0 || cidades.length > 0) && (
         <div className="mb-6 flex flex-wrap gap-2">
@@ -183,12 +203,20 @@ export default async function OssPage({ searchParams }: Props) {
 
       {/* Tabela */}
       {osGroups.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Nenhuma OS encontrada"
-          description="Faça o upload da planilha para registrar as visitas do período."
-          cta={{ label: 'Fazer upload', href: '/uploads/new' }}
-        />
+        query ? (
+          <EmptyState
+            icon={FileText}
+            title={`Nenhuma OS encontrada para "${query}"`}
+            description="Verifique o número ou limpe a busca para ver todas as OSs do período."
+          />
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title="Nenhuma OS encontrada"
+            description="Faça o upload da planilha para registrar as visitas do período."
+            cta={{ label: 'Fazer upload', href: '/uploads/new' }}
+          />
+        )
       ) : (
         <div className="overflow-hidden rounded-xl border border-[var(--line)]">
           <div className="overflow-x-auto">
@@ -208,7 +236,7 @@ export default async function OssPage({ searchParams }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)] bg-[var(--bg)]">
-              {osGroups.map((os) => (
+              {osPage.map((os) => (
                 <tr key={os.osNum} className="transition-colors hover:bg-white/[0.02]">
                   <td className="px-4 py-3 font-mono text-sm font-semibold text-[var(--text)]">
                     {os.osNum}
@@ -247,6 +275,9 @@ export default async function OssPage({ searchParams }: Props) {
               ))}
             </tbody>
           </table>
+          </div>
+          <div className="border-t border-[var(--line)] px-3">
+            <Pagination info={pageInfo} />
           </div>
         </div>
       )}

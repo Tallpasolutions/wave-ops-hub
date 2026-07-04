@@ -7,6 +7,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
 import { getEffectivePeriod } from '../_lib/period-server'
+import { paginate } from '../_lib/pagination'
+import { OsSearchInput } from '../_components/OsSearchInput'
+import { Pagination } from '../_components/Pagination'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { RecalcularButton } from './_components/RecalcularButton'
 
@@ -15,7 +18,7 @@ export const metadata: Metadata = { title: 'Pagamentos' }
 export const dynamic = 'force-dynamic'
 
 type Props = {
-  searchParams: Promise<{ mes?: string; status?: string }>
+  searchParams: Promise<{ mes?: string; status?: string; q?: string; page?: string }>
 }
 
 function formatBRL(value: number | null): string {
@@ -45,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function PayoutsPage({ searchParams }: Props) {
-  const { mes, status: statusFilter } = await searchParams
+  const { mes, status: statusFilter, q, page } = await searchParams
 
   const user = await getCurrentUser()
   if (!user) notFound()
@@ -119,9 +122,13 @@ export default async function PayoutsPage({ searchParams }: Props) {
     }]
   })
 
-  const payouts = statusFilter
-    ? allPayouts.filter((p) => p.status === statusFilter)
-    : allPayouts
+  const query = q?.trim()
+  const payoutsFiltrados = allPayouts.filter(
+    (p) =>
+      (!statusFilter || p.status === statusFilter) &&
+      (!query || String(p.os_num).includes(query)),
+  )
+  const { pageItems: payouts, info: pageInfo } = paginate(payoutsFiltrados, page)
 
   // Contadores de pendências — GLOBAIS (todas as competências), não do período.
   // Queries count (head) dão o total exato, sem o corte de 1000 linhas do PostgREST.
@@ -155,7 +162,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-[var(--text)]">Pagamentos</h1>
         <p className="mt-1 text-sm text-[var(--text-3)]">
-          {payouts.length} pagamento{payouts.length !== 1 ? 's' : ''} · {periodoLabel}
+          {payoutsFiltrados.length} pagamento{payoutsFiltrados.length !== 1 ? 's' : ''} · {periodoLabel}
         </p>
       </div>
 
@@ -263,12 +270,21 @@ export default async function PayoutsPage({ searchParams }: Props) {
         </div>
       )}
 
+      {/* Busca por nº de OS */}
+      <div className="mb-4">
+        <OsSearchInput />
+      </div>
+
       {/* Tabela */}
-      {payouts.length === 0 ? (
+      {payoutsFiltrados.length === 0 ? (
         <EmptyState
           icon={Wallet}
-          title="Nenhum pagamento no período"
-          description="Os pagamentos aparecerão aqui após o upload das visitas e o cálculo pela LPU ativa."
+          title={query ? `Nenhum pagamento para "${query}"` : 'Nenhum pagamento no período'}
+          description={
+            query
+              ? 'Verifique o número da OS ou limpe a busca.'
+              : 'Os pagamentos aparecerão aqui após o upload das visitas e o cálculo pela LPU ativa.'
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-[var(--line)]">
@@ -326,6 +342,9 @@ export default async function PayoutsPage({ searchParams }: Props) {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="border-t border-[var(--line)] px-3">
+            <Pagination info={pageInfo} />
           </div>
         </div>
       )}

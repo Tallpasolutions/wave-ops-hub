@@ -148,7 +148,12 @@ export default async function TecnicosPage() {
               return (
                 <TableRow key={t.id} className="border-[var(--line)]">
                   <TableCell>
-                    <p className="font-medium text-[var(--text)]">{t.nome_completo}</p>
+                    <Link
+                      href={`/equipe/tecnicos/${t.id}`}
+                      className="font-medium text-[var(--text)] transition-colors hover:text-[var(--cyan)]"
+                    >
+                      {t.nome_completo}
+                    </Link>
                     <p className="text-xs text-[var(--text-3)]">{t.email}</p>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-[var(--text-2)]">

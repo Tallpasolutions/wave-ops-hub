@@ -22,7 +22,7 @@
 | 11 | Estabilização Crítica (P0) | 2–4 sessões | Sessão Supabase, varredura `technicians(nome)`, recalcular 503, fechamento zerado | ✅ Concluída (2026-07-03, verificada em produção) |
 | 12 | Dados Confiáveis | 3–4 sessões | Encoding ETL, vínculo de técnicos, cobertura LPU, guard rails de aprovação | ✅ Concluída (2026-07-04, verificada em produção) |
 | 13 | UX e Consistência | 3 sessões | Período inteligente, números reconciliados, busca+paginação, rejeição em lote | ✅ Concluída (2026-07-04) — Fases A–D verificadas em produção |
-| 14 | Acabamento | 1–2 sessões | Último acesso, cosméticos S1–S6, QA de regressão final | 📋 Planejada — **S4 já resolvido** pela Sprint 13 Fase D (header + títulos por rota) |
+| 14 | Acabamento | 1–2 sessões | Último acesso, cosméticos S1–S6, QA de regressão final | 🔄 Em andamento — A (último acesso) e B (S1/S2/S3) ✅ em prod; C (S5/S6) implementada, aguardando deploy; S4 já resolvido pela Sprint 13. Falta verificar C + QA de regressão |
 
 **Sprints 11–14 nascem do [Relatório de QA em produção de 02/07/2026](../qa/2026-07-02-relatorio-qa-producao.md).**
 A execução de qualquer sprint segue as [Regras de Execução Anti-Alucinação](./regras-de-execucao.md) — documento vinculante.

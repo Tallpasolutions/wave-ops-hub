@@ -4,23 +4,20 @@ import { Plus } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { lpuStatus, LPU_STATUS_LABEL, LPU_STATUS_CLASS } from './_lib/status'
 
 export const metadata: Metadata = { title: 'LPUs' }
 import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
-function StatusBadge({ ativa }: { ativa: boolean }) {
-  if (ativa) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-[rgba(46,230,168,0.12)] px-2.5 py-0.5 text-xs font-semibold text-[var(--green)]">
-        Ativa
-      </span>
-    )
-  }
+function StatusBadge({ ativa, vigenciaFim }: { ativa: boolean; vigenciaFim: string | null }) {
+  const status = lpuStatus(ativa, vigenciaFim)
   return (
-    <span className="inline-flex items-center rounded-full bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-[var(--text-3)]">
-      Rascunho
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${LPU_STATUS_CLASS[status]}`}
+    >
+      {LPU_STATUS_LABEL[status]}
     </span>
   )
 }
@@ -76,7 +73,7 @@ export default async function LpuPage() {
                   <span className="font-display text-lg font-semibold text-[var(--text)]">
                     {activeLpu.nome}
                   </span>
-                  <StatusBadge ativa />
+                  <StatusBadge ativa vigenciaFim={activeLpu.vigencia_fim} />
                 </div>
                 <p className="text-sm text-[var(--text-3)]">
                   {formatVigencia(activeLpu.vigencia_inicio, activeLpu.vigencia_fim)}
@@ -123,7 +120,7 @@ export default async function LpuPage() {
                       {formatVigencia(lpu.vigencia_inicio, lpu.vigencia_fim)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge ativa={lpu.ativa} />
+                      <StatusBadge ativa={lpu.ativa} vigenciaFim={lpu.vigencia_fim} />
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

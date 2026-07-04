@@ -115,6 +115,25 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
   - 9 testes novos dos helpers puros (123 total) · typecheck ✅ · lint ✅ · build ✅
   - **Verificar em prod:** abrir /dashboard sem `?mes=` → cai em junho (último com dados);
     escolher maio → navegar para /oss pela sidebar preserva maio; nenhum chip em /oss/&lt;num&gt;
+- **04/07/2026 — Fase A VERIFICADA + fix de persistência** (commit `e7b31f4`): o cookie
+  sozinho não persistia (Router Cache servia /oss prefetchado no default). Sidebar passou a
+  carregar `?mes=` atual nos links de período (URLs distintas = sem staleness). Confirmado
+  pelo usuário: dashboard→maio→OSs mantém maio.
+- **04/07/2026 — Fase B implementada** (branch `feat/sprint-13-numeros-batem`) —
+  **aguardando merge + verificação em produção**. Decisão do usuário: **dois cards separados**
+  (OSs distintas + Visitas); ticket médio = receita ÷ OSs.
+  - `aggregate.ts`: novo `totalOss` (contagem de `os_num` distintos) + `ossPorDia`;
+    `ticketMedio` agora = receita total ÷ OSs distintas (antes: receita_finalizadas ÷
+    nº_finalizadas — não batia com nada)
+  - Dashboard: card "Total de OSs" (distintas) + novo card "Visitas" (atendimentos); ticket
+    médio rotulado "receita ÷ OSs"; pills de taxa/improdutividade corrigidos de "OSs" → "visitas"
+    (contavam visitas). Grid 6 → 7 colunas
+  - **M2 §4 + resíduo da Sprint 11:** painel de pendências trocado por queries `count`
+    (exatas, sem o corte de 1000) e rotulado "· todas as competências" (é global, não do mês)
+  - Glossário: "Ticket médio por OS" e as métricas de volume (OSs × Visitas) documentados
+  - 3 testes novos (126 total) · typecheck ✅ · lint ✅ · build ✅
+  - **Verificar em prod:** reconciliar dashboard (Total de OSs) com /oss e /pagamentos para
+    junho (colar tabela de reconciliação aqui)
 
 ## Definition of Done da sprint
 

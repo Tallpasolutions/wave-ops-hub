@@ -123,20 +123,26 @@ export default async function PayoutsPage({ searchParams }: Props) {
     ? allPayouts.filter((p) => p.status === statusFilter)
     : allPayouts
 
-  // Contadores de pendências — sem filtro de período, mostra total do tenant
-  const { data: pendRaw } = await supabase
-    .from('payouts')
-    .select('status')
-    .eq('tenant_id', user.tenantId!)
-    .in('status', ['no_rule_match', 'pending_classification', 'conflict'])
+  // Contadores de pendências — GLOBAIS (todas as competências), não do período.
+  // Queries count (head) dão o total exato, sem o corte de 1000 linhas do PostgREST.
+  const countPendencia = (status: string) =>
+    supabase
+      .from('payouts')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', user.tenantId!)
+      .eq('status', status)
 
-  const pendencias = (pendRaw ?? []).reduce(
-    (acc, p) => {
-      acc[p.status as keyof typeof acc] = (acc[p.status as keyof typeof acc] ?? 0) + 1
-      return acc
-    },
-    { no_rule_match: 0, pending_classification: 0, conflict: 0 } as Record<string, number>,
-  )
+  const [nrmRes, pcRes, cfRes] = await Promise.all([
+    countPendencia('no_rule_match'),
+    countPendencia('pending_classification'),
+    countPendencia('conflict'),
+  ])
+
+  const pendencias = {
+    no_rule_match: nrmRes.count ?? 0,
+    pending_classification: pcRes.count ?? 0,
+    conflict: cfRes.count ?? 0,
+  }
 
   const totalPendencias =
     pendencias.no_rule_match + pendencias.pending_classification + pendencias.conflict
@@ -162,6 +168,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
               <AlertTriangle size={14} className="shrink-0 text-[var(--red)]" />
               <p className="text-sm font-semibold text-[var(--red)]">
                 {totalPendencias} pagamento{totalPendencias !== 1 ? 's' : ''} com pendência crítica
+                <span className="ml-1.5 font-normal text-[var(--text-3)]">· todas as competências</span>
               </p>
             </div>
             <RecalcularButton />

@@ -35,7 +35,7 @@ pequenos e independentes — ideal para ser executada em paralelo com validaçõ
 
 | Item | Bug | Correção |
 |---|---|---|
-| S4 | Header do dashboard "Ordens de Serviço"; `<title>` genérico "Painel do Gestor" em subpáginas | Header "Painel Operacional"; `generateMetadata` por rota |
+| ~~S4~~ | ~~Header do dashboard "Ordens de Serviço"; `<title>` genérico em subpáginas~~ | **RESOLVIDO na Sprint 13 Fase D** — header virou "Visão Geral"; `<title>` específico adicionado nas 12 sub-rotas. (Se o gestor preferir "Painel Operacional" no header, é só trocar 1 linha.) |
 | S5 | LPU histórica com status "Rascunho" e vigência encerrada | Definir estados válidos (rascunho sem vigência; encerrada ≠ rascunho) e corrigir o registro existente |
 | S6 | Upload "812 / 0 / 0 · Concluído" parece falha | Rotular colunas ("Linhas · Inseridas · Erros") + linha explicativa "812 duplicadas ignoradas (re-envio)" |
 

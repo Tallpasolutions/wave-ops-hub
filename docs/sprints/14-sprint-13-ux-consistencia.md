@@ -185,10 +185,21 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
     `pendente_classificacao`) — o filtro é ignorado e a página mostra tudo. Candidato a issue
   - **Verificar em prod:** badge/filtro/form exibindo "Falha do Cliente" idêntico nas 3 telas ·
     header do dashboard "Visão Geral" · aba do navegador com título específico em cada sub-rota
+- **04/07/2026 — Fase D + fix do link mergeados na `main`** (`6eca96a`):
+  - Fase D mergeada (`b281dbb` / `c2af6a8`). Header do dashboard virou **"Visão Geral"** (o plano
+    da Sprint 14 S4 sugeria "Painel Operacional", mas isso duplicaria o eyebrow "Painel
+    Operacional · Mensal"; confirmar wording com o gestor se necessário). **S4 da Sprint 14 fica
+    resolvido** por esta fase (header + `<title>` por rota)
+  - O bug fora de escopo (link "Classificar →" com `?categoria=pendente` inválido) foi corrigido
+    em `fix/link-classificar-categoria-pendente` (`ba3222b`, merge `6eca96a`) — agora usa
+    `pendente_classificacao`
+  - Limpeza: branch órfã `fix/audit-triggers-security-definer` (0010 nunca mergeado) deletada —
+    seu conteúdo já vive na migration `0014` e está aplicado em produção
+  - **Verificação visual em prod da Fase D:** leve/não-bloqueadora, pendente (labels e títulos)
 
 ## Definition of Done da sprint
 
-- [ ] Fases A–D verificadas em produção
-- [ ] typecheck · lint · test verdes · E2E dos fluxos alterados atualizados
-- [ ] Glossário atualizado (ticket médio, OSs × visitas)
-- [ ] `00-roadmap.md` atualizado
+- [x] Fases A–C verificadas em produção · Fase D mergeada/deployada (verificação visual leve pendente)
+- [x] typecheck · lint · test verdes (137 testes) · E2E dos fluxos alterados atualizados
+- [x] Glossário atualizado (ticket médio, OSs × visitas)
+- [x] `00-roadmap.md` atualizado

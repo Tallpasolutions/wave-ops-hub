@@ -97,6 +97,20 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
 - **04/07/2026 — Sprint 12 fechada:** técnicos reais vinculados em produção (11 cadastrados,
   seção "sem vínculo" vazia, dashboard sem "Não vinculado"). INFRA WAVE com OS operacional =
   pagam (decisão do usuário, sem exclusão por técnico).
+- **04/07/2026 — Fase C implementada** (branch `feat/sprint-13-busca-paginacao`, sobre a B) —
+  **aguardando merge + verificação em produção**:
+  - Helpers: `_lib/pagination.ts` (`paginate`, `parsePage`, 50/página) + componentes
+    `Pagination` e `OsSearchInput` (client, atualizam `?page=`/`?q=` preservando filtros)
+  - `/oss` e `/pagamentos`: busca por nº de OS (substring) + paginação server-side (só 50
+    linhas no DOM → resolve os ~600 erros de hidratação, resíduo da Sprint 11). `/oss` também
+    trocou `.limit(5000)` por `fetchAllPages` (corte de 1000)
+  - Improdutivas: **rejeição em lote** (`bulkRejectImprodutivas`, override R$ 0 com
+    confirmação inline) + **checkbox com célula inteira clicável** (alvo maior; o de 16px
+    falhava cliques no QA)
+  - `/equipe/tecnicos`: nome do técnico linka para o perfil `/equipe/tecnicos/[id]`
+  - 9 testes novos (132 total) · typecheck ✅ · lint ✅ · build ✅
+  - **Verificar em prod:** buscar OS 569020 em /oss e /pagamentos; paginar mantendo filtro;
+    rejeitar em lote; abrir o perfil de um técnico pelo clique (rota nunca testada — R2.1)
 - **04/07/2026 — Fase A implementada** (branch `feat/sprint-13-periodo-inteligente`) —
   **aguardando merge + verificação em produção**:
   - Investiguei o que existia (R2.1): `GlobalPeriodSelector` usava mês corrente como default

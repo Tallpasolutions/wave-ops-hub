@@ -9,6 +9,7 @@ import {
   approveImprodutiva,
   rejectImprodutiva,
   bulkApproveImprodutivas,
+  bulkRejectImprodutivas,
   undoImprodutivaDecision,
 } from '../actions'
 
@@ -168,6 +169,7 @@ export function ImprodutivasTable({ rows }: { rows: ImprodutivaRow[] }) {
   const [lastAction, setLastAction] = useState<LastAction | null>(null)
   const [undoBusy, setUndoBusy] = useState(false)
   const [undoError, setUndoError] = useState<string | null>(null)
+  const [confirmingBulkReject, setConfirmingBulkReject] = useState(false)
 
   const allIds = rows.map((r) => r.id)
   const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id))
@@ -232,6 +234,22 @@ export function ImprodutivasTable({ rows }: { rows: ImprodutivaRow[] }) {
     })
   }
 
+  function handleBulkReject() {
+    setBulkError(null)
+    setBulkNotice(null)
+    startBulkTransition(async () => {
+      const res = await bulkRejectImprodutivas(Array.from(selected))
+      if (res.error) {
+        setBulkError(res.error)
+      } else {
+        setSelected(new Set())
+        setConfirmingBulkReject(false)
+        setBulkNotice(`${res.rejected} rejeitada${res.rejected !== 1 ? 's' : ''} (R$ 0)`)
+        router.refresh()
+      }
+    })
+  }
+
   return (
     <div className="space-y-3">
       {lastAction && (
@@ -286,6 +304,36 @@ export function ImprodutivasTable({ rows }: { rows: ImprodutivaRow[] }) {
                 ? 'Nada aprovável (classifique os motivos)'
                 : 'Aprovar selecionadas'}
           </button>
+          {confirmingBulkReject ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[var(--red)]">
+                Rejeitar {selected.size} → R$ 0?
+              </span>
+              <button
+                onClick={handleBulkReject}
+                disabled={bulkPending}
+                className="rounded-lg bg-[rgba(255,84,112,0.18)] px-3 py-1.5 text-xs font-semibold text-[var(--red)] transition-all hover:bg-[rgba(255,84,112,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {bulkPending ? 'Rejeitando…' : 'Confirmar'}
+              </button>
+              <button
+                onClick={() => setConfirmingBulkReject(false)}
+                disabled={bulkPending}
+                className="text-xs text-[var(--text-3)] transition-colors hover:text-[var(--text)]"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmingBulkReject(true)}
+              disabled={bulkPending}
+              className="flex items-center gap-1.5 rounded-lg bg-[rgba(255,84,112,0.10)] px-3 py-1.5 text-xs font-semibold text-[var(--red)] transition-all hover:bg-[rgba(255,84,112,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ThumbsDown size={13} />
+              Rejeitar selecionadas
+            </button>
+          )}
           {bulkError && <span className="text-xs text-[var(--red)]">{bulkError}</span>}
         </div>
       )}
@@ -332,10 +380,13 @@ export function ImprodutivasTable({ rows }: { rows: ImprodutivaRow[] }) {
                   selected.has(row.id) ? 'bg-white/[0.03]' : ''
                 }`}
               >
-                <td className="w-10 px-4 py-3">
+                <td
+                  className="w-10 cursor-pointer px-4 py-3"
+                  onClick={() => toggleRow(row.id)}
+                >
                   <Checkbox
                     checked={selected.has(row.id)}
-                    onCheckedChange={() => toggleRow(row.id)}
+                    className="pointer-events-none"
                     aria-label={`Selecionar OS ${row.osNum}`}
                   />
                 </td>

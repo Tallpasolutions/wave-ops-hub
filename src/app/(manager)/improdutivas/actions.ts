@@ -117,6 +117,49 @@ export async function bulkApproveImprodutivas(
   return { error: null, approved: eligibleIds.length, skippedPendentes: pendentes.length }
 }
 
+// Rejeição em lote: manda os selecionados (não travados) para override R$ 0. Diferente da
+// aprovação, não bloqueia motivo pendente — rejeitar é sempre permitido.
+export async function bulkRejectImprodutivas(
+  payoutIds: string[],
+  justificativa?: string,
+): Promise<{ error: string | null; rejected: number }> {
+  const user = await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
+  if (!user.tenantId) return { error: 'Usuário sem tenant.', rejected: 0 }
+  if (payoutIds.length === 0) return { error: null, rejected: 0 }
+
+  const supabase = await createSupabaseServerClient()
+
+  const { data: eligible } = await supabase
+    .from('payouts')
+    .select('id, status')
+    .in('id', payoutIds)
+    .eq('tenant_id', user.tenantId)
+
+  const eligibleIds = (eligible ?? [])
+    .filter((p) => !LOCKED_STATUSES.includes(p.status))
+    .map((p) => p.id)
+
+  if (eligibleIds.length === 0) return { error: null, rejected: 0 }
+
+  const { error } = await supabase
+    .from('payouts')
+    .update({
+      improdutiva_aprovada: false,
+      status: 'override',
+      valor_override: 0,
+      override_motivo: justificativa?.trim() || 'Improdutiva rejeitada em lote',
+      override_by: user.id,
+      override_at: new Date().toISOString(),
+    })
+    .in('id', eligibleIds)
+    .eq('tenant_id', user.tenantId)
+
+  if (error) return { error: 'Erro ao rejeitar improdutivas em lote.', rejected: 0 }
+
+  revalidatePath('/improdutivas')
+  return { error: null, rejected: eligibleIds.length }
+}
+
 // Desfazer da última decisão (aprovação ou rejeição): limpa a decisão e o override e
 // recalcula a visita para restaurar o status verdadeiro (o recálculo pula approved/paid,
 // por isso o status é rebaixado para 'pending' na mesma escrita).

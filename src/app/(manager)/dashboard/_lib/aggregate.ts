@@ -83,6 +83,7 @@ export function aggregate(
   techs: TechRow[],
   reasons: ReasonRow[],
   daysInPeriod: number,
+  periodStart?: string,
 ): DashboardAgg {
   const techMap = new Map(techs.map((t) => [t.id, t.nome_completo]))
   const reasonMap = new Map(reasons.map((r) => [r.id, r]))
@@ -128,9 +129,18 @@ export function aggregate(
     cur.valor += v.valor_recebido_unetvale ?? 0
     dailyMap.set(dia, cur)
   }
-  const volumeDiario: DailyPoint[] = [...dailyMap.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dia, d]) => ({ dia: dia.slice(8, 10), qtd: d.qtd, valor: d.valor }))
+  // Com o range do mês (periodStart = "YYYY-MM-01"), preenche TODOS os dias — inclusive os
+  // sem visita — para o eixo X não pular dias (QA S3). As chaves do dailyMap são
+  // data_execucao.slice(0,10) ("YYYY-MM-DD"), então montamos as chaves por string (timezone-safe).
+  const volumeDiario: DailyPoint[] = periodStart
+    ? Array.from({ length: daysInPeriod }, (_, i) => {
+        const dia = String(i + 1).padStart(2, '0')
+        const bucket = dailyMap.get(`${periodStart.slice(0, 7)}-${dia}`)
+        return { dia, qtd: bucket?.qtd ?? 0, valor: bucket?.valor ?? 0 }
+      })
+    : [...dailyMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([dia, d]) => ({ dia: dia.slice(8, 10), qtd: d.qtd, valor: d.valor }))
 
   // By finalidade
   const finalMap = new Map<string, { qtd: number; valorTotal: number; finalizadas: number }>()

@@ -81,7 +81,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const endDate = new Date(end)
   const daysInPeriod = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
-  const agg = aggregate(visits, techs, reasons, daysInPeriod)
+  const agg = aggregate(visits, techs, reasons, daysInPeriod, start)
   const { kpis, volumeDiario, porFinalidade, porTipoAtendimento, porTecnico, porCidade, porMotivo } = agg
 
   const isEmpty = kpis.totalVisitas === 0

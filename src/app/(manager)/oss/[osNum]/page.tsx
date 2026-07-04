@@ -302,7 +302,7 @@ export default async function OsDetailPage({ params }: Props) {
                           </p>
                         </div>
                       )}
-                      {v.valor_recebido_unetvale && (
+                      {v.valor_recebido_unetvale != null && (
                         <div>
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
                             Receita Unetvale

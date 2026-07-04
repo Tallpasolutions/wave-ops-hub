@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getLastAccessMap, formatLastAccess } from '@/lib/auth/last-access'
 import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = { title: 'Usuários' }
@@ -24,7 +25,6 @@ type UserRow = {
   nome_completo: string
   role: string
   ativo: boolean
-  ultimo_acesso: string | null
   tenants: { nome: string; slug: string } | null
 }
 
@@ -32,8 +32,10 @@ export default async function UsersPage() {
   const supabase = await createSupabaseServerClient()
   const { data: users } = await supabase
     .from('users')
-    .select('id, email, nome_completo, role, ativo, ultimo_acesso, tenants(nome, slug)')
+    .select('id, email, nome_completo, role, ativo, tenants(nome, slug)')
     .order('created_at', { ascending: false })
+
+  const lastAccess = await getLastAccessMap((users ?? []).map((u) => u.id))
 
   return (
     <div className="p-8">
@@ -106,9 +108,7 @@ export default async function UsersPage() {
                     <StatusBadge ativo={user.ativo} />
                   </TableCell>
                   <TableCell className="font-mono text-xs text-[var(--text-3)]">
-                    {user.ultimo_acesso
-                      ? new Date(user.ultimo_acesso).toLocaleDateString('pt-BR')
-                      : '—'}
+                    {formatLastAccess(lastAccess.get(user.id))}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">

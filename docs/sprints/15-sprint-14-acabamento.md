@@ -16,10 +16,19 @@ pequenos e independentes — ideal para ser executada em paralelo com validaçõ
 
 ### A — Telemetria de acesso (M9)
 
-1. Registrar `last_sign_in` (ou ler o campo do Supabase Auth) e exibir em `/equipe`
-2. Verificar se o dado já existe no Auth antes de criar coluna (R2.1 — `auth.users.last_sign_in_at`)
+**Estado real verificado (04/07, R1.2):** a coluna `users.ultimo_acesso` **já existe** (migration 0001)
+e é **lida** em 3 telas (`/equipe`, `/equipe/supervisores`, `(admin)/admin/users`), mas **nunca é
+escrita** em lugar nenhum do código → sempre exibe "—". O dado real já existe no Supabase Auth
+(`auth.users.last_sign_in_at`, populado automaticamente a cada login). Não é preciso criar coluna
+nem write path.
 
-**DoD:** "Último acesso" preenchido para o usuário logado após um login novo.
+1. Ler `last_sign_in_at` do Auth via admin client (`auth.admin.listUsers`, paginado) — helper
+   reutilizável em `src/lib/auth/last-access.ts`
+2. Exibir nas 3 telas que já têm a coluna morta (`/equipe`, `/equipe/supervisores`, `/admin/users`)
+3. `ultimo_acesso` (coluna morta) fica como está — dropá-la é migration fora do escopo; anotar em
+   tech-debt se valer
+
+**DoD:** "Último acesso" preenchido para o usuário logado após um login novo (verificado em `/equipe`).
 
 ### B — Cosméticos de renderização
 

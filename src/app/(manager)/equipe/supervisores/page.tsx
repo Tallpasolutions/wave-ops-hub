@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { getCurrentUser, canManageUsers } from '@/lib/auth'
+import { getLastAccessMap, formatLastAccess } from '@/lib/auth/last-access'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,12 +25,13 @@ export default async function SupervisoresPage() {
 
   const { data: supervisors } = await supabase
     .from('users')
-    .select('id, email, nome_completo, ativo, ultimo_acesso, technician_id')
+    .select('id, email, nome_completo, ativo, technician_id')
     .eq('tenant_id', user.tenantId!)
     .eq('role', 'tenant_supervisor')
     .order('nome_completo')
 
   const supervisorIds = (supervisors ?? []).map((s) => s.id)
+  const lastAccess = await getLastAccessMap(supervisorIds)
   const { data: teamCounts } = supervisorIds.length
     ? await supabase
         .from('supervisor_technicians')
@@ -96,9 +98,7 @@ export default async function SupervisoresPage() {
                   </span>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-[var(--text-3)]">
-                  {s.ultimo_acesso
-                    ? new Date(s.ultimo_acesso).toLocaleDateString('pt-BR')
-                    : '—'}
+                  {formatLastAccess(lastAccess.get(s.id))}
                 </TableCell>
                 <TableCell>
                   <Link

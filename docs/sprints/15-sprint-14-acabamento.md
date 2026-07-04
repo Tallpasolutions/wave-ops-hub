@@ -91,8 +91,8 @@ Qualquer item novo descoberto durante a execução → `docs/tech-debt.md` (R5.1
     sumido está presente).
   - Nota: no mês corrente, dias futuros aparecem zerados até o fim do mês (consistente com
     "range do mês"; ajustável para cortar em "hoje" se o gestor preferir).
-- **04/07/2026 — Fase C implementada** (branch `feat/sprint-14-estados-textos`) —
-  **aguardando merge + verificação em produção**. Estados e textos S5/S6:
+- **04/07/2026 — Fase C implementada** (branch `feat/sprint-14-estados-textos`, mergeada
+  `577aead`). Estados e textos S5/S6:
   - **S5** LPU: a `StatusBadge` só tinha 2 estados → qualquer LPU não-ativa (inclusive a
     encerrada) virava "Rascunho" (visto em prod: LPU-Unetvale, vigência 01/01→01/06, marcada
     "Rascunho"). Decisão do usuário (R5.2): rótulo **"Encerrada"**. Novo helper
@@ -105,12 +105,27 @@ Qualquer item novo descoberto durante a execução → `docs/tech-debt.md` (R5.1
   - 143 testes · typecheck ✅ · lint ✅ · build ✅
   - **Verificar em prod (pós-deploy):** `/lpu` → LPU-Unetvale como "Encerrada" (não "Rascunho");
     `/uploads` → contadores com ignoradas + explicação do re-envio.
-- **QA de regressão do relatório 02/07 (pós-deploy):** rodar após o merge da Fase C, junto com a
-  verificação de C — fecha o ciclo do QA e a Sprint 14.
+- **04/07/2026 — Fase C VERIFICADA EM PRODUÇÃO** (mergeada, `577aead`; navegador):
+  - **S5** `/lpu` → LPU-Unetvale exibe **"Encerrada"** (era "Rascunho"); a ativa segue "Ativa" ✓
+  - **S6** `/uploads` → cabeçalho "LINHAS / INSERIDAS / IGNORADAS / ERROS"; upload de maio (o
+    "812/0/0" do QA) agora **"812 / 0 / 812 / 0 · já existiam (re-envio)"** ✓
+  - **Sprint 14 FECHADA.**
+- **04/07/2026 — QA de regressão do relatório 02/07 (produção):** varredura sem regressões:
+  - Dashboard: header "Visão Geral", cards Total de OSs × Visitas, ticket médio, Resumo Executivo
+    01–04 em sequência, eixo do volume com todos os dias (S2/S3 da Sprint 14) ✓
+  - Taxonomia unificada em `/motivos` e `/improdutivas` ("Falha do Cliente") ✓
+  - `/financeiro` com números reais (maio R$ 93.547,26 / 767 visitas / pago R$ 50.640), encoding
+    limpo (sem mojibake) ✓ · `/fechamento/2026-05` detalhe em tempo real reconciliando com
+    financeiro e perfil (Douglas R$ 11.090) ✓ · perfil de técnico renderizando (fix Sprint 13) ✓
+  - Join de técnicos (`nome_completo`) OK em todas as telas de dinheiro → o 404/zeramento da
+    Sprint 11 não voltou ✓ · último acesso real em `/equipe` ✓
+  - **Observação menor (não-regressão, pré-existente):** na *lista* `/fechamento`, o card de um
+    fechamento "Aberto" mostra R$ 0,00 / 0 visitas (snapshot não-consolidado), enquanto o detalhe
+    é tempo real. Candidato a polimento (mostrar tempo real ou "não consolidado" no card).
 
 ## Definition of Done da sprint
 
-- [x] Itens A e B verificados em produção · **Fase C implementada, aguardando verificação pós-deploy**
+- [x] Itens A–C verificados em produção (A/B em 04/07; C em 04/07 pós-merge)
 - [x] typecheck · lint · test verdes (143 testes)
-- [ ] `00-roadmap.md` atualizado _(feito)_ · **QA de regressão completo do relatório 02/07** a rodar
-      após o deploy da Fase C (fecha o ciclo do QA)
+- [x] `00-roadmap.md` atualizado · **QA de regressão do relatório 02/07 refeito** — sem regressões
+      (ciclo do QA fechado)

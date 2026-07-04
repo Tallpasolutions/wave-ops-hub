@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { updateReason } from '../../../actions'
 import type { ReasonCategoria } from '@/db/schema'
+import { CATEGORIA_CLASSIFICAVEL_OPTIONS } from '@/lib/reasons/categoria'
 
 type Reason = {
   id: string
@@ -18,28 +19,7 @@ type Reason = {
 
 type Props = { reason: Reason }
 
-const CATEGORIA_OPTIONS: { value: Exclude<ReasonCategoria, 'pendente_classificacao'>; label: string; description: string }[] = [
-  {
-    value: 'falha_tecnico',
-    label: 'Falha do Técnico',
-    description: 'Falha atribuível ao técnico (ex: sem tempo, endereço não encontrado)',
-  },
-  {
-    value: 'falha_cliente',
-    label: 'Falha do Cliente',
-    description: 'Cliente impediu a execução (ex: ausente, reagendou)',
-  },
-  {
-    value: 'forca_maior',
-    label: 'Força Maior',
-    description: 'Evento incontrolável (ex: chuva, sem viabilidade)',
-  },
-  {
-    value: 'falha_sistema',
-    label: 'Falha do Sistema / Wave',
-    description: 'Erro Unetvale/Wave (ex: OS criada incorreta, APR impedida)',
-  },
-]
+const CATEGORIA_OPTIONS = CATEGORIA_CLASSIFICAVEL_OPTIONS
 
 export function EditReasonForm({ reason }: Props) {
   const [state, formAction, isPending] = useActionState(

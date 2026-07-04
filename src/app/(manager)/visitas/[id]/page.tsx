@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { notFound } from 'next/navigation'
@@ -6,6 +7,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = { title: 'Detalhe da Visita' }
 
 type Props = {
   params: Promise<{ id: string }>

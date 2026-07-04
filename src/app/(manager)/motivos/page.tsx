@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { ReasonCategoria } from '@/db/schema'
+import { CATEGORIA_LABEL, CATEGORIA_BADGE_CLASS } from '@/lib/reasons/categoria'
 import { OsListSheet } from './_components/OsListSheet'
 
 export const dynamic = 'force-dynamic'
@@ -26,32 +27,6 @@ const CATEGORIAS_VALIDAS: ReasonCategoria[] = [
   'pendente_classificacao',
 ]
 
-const CATEGORIA_CONFIG: Record<
-  ReasonCategoria,
-  { label: string; badgeClass: string }
-> = {
-  falha_tecnico: {
-    label: 'Falha do Técnico',
-    badgeClass: 'bg-[rgba(255,184,0,0.12)] text-[#ffb800]',
-  },
-  falha_cliente: {
-    label: 'Falha do Cliente',
-    badgeClass: 'bg-[rgba(30,107,255,0.12)] text-[var(--blue)]',
-  },
-  forca_maior: {
-    label: 'Força Maior',
-    badgeClass: 'bg-[rgba(160,100,255,0.12)] text-[#a064ff]',
-  },
-  falha_sistema: {
-    label: 'Falha do Sistema',
-    badgeClass: 'bg-[rgba(255,200,0,0.10)] text-[#ffc800]',
-  },
-  pendente_classificacao: {
-    label: 'Pendente',
-    badgeClass: 'bg-[rgba(255,84,112,0.13)] text-[var(--red)]',
-  },
-}
-
 type FilterChip = {
   label: string
   value: string | null
@@ -59,15 +34,16 @@ type FilterChip = {
 
 const FILTER_CHIPS: FilterChip[] = [
   { label: 'Todos', value: null },
-  { label: 'Falha Técnico', value: 'falha_tecnico' },
-  { label: 'Falha Cliente', value: 'falha_cliente' },
-  { label: 'Força Maior', value: 'forca_maior' },
-  { label: 'Falha Sistema', value: 'falha_sistema' },
+  { label: CATEGORIA_LABEL.falha_tecnico, value: 'falha_tecnico' },
+  { label: CATEGORIA_LABEL.falha_cliente, value: 'falha_cliente' },
+  { label: CATEGORIA_LABEL.forca_maior, value: 'forca_maior' },
+  { label: CATEGORIA_LABEL.falha_sistema, value: 'falha_sistema' },
   { label: 'Pendentes', value: 'pendente_classificacao' },
 ]
 
 function CategoriaBadge({ categoria }: { categoria: ReasonCategoria }) {
-  const { label, badgeClass } = CATEGORIA_CONFIG[categoria]
+  const label = CATEGORIA_LABEL[categoria]
+  const badgeClass = CATEGORIA_BADGE_CLASS[categoria]
   const isPending = categoria === 'pendente_classificacao'
   return (
     <span

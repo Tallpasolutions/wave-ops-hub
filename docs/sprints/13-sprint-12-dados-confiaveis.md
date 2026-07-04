@@ -127,8 +127,23 @@ Período persistente, busca/paginação, perfil de técnico (Sprint 13) · cosm�
   - 114/114 testes · typecheck ✅ · lint ✅ · build ✅
   - **Passos em produção:** aplicar 0013 → aplicar o script de LPU → "Recalcular pendentes".
     Esperado: total de junho 602 → ~504, "sem regra" 248 → ~73 (só o grupo Cabeamento)
-  - **Restante da Fase C (grupo Cabeamento, 73):** match por explicação de valor (coluna Z) —
+  - **Restante da Fase C (grupo Cabeamento):** match por explicação de valor (coluna Z) —
     exige ADR do motor de LPU; fica para sprint dedicada
+- **03/07/2026 (noite) — Fase C VERIFICADA EM PRODUÇÃO** (migration 0013 + script LPU +
+  recálculo aplicados pelo usuário):
+  - 0013: **99 visitas marcadas `fora_escopo`**, 0 infra com payout travado
+  - Script LPU: as 6 regras de Suporte Fibra estendidas com Troca de Equipamentos (+ de Local);
+    regra Venda Produto Externo R$ 0 criada
+  - Recálculo: **1309 recalculadas** (= 1408 − 99 infra puladas, confirma o skip do recalc)
+  - **Dashboard junho: 602 → 545 OSs** (57 infra de junho removidas), sem NENHUMA finalidade
+    de infra nos "Tipos de OS"; receita 60.313 → 59.408
+  - **Pagamentos junho: sem regra → 31**, todos do grupo Cabeamento (Cabeamento/Segundo Ponto 23,
+    Cabeamento Fibra 6, Instalação Condomínio 1, Retirada Condomínio 1). Troca de Equipamentos e
+    Venda Produto Externo saíram dos sem-regra (casaram as regras novas — detalhe OS 569238:
+    "Suporte Fibra Interno" R$ 30)
+  - **Reconciliação (R2.4):** o "248 sem regra / 98 infra" da consulta original era GLOBAL
+    (SQL sem filtro de período); junho tinha 57 infra → 602−57=545. As 99 `fora_escopo` se
+    distribuem entre os meses. Números consistentes.
 - **03/07/2026 — Fase D implementada** (branch `feat/sprint-12-guard-rails`) —
   **aguardando merge + verificação em produção**:
   - Guards no servidor (defesa em profundidade): `approveImprodutiva` e

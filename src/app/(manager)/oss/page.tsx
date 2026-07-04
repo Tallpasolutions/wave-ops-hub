@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Ordens de Serviço' }
 import { parsePeriod } from '../_lib/period'
+import { getEffectivePeriod } from '../_lib/period-server'
 import { EmptyState } from '@/components/EmptyState'
 
 export const dynamic = 'force-dynamic'
@@ -71,13 +72,14 @@ function groupByOs(
 
 export default async function OssPage({ searchParams }: Props) {
   const { mes, finalidade: finalidadeFiltro, cidade: cidadeFiltro } = await searchParams
-  const { start, end, label: periodoLabel } = parsePeriod(mes)
-  const mesAtual = mes ?? start.slice(0, 7)
 
   const user = await getCurrentUser()
   if (!user) notFound()
 
   const supabase = await createSupabaseServerClient()
+
+  const mesAtual = await getEffectivePeriod(mes, supabase, user.tenantId!)
+  const { start, end, label: periodoLabel } = parsePeriod(mesAtual)
 
   const { data: visitsRaw } = await supabase
     .from('service_visits')

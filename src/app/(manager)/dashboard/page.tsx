@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
+import { getEffectivePeriod } from '../_lib/period-server'
 import { aggregate } from './_lib/aggregate'
 import type { VisitRow, TechRow, ReasonRow } from './_lib/aggregate'
 import { KpiCard } from './_components/KpiCard'
@@ -40,12 +41,14 @@ const fmtNum = (n: number) =>
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const { mes } = await searchParams
-  const { start, end, label: periodLabel } = parsePeriod(mes)
 
   const user = await getCurrentUser()
   if (!user?.tenantId) return null
 
   const supabase = await createSupabaseServerClient()
+
+  const mesEfetivo = await getEffectivePeriod(mes, supabase, user.tenantId)
+  const { start, end, label: periodLabel } = parsePeriod(mesEfetivo)
 
   const [visitsRes, techsRes, reasonsRes] = await Promise.all([
     supabase

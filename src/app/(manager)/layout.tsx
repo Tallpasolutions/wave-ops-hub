@@ -9,6 +9,7 @@ import { ManagerShell } from './_components/ManagerShell'
 import { NotificationBell } from '@/components/NotificationBell'
 import type { NotifItem } from '@/components/NotificationBell'
 import { GlobalPeriodSelector } from './_components/GlobalPeriodSelector'
+import { getAvailablePeriods, getEffectivePeriod } from './_lib/period-server'
 
 export const metadata: Metadata = {
   title: { template: '%s | Wave Ops Hub', default: 'Painel do Gestor' },
@@ -72,6 +73,14 @@ export default async function ManagerLayout({ children }: { children: React.Reac
 
   const improdutivasPendentes = improdutivasRes.count ?? 0
 
+  // Períodos reais + período efetivo para o seletor global (default = último mês com dados)
+  const [availablePeriods, effectiveMes] = user.tenantId
+    ? await Promise.all([
+        getAvailablePeriods(supabase, user.tenantId),
+        getEffectivePeriod(undefined, supabase, user.tenantId),
+      ])
+    : [[], `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`]
+
   return (
     <ManagerShell
       nomeCompleto={user.nomeCompleto}
@@ -81,7 +90,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
       topbar={
         <>
           <Suspense fallback={<div className="flex-1" />}>
-            <GlobalPeriodSelector />
+            <GlobalPeriodSelector availablePeriods={availablePeriods} effectiveMes={effectiveMes} />
           </Suspense>
           <NotificationBell notifications={notifications} />
         </>

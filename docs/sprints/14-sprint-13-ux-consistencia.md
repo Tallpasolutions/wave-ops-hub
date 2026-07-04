@@ -94,6 +94,27 @@ Cosméticos S1–S6 e "último acesso" (Sprint 14) · notificações e contesta�
 ## Estado verificado
 
 - **02/07/2026 — QA:** contexto acima registrado. Nenhuma fase iniciada.
+- **04/07/2026 — Sprint 12 fechada:** técnicos reais vinculados em produção (11 cadastrados,
+  seção "sem vínculo" vazia, dashboard sem "Não vinculado"). INFRA WAVE com OS operacional =
+  pagam (decisão do usuário, sem exclusão por técnico).
+- **04/07/2026 — Fase A implementada** (branch `feat/sprint-13-periodo-inteligente`) —
+  **aguardando merge + verificação em produção**:
+  - Investiguei o que existia (R2.1): `GlobalPeriodSelector` usava mês corrente como default
+    e opções hardcoded de 6 meses; navegação pela sidebar perdia `?mes=`;
+    `startsWith('/oss')` fazia o chip aparecer inerte nos detalhes
+  - Novo `_lib/period-server.ts`: `getDataRange` (min/max de visitas in-scope, cache/request),
+    `getAvailablePeriods` e `getEffectivePeriod` (precedência: URL > cookie > último mês com
+    dados > mês corrente)
+  - `_lib/period.ts`: `isValidMes`, `generateMonthRange`, `PERIODO_COOKIE` (puros, client-safe)
+  - Selector: recebe `availablePeriods`/`effectiveMes` do layout; seta cookie na escolha
+    (persiste entre rotas sem threadar `?mes=`); match EXATO de path (some o chip em detalhes);
+    `useTransition` + opacity para o clique-durante-carregamento
+  - 4 telas (dashboard, oss, financeiro, pagamentos) usam `getEffectivePeriod`.
+    `improdutivas` mantém "todos os períodos" (é fila de aprovação — default não deve ocultar
+    backlog; o chip global serve de filtro opcional)
+  - 9 testes novos dos helpers puros (123 total) · typecheck ✅ · lint ✅ · build ✅
+  - **Verificar em prod:** abrir /dashboard sem `?mes=` → cai em junho (último com dados);
+    escolher maio → navegar para /oss pela sidebar preserva maio; nenhum chip em /oss/&lt;num&gt;
 
 ## Definition of Done da sprint
 

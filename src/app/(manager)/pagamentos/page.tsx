@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../_lib/period'
+import { getEffectivePeriod } from '../_lib/period-server'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { RecalcularButton } from './_components/RecalcularButton'
 
@@ -45,12 +46,14 @@ function StatusBadge({ status }: { status: string }) {
 
 export default async function PayoutsPage({ searchParams }: Props) {
   const { mes, status: statusFilter } = await searchParams
-  const { start: inicio, end: fimExclusivo, label: periodoLabel } = parsePeriod(mes)
 
   const user = await getCurrentUser()
   if (!user) notFound()
 
   const supabase = await createSupabaseServerClient()
+
+  const mesEfetivo = await getEffectivePeriod(mes, supabase, user.tenantId!)
+  const { start: inicio, end: fimExclusivo, label: periodoLabel } = parsePeriod(mesEfetivo)
 
   // Busca visitas do período com seus payouts — filtro de data direto em service_visits
   // para evitar instabilidade do filtro por join embutido no PostgREST
@@ -138,7 +141,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
   const totalPendencias =
     pendencias.no_rule_match + pendencias.pending_classification + pendencias.conflict
 
-  const mesParam = mes ? `&mes=${mes}` : ''
+  const mesParam = `&mes=${mesEfetivo}`
 
   return (
     <div className="p-4 lg:p-8">

@@ -215,14 +215,14 @@ export async function getDistinctValues(
 
 export async function getTechniciansForRule(
   tenantId: string,
-): Promise<{ id: string; nome: string }[]> {
+): Promise<{ id: string; nome_completo: string }[]> {
   const supabase = await createSupabaseServerClient()
   const { data } = await supabase
     .from('technicians')
-    .select('id, nome')
+    .select('id, nome_completo')
     .eq('tenant_id', tenantId)
     .eq('ativo', true)
-    .order('nome')
+    .order('nome_completo')
   return data ?? []
 }
 

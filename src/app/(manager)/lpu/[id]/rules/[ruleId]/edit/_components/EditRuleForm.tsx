@@ -136,7 +136,7 @@ type Props = {
   rule: LpuRuleNarrowed
   lpuId: string
   lpuNome: string
-  technicians?: { id: string; nome: string }[]
+  technicians?: { id: string; nome_completo: string }[]
 }
 
 export function EditRuleForm({ rule, lpuId, lpuNome, technicians = [] }: Props) {
@@ -281,7 +281,7 @@ export function EditRuleForm({ rule, lpuId, lpuNome, technicians = [] }: Props) 
                       >
                         <option value="">Selecione um técnico</option>
                         {technicians.map((t) => (
-                          <option key={t.id} value={t.id}>{t.nome}</option>
+                          <option key={t.id} value={t.id}>{t.nome_completo}</option>
                         ))}
                       </select>
                     )}

@@ -89,7 +89,7 @@ export default async function VisitDetailPage({ params }: Props) {
          tipo_atendimento, valor_recebido_unetvale, explicacao_valor, tecnico_raw, condominio,
          garantia, validada, agregada, rejeitada, agendada,
          observacoes,
-         technicians(id, nome),
+         technicians(id, nome_completo),
          reasons(motivo_original, motivo_normalizado, categoria),
          payouts(id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
                  override_motivo, lpu_rules(description, conditions, payout))`,
@@ -107,7 +107,7 @@ export default async function VisitDetailPage({ params }: Props) {
 
   if (!visit) notFound()
 
-  const tech = visit.technicians as unknown as { id: string; nome: string } | null
+  const tech = visit.technicians as unknown as { id: string; nome_completo: string } | null
   const reason = visit.reasons as unknown as {
     motivo_original: string
     motivo_normalizado: string | null
@@ -185,7 +185,7 @@ export default async function VisitDetailPage({ params }: Props) {
                   href={`/equipe/tecnicos/${tech.id}`}
                   className="text-[var(--cyan)] hover:underline"
                 >
-                  {tech.nome}
+                  {tech.nome_completo}
                 </Link>
               ) : (
                 visit.tecnico_raw ?? '—'

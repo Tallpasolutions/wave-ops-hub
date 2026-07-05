@@ -30,7 +30,7 @@ export async function GET(
 
   const { data: tech } = await supabase
     .from('technicians')
-    .select('id, nome')
+    .select('id, nome_completo')
     .eq('id', tecnicoId)
     .eq('tenant_id', user.tenantId!)
     .single()
@@ -92,7 +92,7 @@ export async function GET(
   }
 
   const techWithDetails: TechWithDetails = {
-    nome: tech.nome,
+    nome: tech.nome_completo,
     visitas: visitDetails.length,
     totalAPagar,
     visitDetails,
@@ -103,7 +103,7 @@ export async function GET(
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="payout-${tech.nome.replace(/\s+/g, '-')}-${periodo}.pdf"`,
+      'Content-Disposition': `attachment; filename="payout-${tech.nome_completo.replace(/\s+/g, '-')}-${periodo}.pdf"`,
     },
   })
 }

@@ -21,7 +21,7 @@ export default async function MinhaEquipePage() {
 
   const { data: supervisorTeam } = await supabase
     .from('supervisor_technicians')
-    .select('technician_id, technicians(id, nome)')
+    .select('technician_id, technicians(id, nome_completo)')
     .eq('supervisor_id', user.id)
 
   if (!supervisorTeam?.length) {
@@ -65,7 +65,7 @@ export default async function MinhaEquipePage() {
 
   const kpis: KpiRow[] = supervisorTeam.map((row) => {
     const tech = (Array.isArray(row.technicians) ? row.technicians[0] : row.technicians) as
-      | { id: string; nome: string }
+      | { id: string; nome_completo: string }
       | null
 
     const tid = row.technician_id
@@ -88,7 +88,7 @@ export default async function MinhaEquipePage() {
 
     return {
       technicianId: tid,
-      nome: tech?.nome ?? tid,
+      nome: tech?.nome_completo ?? tid,
       totalVisitas: total,
       taxaSucesso: taxa,
       totalPayout,

@@ -37,14 +37,14 @@ export default async function SupervisorDetailPage({ params }: Props) {
       .single(),
     supabase
       .from('supervisor_technicians')
-      .select('technician_id, technicians(id, nome)')
+      .select('technician_id, technicians(id, nome_completo)')
       .eq('supervisor_id', id),
     supabase
       .from('technicians')
-      .select('id, nome')
+      .select('id, nome_completo')
       .eq('tenant_id', user.tenantId!)
       .eq('ativo', true)
-      .order('nome'),
+      .order('nome_completo'),
   ])
 
   if (!supervisor) notFound()
@@ -94,12 +94,12 @@ export default async function SupervisorDetailPage({ params }: Props) {
               </TableHeader>
               <TableBody>
                 {(team ?? []).map((row) => {
-                  const tech = (Array.isArray(row.technicians) ? row.technicians[0] : row.technicians) as { id: string; nome: string } | null
+                  const tech = (Array.isArray(row.technicians) ? row.technicians[0] : row.technicians) as { id: string; nome_completo: string } | null
                   if (!tech) return null
                   const removeAction = removeTechnicianFromSupervisor.bind(null, id, tech.id)
                   return (
                     <TableRow key={tech.id} className="border-[var(--line)]">
-                      <TableCell className="text-sm text-[var(--text)]">{tech.nome}</TableCell>
+                      <TableCell className="text-sm text-[var(--text)]">{tech.nome_completo}</TableCell>
                       {canManage && (
                         <TableCell className="text-right">
                           <form action={removeAction}>
@@ -143,7 +143,7 @@ export default async function SupervisorDetailPage({ params }: Props) {
               >
                 <option value="">Selecione um técnico</option>
                 {available.map((t) => (
-                  <option key={t.id} value={t.id}>{t.nome}</option>
+                  <option key={t.id} value={t.id}>{t.nome_completo}</option>
                 ))}
               </select>
               <Button type="submit" size="sm">Adicionar</Button>

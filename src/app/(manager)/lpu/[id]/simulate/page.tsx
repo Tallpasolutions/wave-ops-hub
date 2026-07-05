@@ -112,13 +112,13 @@ export default async function SimulatePage({ params, searchParams }: Props) {
       .from('reasons')
       .select('id, categoria, paga_improdutiva, valor_improdutiva')
       .eq('tenant_id', user.tenantId!),
-    supabase.from('technicians').select('id, nome').eq('tenant_id', user.tenantId!),
+    supabase.from('technicians').select('id, nome_completo').eq('tenant_id', user.tenantId!),
   ])
 
   if (!lpu) notFound()
 
   const rules = (rulesRaw ?? []) as LpuRuleNarrowed[]
-  const tecnicoNomes = new Map((tecnicos ?? []).map((t) => [t.id, t.nome]))
+  const tecnicoNomes = new Map((tecnicos ?? []).map((t) => [t.id, t.nome_completo]))
 
   const simVisits: SimVisit[] = (visitsRaw ?? []).map((v) => ({
     id: v.id,

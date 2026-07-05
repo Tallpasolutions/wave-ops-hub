@@ -17,10 +17,10 @@ export default async function SupervisorNewPage() {
   const [{ data: technicians }, { data: supervisorUsers }] = await Promise.all([
     supabase
       .from('technicians')
-      .select('id, nome')
+      .select('id, nome_completo')
       .eq('tenant_id', user.tenantId!)
       .eq('ativo', true)
-      .order('nome'),
+      .order('nome_completo'),
     supabase
       .from('users')
       .select('technician_id')

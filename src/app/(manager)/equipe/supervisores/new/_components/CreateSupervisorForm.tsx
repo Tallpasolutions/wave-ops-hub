@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { createSupervisor } from '../../actions'
 
-type Technician = { id: string; nome: string }
+type Technician = { id: string; nome_completo: string }
 
 type Props = {
   techniciansAvailable: Technician[]
@@ -76,7 +76,7 @@ export function CreateSupervisorForm({ techniciansAvailable, techniciansAll }: P
                 >
                   <option value="">Selecione um técnico</option>
                   {techniciansAvailable.map((t) => (
-                    <option key={t.id} value={t.id}>{t.nome}</option>
+                    <option key={t.id} value={t.id}>{t.nome_completo}</option>
                   ))}
                 </select>
               )}
@@ -127,7 +127,7 @@ export function CreateSupervisorForm({ techniciansAvailable, techniciansAll }: P
                     checked={supervisedIds.includes(t.id)}
                     onCheckedChange={() => toggleSupervised(t.id)}
                   />
-                  <span className="text-sm text-[var(--text)]">{t.nome}</span>
+                  <span className="text-sm text-[var(--text)]">{t.nome_completo}</span>
                 </label>
               ))}
             </div>

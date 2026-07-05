@@ -35,7 +35,7 @@ export async function createSupervisor(
 
   const { data: existingTech } = await adminClient
     .from('technicians')
-    .select('nome')
+    .select('nome_completo')
     .eq('id', technicianId)
     .eq('tenant_id', tenantId)
     .single()
@@ -63,7 +63,7 @@ export async function createSupervisor(
   const { error: dbError } = await adminClient.from('users').insert({
     id: userId,
     email,
-    nome_completo: existingTech.nome,
+    nome_completo: existingTech.nome_completo,
     role: 'tenant_supervisor',
     tenant_id: tenantId,
     technician_id: technicianId,

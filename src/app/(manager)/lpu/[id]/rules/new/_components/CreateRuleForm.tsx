@@ -103,7 +103,7 @@ type Props = {
   defaultPrioridade?: number
   actionFn?: typeof createLpuRule
   suggestions?: { finalidade: string[]; cidade: string[] }
-  technicians?: { id: string; nome: string }[]
+  technicians?: { id: string; nome_completo: string }[]
 }
 
 export function CreateRuleForm({
@@ -256,7 +256,7 @@ export function CreateRuleForm({
                       >
                         <option value="">Selecione um técnico</option>
                         {technicians.map((t) => (
-                          <option key={t.id} value={t.id}>{t.nome}</option>
+                          <option key={t.id} value={t.id}>{t.nome_completo}</option>
                         ))}
                       </select>
                     )}

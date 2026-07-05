@@ -134,3 +134,55 @@ describe("buildPayoutUpsert", () => {
     expect(result.status).toBe("pending_classification");
   });
 });
+
+// ADR-009: Cabeamento/Condomínio pagam pela classificação do gestor (explicacao_valor), não pela LPU.
+describe("buildPayoutUpsert — classificação de Cabeamento (ADR-009)", () => {
+  const classification = {
+    finalidades: new Set(["cabeamento/segundo ponto"]),
+    map: new Map([["Cabeamento agregado", 44]]),
+  };
+
+  it("grupo + sucesso + chave classificada → pending_review com o valor da classificação", () => {
+    const visit = makeVisit({
+      finalidade: "Cabeamento/Segundo Ponto",
+      sucesso: "Sim",
+      explicacaoValor: "Cabeamento agregado | 73 (Reajuste +6,54% fevereiro/2025)",
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, classification);
+    expect(result.status).toBe("pending_review");
+    expect(result.valorCalculado).toBe(44);
+    expect(result.lpuRuleId).toBeNull();
+    expect(result.valorDeixadoNaMesa).toBe(0);
+  });
+
+  it("grupo + sucesso + chave NÃO classificada → no_rule_match (surge na fila)", () => {
+    const visit = makeVisit({
+      finalidade: "Cabeamento/Segundo Ponto",
+      sucesso: "Sim",
+      explicacaoValor: "Cabeamento de 3 pontos | 106 (Reajuste +6,54% fevereiro/2025)",
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, classification);
+    expect(result.status).toBe("no_rule_match");
+    expect(result.valorCalculado).toBeNull();
+  });
+
+  it("grupo + improdutiva → segue o fluxo de motivo (não classifica)", () => {
+    const visit = makeVisit({
+      finalidade: "Cabeamento/Segundo Ponto",
+      sucesso: "Não",
+      reasonId: "reason-1",
+    });
+    const reason = makeReason({ categoria: "pendente_classificacao" });
+    const result = buildPayoutUpsert(visit, [], [reason], LPU_ID, TENANT_ID, classification);
+    expect(result.status).toBe("pending_classification");
+  });
+
+  it("fora do grupo → fluxo normal de LPU intacto (mesmo com ctx de classificação)", () => {
+    const visit = makeVisit({ finalidade: "Suporte Fibra", sucesso: "Sim" });
+    const rule = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 80 } });
+    const result = buildPayoutUpsert(visit, [rule], [], LPU_ID, TENANT_ID, classification);
+    expect(result.status).toBe("pending_review");
+    expect(result.valorCalculado).toBe(80);
+    expect(result.lpuRuleId).toBe("rule-1");
+  });
+});

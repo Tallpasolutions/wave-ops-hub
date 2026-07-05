@@ -16,6 +16,7 @@ import {
   HelpCircle,
   LogOut,
   CheckCircle2,
+  Cable,
 } from 'lucide-react'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { signOut } from '@/lib/auth/logout'
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/motivos', label: 'Improdutivas', icon: Tag },
   { href: '/improdutivas', label: 'Aprovação', icon: CheckCircle2 },
   { href: '/lpu', label: 'LPU', icon: ScrollText },
+  { href: '/cabeamento', label: 'Cabeamento', icon: Cable },
   { href: '/oss', label: 'OSs', icon: ClipboardList },
   { href: '/pagamentos', label: 'Pagamentos', icon: DollarSign },
   { href: '/financeiro', label: 'Financeiro', icon: TrendingUp },

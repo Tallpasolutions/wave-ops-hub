@@ -14,3 +14,4 @@ export * from "./monthly-closings";
 export * from "./payouts";
 export * from "./notifications";
 export * from "./supervisor-technicians";
+export * from "./cabeamento-classifications";

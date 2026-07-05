@@ -12,6 +12,9 @@ export type SimVisit = VisitForMatch & {
   id: string;
   osNum: number;
   reasonId: string | null;
+  // Coluna Z (ADR-009): usada só na classificação de Cabeamento; opcional para os
+  // demais construtores de SimVisit (ex.: simulador) que não precisam dela.
+  explicacaoValor?: string | null;
 };
 
 export function simulate(

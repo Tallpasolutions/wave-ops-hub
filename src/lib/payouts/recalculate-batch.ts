@@ -10,7 +10,7 @@ import type { BatchRecalcResult, ChunkRecalcResult } from "./types";
 export const RECALC_CHUNK_SIZE = 200;
 
 const VISIT_COLUMNS =
-  "id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada, data_execucao";
+  "id, os_num, tecnico_id, reason_id, finalidade, tipo_atendimento, sucesso, cidade, condominio, drop_usado, faixa_drop, conectores_usados, garantia, subterraneo_aereo, valor_recebido_unetvale, agregada, explicacao_valor, data_execucao";
 
 type VisitRow = {
   id: string;
@@ -29,6 +29,7 @@ type VisitRow = {
   subterraneo_aereo: string | null;
   valor_recebido_unetvale: number | string | null;
   agregada: boolean | null;
+  explicacao_valor: string | null;
   data_execucao: string;
 };
 
@@ -53,6 +54,7 @@ function rowToSimVisit(v: VisitRow): SimVisit {
       v.valor_recebido_unetvale != null
         ? Number(v.valor_recebido_unetvale)
         : null,
+    explicacaoValor: v.explicacao_valor,
   };
 }
 
@@ -74,6 +76,10 @@ type RecalcContext = {
   lpuId: string | null;
   rules: LpuRuleNarrowed[];
   reasons: ReasonForPayout[];
+  // ADR-009: classificação de Cabeamento/Condomínio (explicacao_key → valor) + grupo de
+  // finalidades (normalizado trim+lower). Mapa vazio/set vazio → comportamento igual ao anterior.
+  classifications: Map<string, number>;
+  finalidadesClassificar: Set<string>;
 };
 
 async function loadRecalcContext(
@@ -112,7 +118,31 @@ async function loadRecalcContext(
       r.valor_improdutiva != null ? Number(r.valor_improdutiva) : null,
   }));
 
-  return { lpuId, rules, reasons };
+  // ADR-009: classificações de Cabeamento/Condomínio + finalidades do grupo
+  const { data: classRaw } = await supabase
+    .from("cabeamento_classifications")
+    .select("explicacao_key, valor")
+    .eq("tenant_id", tenantId);
+  const classifications = new Map<string, number>(
+    (classRaw ?? []).map((c) => [c.explicacao_key as string, Number(c.valor)]),
+  );
+
+  const { data: tenantRow } = await supabase
+    .from("tenants")
+    .select("config")
+    .eq("id", tenantId)
+    .single();
+  const cfg = (tenantRow?.config ?? {}) as {
+    finalidades_classificar_explicacao?: unknown;
+  };
+  const finalidadesClassificar = new Set(
+    (Array.isArray(cfg.finalidades_classificar_explicacao)
+      ? cfg.finalidades_classificar_explicacao
+      : []
+    ).map((f) => String(f).trim().toLowerCase()),
+  );
+
+  return { lpuId, rules, reasons, classifications, finalidadesClassificar };
 }
 
 type PageResult = {
@@ -152,7 +182,10 @@ async function processVisitPage(
   if (toProcess.length === 0) return { processed: 0, skipped, errors: 0, periodos };
 
   const upserts = toProcess.map((v) =>
-    buildPayoutUpsert(rowToSimVisit(v), ctx.rules, ctx.reasons, ctx.lpuId, tenantId),
+    buildPayoutUpsert(rowToSimVisit(v), ctx.rules, ctx.reasons, ctx.lpuId, tenantId, {
+      map: ctx.classifications,
+      finalidades: ctx.finalidadesClassificar,
+    }),
   );
 
   const { error: upsertError } = await supabase.from("payouts").upsert(

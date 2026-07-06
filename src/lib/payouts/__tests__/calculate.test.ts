@@ -186,3 +186,43 @@ describe("buildPayoutUpsert — classificação de Cabeamento (ADR-009)", () => 
     expect(result.lpuRuleId).toBe("rule-1");
   });
 });
+
+// ADR-011: +15% em execução com sucesso de domingo/feriado (2026-06-07 é domingo).
+describe("buildPayoutUpsert — acréscimo de domingo/feriado (ADR-011)", () => {
+  const feriado = { feriados: new Set<string>(), pct: 15 };
+  const ruleFixo80 = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 80 } });
+
+  it("sucesso em domingo → valor × 1,15", () => {
+    const visit = makeVisit({ sucesso: "Sim", dataExecucao: "2026-06-07" });
+    const r = buildPayoutUpsert(visit, [ruleFixo80], [], LPU_ID, TENANT_ID, undefined, feriado);
+    expect(r.valorCalculado).toBeCloseTo(92, 2); // 80 × 1,15
+  });
+
+  it("sucesso em dia útil → sem acréscimo", () => {
+    const visit = makeVisit({ sucesso: "Sim", dataExecucao: "2026-06-08" }); // segunda
+    const r = buildPayoutUpsert(visit, [ruleFixo80], [], LPU_ID, TENANT_ID, undefined, feriado);
+    expect(r.valorCalculado).toBe(80);
+  });
+
+  it("Cabeamento classificado em domingo → valor × 1,15", () => {
+    const classification = {
+      finalidades: new Set(["cabeamento/segundo ponto"]),
+      map: new Map([["Cabeamento agregado", 44]]),
+    };
+    const visit = makeVisit({
+      finalidade: "Cabeamento/Segundo Ponto",
+      sucesso: "Sim",
+      dataExecucao: "2026-06-07",
+      explicacaoValor: "Cabeamento agregado | 73 (Reajuste +6,54% fevereiro/2025)",
+    });
+    const r = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, classification, feriado);
+    expect(r.valorCalculado).toBeCloseTo(50.6, 2); // 44 × 1,15
+  });
+
+  it("improdutiva paga em domingo → SEM acréscimo (só execução com sucesso)", () => {
+    const visit = makeVisit({ sucesso: "Não", reasonId: "reason-1", dataExecucao: "2026-06-07" });
+    const reason = makeReason({ pagaImprodutiva: true, valorImprodutiva: 30 });
+    const r = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID, undefined, feriado);
+    expect(r.valorCalculado).toBe(30);
+  });
+});

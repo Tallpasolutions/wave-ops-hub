@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
-import { buildPayoutUpsert } from "./calculate";
+import { buildPayoutUpsert, type FeriadoCtx } from "./calculate";
 import type { BatchRecalcResult, ChunkRecalcResult } from "./types";
 
 // Sem paginação explícita o PostgREST corta silenciosamente em 1000 linhas — visitas além
@@ -55,6 +55,7 @@ function rowToSimVisit(v: VisitRow): SimVisit {
         ? Number(v.valor_recebido_unetvale)
         : null,
     explicacaoValor: v.explicacao_valor,
+    dataExecucao: v.data_execucao,
   };
 }
 
@@ -80,6 +81,8 @@ type RecalcContext = {
   // finalidades (normalizado trim+lower). Mapa vazio/set vazio → comportamento igual ao anterior.
   classifications: Map<string, number>;
   finalidadesClassificar: Set<string>;
+  // ADR-011: acréscimo de domingo/feriado (config do tenant). pct 0 / lista vazia = no-op.
+  feriado: FeriadoCtx;
 };
 
 async function loadRecalcContext(
@@ -134,6 +137,8 @@ async function loadRecalcContext(
     .single();
   const cfg = (tenantRow?.config ?? {}) as {
     finalidades_classificar_explicacao?: unknown;
+    feriados?: unknown;
+    feriado_acrescimo_pct?: unknown;
   };
   const finalidadesClassificar = new Set(
     (Array.isArray(cfg.finalidades_classificar_explicacao)
@@ -142,7 +147,15 @@ async function loadRecalcContext(
     ).map((f) => String(f).trim().toLowerCase()),
   );
 
-  return { lpuId, rules, reasons, classifications, finalidadesClassificar };
+  // ADR-011: feriados (datas "YYYY-MM-DD") + percentual do acréscimo
+  const feriado: FeriadoCtx = {
+    feriados: new Set(
+      (Array.isArray(cfg.feriados) ? cfg.feriados : []).map((d) => String(d).slice(0, 10)),
+    ),
+    pct: typeof cfg.feriado_acrescimo_pct === "number" ? cfg.feriado_acrescimo_pct : 0,
+  };
+
+  return { lpuId, rules, reasons, classifications, finalidadesClassificar, feriado };
 }
 
 type PageResult = {
@@ -182,10 +195,15 @@ async function processVisitPage(
   if (toProcess.length === 0) return { processed: 0, skipped, errors: 0, periodos };
 
   const upserts = toProcess.map((v) =>
-    buildPayoutUpsert(rowToSimVisit(v), ctx.rules, ctx.reasons, ctx.lpuId, tenantId, {
-      map: ctx.classifications,
-      finalidades: ctx.finalidadesClassificar,
-    }),
+    buildPayoutUpsert(
+      rowToSimVisit(v),
+      ctx.rules,
+      ctx.reasons,
+      ctx.lpuId,
+      tenantId,
+      { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
+      ctx.feriado,
+    ),
   );
 
   const { error: upsertError } = await supabase.from("payouts").upsert(

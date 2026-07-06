@@ -1,4 +1,6 @@
+'use client'
 import type { TecnicoRow } from '../_lib/aggregate'
+import { useDrilldown } from '../_lib/useDrilldown'
 
 const fmtBRL = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -9,6 +11,8 @@ interface Props {
 
 export function TechnicianRankingTable({ rows }: Props) {
   const max = Math.max(...rows.map((r) => r.totalOs), 1)
+  const { drill, activeOf } = useDrilldown()
+  const active = activeOf('tecnico')
 
   return (
     <table className="w-full border-collapse">
@@ -46,8 +50,16 @@ export function TechnicianRankingTable({ rows }: Props) {
                 ? 'text-[var(--cyan)]'
                 : 'text-[var(--amber)]'
 
+          const clickable = row.id != null
           return (
-            <tr key={row.id ?? row.nome} className="group">
+            <tr
+              key={row.id ?? row.nome}
+              onClick={clickable ? () => drill('tecnico', row.id!) : undefined}
+              title={clickable ? 'Filtrar o painel por este técnico' : undefined}
+              className={`group ${clickable ? 'cursor-pointer' : ''} ${
+                active != null && active === row.id ? 'bg-[rgba(0,212,255,0.07)]' : ''
+              }`}
+            >
               <td className="border-b border-[var(--line)] py-[13px] px-3 text-[13px] group-last:border-0 group-hover:bg-white/[0.015]">
                 <span
                   className={`mr-2.5 inline-block h-[22px] w-[22px] rounded-[6px] text-center font-mono text-[10px] font-bold leading-[22px] ${

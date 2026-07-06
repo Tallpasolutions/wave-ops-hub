@@ -16,7 +16,8 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-006](./ADR-006-etl.md) | Estratégia de Ingestão (ETL) | Aceito |
 | [ADR-007](./ADR-007-payouts-fechamento.md) | Arquitetura de Payouts e Fechamento Mensal | Aceito |
 | [ADR-008](./ADR-008-exclusao-finalidades-infra.md) | Exclusão de finalidades de infraestrutura | Aceito |
-| [ADR-009](./ADR-009-cabeamento-classificacao.md) | Payout de Cabeamento/Condomínio por classificação do gestor | Proposto |
+| [ADR-009](./ADR-009-cabeamento-classificacao.md) | Payout de Cabeamento/Condomínio por classificação do gestor | Aceito |
+| [ADR-010](./ADR-010-dashboard-drilldown.md) | Drill-down interativo do dashboard por filtros combináveis na URL | Proposto |
 
 ## Template para novos ADRs
 

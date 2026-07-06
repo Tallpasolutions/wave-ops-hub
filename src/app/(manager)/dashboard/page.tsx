@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       ) : (
         <>
           {/* ── KPI Strip ── */}
-          <section className="mb-7 grid grid-cols-3 gap-3.5 xl:grid-cols-7">
+          <section className="mb-7 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <KpiCard
               label="Total de OSs"
               value={fmtNum(kpis.totalOss)}
@@ -126,17 +126,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <KpiCard
               label="Valor Total Recebido"
               value={fmtBRL(kpis.totalArrecadacao)}
-              pill={{
-                text: `+${fmtBRL(kpis.arrecadacaoPorDia).replace('R$', 'R$')}/dia`,
-                variant: 'green',
-              }}
-              foot="arrecadação"
+              pill={{ text: `${fmtBRL(kpis.arrecadacaoPorDia)}/dia`, variant: 'cyan' }}
+              foot="média diária"
             />
             <KpiCard
               label="Ticket Médio por OS"
               value={fmtBRL(kpis.ticketMedio)}
-              pill={{ text: 'por OS', variant: 'cyan' }}
-              foot="receita ÷ OSs"
+              foot="receita ÷ OSs distintas"
             />
             <KpiCard
               label="Taxa de Finalização"

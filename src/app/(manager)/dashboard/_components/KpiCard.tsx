@@ -27,7 +27,7 @@ export function KpiCard({ label, value, valueSuffix, valueGradient, pill, foot }
       </p>
 
       <p
-        className={`font-display text-[28px] font-bold leading-none tracking-[-1px] mb-2 ${
+        className={`font-display text-[clamp(20px,2.2vw,28px)] font-bold leading-none tracking-[-1px] mb-2 whitespace-nowrap tabular-nums ${
           valueGradient
             ? 'bg-grad bg-clip-text text-transparent'
             : 'text-[var(--text)]'

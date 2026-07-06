@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { parseBrNumber } from './number'
 
 export const RawRowSchema = z.object({
   Data: z.coerce.date(),
@@ -25,14 +26,7 @@ export const RawRowSchema = z.object({
   NumTecnicos: z.coerce.number().int().nullable().optional(),
   Validada: z.string().nullable().optional(),
   Garantia: z.string().nullable().optional(),
-  Valor: z.preprocess(
-    (v) => {
-      if (v === null || v === undefined || v === '' || v === '-') return 0
-      const n = Number(v)
-      return isNaN(n) ? 0 : n
-    },
-    z.number().default(0),
-  ),
+  Valor: z.preprocess((v) => parseBrNumber(v), z.number().default(0)),
   ExplicacaoValor: z.string().nullable().optional(),
   DropUsado: z.coerce.number().nullable().optional(),
   FaixaDrop: z.string().nullable().optional(),

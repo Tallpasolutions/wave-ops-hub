@@ -240,7 +240,7 @@ a 13 depende dos dados saneados; a 14 fecha com reteste integral do relatório d
 | Sprint | Tema | Itens |
 |---|---|---|
 | 15 | LPU Phase 2 + Texto | Campo `explicacaoValor` no ETL → pontos, cordoalha, homologação |
-| 16 | Feriados + Políticas | +15% feriados, calendário SC/Unetvale |
+| 16 | Feriados + Políticas | ✅ **+15% domingo/feriado implementado (04/07, ADR-011)** — multiplicador pós-cálculo (só execução com sucesso; motor LPU intacto). Domingo automático; feriados via `tenants.config.feriados` (migration 0016). **Falta:** gestor fornecer a lista de feriados (SC/Unetvale) para semear |
 | 17 | Wave Onboarding completo | Usuários reais, rotina mensal de planilha + fechamento assistido |
 | 18 | Contestação Técnico | Portal técnico: contestar payout + workflow de aprovação |
 | 19 | Notificações | WhatsApp/push payout aprovado, improdutiva classificada |

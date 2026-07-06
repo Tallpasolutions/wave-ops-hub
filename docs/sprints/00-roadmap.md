@@ -233,7 +233,7 @@ a 13 depende dos dados saneados; a 14 fecha com reteste integral do relatório d
 |---|---|---|
 | ~~A~~ | ~~**Match LPU por explicação de valor**~~ | ✅ **Concluída (04/07)** — ADR-009: em vez de match automático, **classificação pelo gestor** por padrão de coluna Z (`/cabeamento` → valor da LPU → recálculo). Fases 1–4 implementadas e deployadas; motor de LPU intacto. Migration 0015 aplicada. Falta só o gestor classificar os 10 padrões para os ~31 saírem de `no_rule_match` |
 | ~~B~~ | ~~**Dashboard & Interatividade**~~ | ✅ **Concluída e verificada em prod (04/07)** — D1 cards não estouram (grid 1→4 col + valor responsivo); D2 copy dos cards; D3 **drill-down interativo** (ADR-010): clicar em finalidade/cidade/técnico/tipo filtra o painel, filtros combináveis AND, estado na URL. Verificado: Suporte Fibra + Brusque filtra tudo reconciliando (194 OSs / R$ 18.317,60), chips removem, período preservado |
-| C | **ETL: parse de valores com vírgula de milhar** | `valor_recebido_unetvale` pode quebrar em valores ≥ 1.000 ("4.688,83"); baixo impacto agora (infra fora), mas afeta receita de outras finalidades |
+| ~~C~~ | ~~**ETL: parse de valores com vírgula de milhar**~~ | ✅ **Concluída (04/07)** — `parseBrNumber` (`src/lib/etl/number.ts`): "4.688,83" não zera mais, "1.000"→1000. Ligado no schema `Valor`. Visitas já ingeridas e zeradas precisam de re-upload para corrigir |
 
 **Herdadas do planejamento anterior à Sprint 10:**
 

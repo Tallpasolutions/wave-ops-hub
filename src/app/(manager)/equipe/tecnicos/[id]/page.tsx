@@ -3,12 +3,13 @@ import Link from 'next/link'
 import { ArrowLeft, ClipboardList } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { EmptyState } from '@/components/EmptyState'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, canManageTechnicians } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Perfil do Técnico' }
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../../../_lib/period'
 import { getEffectivePeriod } from '../../../_lib/period-server'
+import { TechnicianAccess } from './_components/TechnicianAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,7 +57,8 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
   const mesEfetivo = await getEffectivePeriod(mes, supabase, user.tenantId!)
   const { start, end, label: periodoLabel } = parsePeriod(mesEfetivo)
 
-  const [{ data: tech }, { data: visitsRaw }, { data: payoutsRaw }] = await Promise.all([
+  const [{ data: tech }, { data: visitsRaw }, { data: payoutsRaw }, { data: loginUser }] =
+    await Promise.all([
     supabase
       .from('technicians')
       .select('id, nome_completo, email, cpf, celular, codigo_unetvale, ativo, data_admissao, observacoes')
@@ -80,6 +82,13 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
       .eq('technician_id', id)
       .gte('service_visits.data_execucao', start)
       .lt('service_visits.data_execucao', end),
+    supabase
+      .from('users')
+      .select('id, email, ativo')
+      .eq('tenant_id', user.tenantId!)
+      .eq('technician_id', id)
+      .eq('role', 'tenant_technician')
+      .maybeSingle(),
   ])
 
   if (!tech) notFound()
@@ -161,6 +170,15 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
           </div>
         )}
       </div>
+
+      {/* Acesso ao portal (login do técnico) */}
+      {canManageTechnicians(user) && (
+        <TechnicianAccess
+          technicianId={tech.id}
+          email={tech.email}
+          user={loginUser ?? null}
+        />
+      )}
 
       {/* KPIs do período */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">

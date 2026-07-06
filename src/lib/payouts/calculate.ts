@@ -5,6 +5,7 @@ import {
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
 import { normalizeExplicacao } from "@/lib/etl/explicacao";
+import { isDomingoOuFeriado, aplicarAcrescimo } from "./feriado";
 import type { DbPayoutStatus, PayoutUpsertData } from "./types";
 
 // ADR-009: finalidades de Cabeamento/Condomínio não têm regra de LPU — o valor vem da
@@ -13,6 +14,12 @@ import type { DbPayoutStatus, PayoutUpsertData } from "./types";
 export type ClassificationCtx = {
   map: Map<string, number>;
   finalidades: Set<string>;
+};
+
+// ADR-011: acréscimo de domingo/feriado (config do tenant). `feriados` = datas "YYYY-MM-DD".
+export type FeriadoCtx = {
+  feriados: Set<string>;
+  pct: number;
 };
 
 // Mapeia o status de 4 valores do match engine para o status de 10 valores do DB.
@@ -30,12 +37,22 @@ export function buildPayoutUpsert(
   lpuId: string | null,
   tenantId: string,
   classification?: ClassificationCtx,
+  feriado?: FeriadoCtx,
 ): PayoutUpsertData {
   // ADR-009: visita com sucesso do grupo Cabeamento/Condomínio → payout vem da
   // classificação (não da LPU). Improdutivas e demais finalidades seguem o fluxo normal.
   const finalidadeKey = visit.finalidade?.trim().toLowerCase();
   const isGrupo = !!finalidadeKey && !!classification?.finalidades.has(finalidadeKey);
   const isSucesso = visit.sucesso.trim().toLowerCase().startsWith("sim");
+
+  // ADR-011: +pct% sobre execução com sucesso em domingo/feriado (não vale p/ improdutiva).
+  const aplicaAcrescimo =
+    isSucesso && !!feriado && isDomingoOuFeriado(visit.dataExecucao, feriado.feriados);
+  const comAcrescimo = (valor: number | null): number | null =>
+    valor != null && valor > 0 && aplicaAcrescimo
+      ? aplicarAcrescimo(valor, feriado!.pct)
+      : valor;
+
   if (isGrupo && isSucesso) {
     const valor = classification!.map.get(normalizeExplicacao(visit.explicacaoValor));
     return {
@@ -45,7 +62,7 @@ export function buildPayoutUpsert(
       lpuId,
       lpuRuleId: null,
       reasonId: visit.reasonId,
-      valorCalculado: valor ?? null,
+      valorCalculado: comAcrescimo(valor ?? null),
       valorDeixadoNaMesa: 0,
       status: valor != null ? "pending_review" : "no_rule_match",
     };
@@ -68,7 +85,7 @@ export function buildPayoutUpsert(
     lpuId,
     lpuRuleId: result.ruleId,
     reasonId: visit.reasonId,
-    valorCalculado: result.valor,
+    valorCalculado: comAcrescimo(result.valor),
     valorDeixadoNaMesa: deixadoNaMesa,
     status: mapStatus(result.status),
   };

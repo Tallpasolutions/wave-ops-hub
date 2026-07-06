@@ -18,6 +18,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-008](./ADR-008-exclusao-finalidades-infra.md) | Exclusão de finalidades de infraestrutura | Aceito |
 | [ADR-009](./ADR-009-cabeamento-classificacao.md) | Payout de Cabeamento/Condomínio por classificação do gestor | Aceito |
 | [ADR-010](./ADR-010-dashboard-drilldown.md) | Drill-down interativo do dashboard por filtros combináveis na URL | Aceito |
+| [ADR-011](./ADR-011-acrescimo-domingo-feriado.md) | Acréscimo de 15% em domingos e feriados no payout | Proposto |
 
 ## Template para novos ADRs
 

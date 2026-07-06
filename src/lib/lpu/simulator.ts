@@ -15,6 +15,8 @@ export type SimVisit = VisitForMatch & {
   // Coluna Z (ADR-009): usada só na classificação de Cabeamento; opcional para os
   // demais construtores de SimVisit (ex.: simulador) que não precisam dela.
   explicacaoValor?: string | null;
+  // Data da visita (ADR-011): usada no acréscimo de domingo/feriado. Opcional.
+  dataExecucao?: string | null;
 };
 
 export function simulate(

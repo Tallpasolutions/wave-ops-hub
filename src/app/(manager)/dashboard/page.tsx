@@ -6,6 +6,8 @@ import { parsePeriod } from '../_lib/period'
 import { getEffectivePeriod } from '../_lib/period-server'
 import { aggregate } from './_lib/aggregate'
 import type { VisitRow, TechRow, ReasonRow } from './_lib/aggregate'
+import { parseFilters, hasFilters, FILTER_KEYS, FILTER_COLUMN } from './_lib/filters'
+import { FilterBar } from './_components/FilterBar'
 import { KpiCard } from './_components/KpiCard'
 import { OsTypeTable } from './_components/OsTypeTable'
 import { TechnicianRankingTable } from './_components/TechnicianRankingTable'
@@ -31,7 +33,13 @@ const TechValueChart = dynamic(() => import('./_components/TechValueChart').then
 })
 
 interface PageProps {
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{
+    mes?: string
+    finalidade?: string
+    cidade?: string
+    tecnico?: string
+    tipo?: string
+  }>
 }
 
 const fmtBRL = (n: number) =>
@@ -40,7 +48,9 @@ const fmtNum = (n: number) =>
   n.toLocaleString('pt-BR')
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const { mes } = await searchParams
+  const sp = await searchParams
+  const mes = sp.mes
+  const filters = parseFilters(sp)
 
   const user = await getCurrentUser()
   if (!user?.tenantId) return null
@@ -50,16 +60,24 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const mesEfetivo = await getEffectivePeriod(mes, supabase, user.tenantId)
   const { start, end, label: periodLabel } = parsePeriod(mesEfetivo)
 
+  // Drill-down (ADR-010): aplica um .eq() por filtro ativo; todos os painéis passam a
+  // refletir o subconjunto porque o aggregate opera sobre o que a query retorna.
+  let visitsQuery = supabase
+    .from('service_visits')
+    .select(
+      'os_num, data_execucao, tecnico_id, tecnico_raw, finalidade, tipo_atendimento, sucesso, improdutiva, rejeitada, valor_recebido_unetvale, cidade, reason_id',
+    )
+    .eq('tenant_id', user.tenantId)
+    .eq('fora_escopo', false)
+    .gte('data_execucao', start)
+    .lt('data_execucao', end)
+  for (const key of FILTER_KEYS) {
+    const value = filters[key]
+    if (value) visitsQuery = visitsQuery.eq(FILTER_COLUMN[key], value)
+  }
+
   const [visitsRes, techsRes, reasonsRes] = await Promise.all([
-    supabase
-      .from('service_visits')
-      .select(
-        'os_num, data_execucao, tecnico_id, tecnico_raw, finalidade, tipo_atendimento, sucesso, improdutiva, rejeitada, valor_recebido_unetvale, cidade, reason_id',
-      )
-      .eq('tenant_id', user.tenantId)
-      .eq('fora_escopo', false)
-      .gte('data_execucao', start)
-      .lt('data_execucao', end),
+    visitsQuery,
 
     supabase
       .from('technicians')
@@ -86,6 +104,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const isEmpty = kpis.totalVisitas === 0
 
+  // Filtros ativos para a barra de chips — técnico é id, resolve o nome para exibir.
+  const techName = new Map(techs.map((t) => [t.id, t.nome_completo]))
+  const activeFilters = FILTER_KEYS.filter((k) => filters[k]).map((k) => ({
+    key: k,
+    label: k === 'tecnico' ? (techName.get(filters[k]!) ?? 'Técnico') : filters[k]!,
+  }))
+
   return (
     <div className="p-4 pb-16 lg:p-7">
       {/* ── Header ── */}
@@ -103,6 +128,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </p>
         </div>
       </div>
+
+      {hasFilters(filters) && <FilterBar active={activeFilters} />}
 
       {isEmpty ? (
         <DashboardEmpty periodLabel={periodLabel} />

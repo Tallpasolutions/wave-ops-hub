@@ -1,6 +1,7 @@
 'use client'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { TipoAtendimentoRow } from '../_lib/aggregate'
+import { useDrilldown } from '../_lib/useDrilldown'
 
 const fmtBRL = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -13,6 +14,8 @@ interface Props {
 const COLORS = ['#00D4FF', 'rgba(255,255,255,0.12)']
 
 export function AttendanceDonut({ data, total }: Props) {
+  const { drill, activeOf } = useDrilldown()
+  const activeTipo = activeOf('tipo')
   const externo = data.find((d) => d.tipo === 'Externo')
   const interno = data.find((d) => d.tipo === 'Interno')
   const receita = data.reduce((a, b) => a + b.valor, 0)
@@ -64,7 +67,13 @@ export function AttendanceDonut({ data, total }: Props) {
 
       <div className="mt-3.5 divide-y divide-[var(--line)]">
         {externo && (
-          <div className="flex items-center justify-between py-2.5 text-[13px]">
+          <div
+            onClick={() => drill('tipo', 'Externo')}
+            title="Filtrar o painel por atendimento externo"
+            className={`-mx-2 flex cursor-pointer items-center justify-between rounded-lg px-2 py-2.5 text-[13px] transition-colors hover:bg-white/[0.02] ${
+              activeTipo === 'Externo' ? 'bg-[rgba(0,212,255,0.07)]' : ''
+            }`}
+          >
             <div>
               <span
                 className="mr-2.5 inline-block h-2.5 w-2.5 rounded-[3px] align-middle"
@@ -82,7 +91,13 @@ export function AttendanceDonut({ data, total }: Props) {
           </div>
         )}
         {interno && (
-          <div className="flex items-center justify-between py-2.5 text-[13px]">
+          <div
+            onClick={() => drill('tipo', 'Interno')}
+            title="Filtrar o painel por atendimento interno"
+            className={`-mx-2 flex cursor-pointer items-center justify-between rounded-lg px-2 py-2.5 text-[13px] transition-colors hover:bg-white/[0.02] ${
+              activeTipo === 'Interno' ? 'bg-[rgba(0,212,255,0.07)]' : ''
+            }`}
+          >
             <div>
               <span className="mr-2.5 inline-block h-2.5 w-2.5 rounded-[3px] bg-white/20 align-middle" />
               <strong>Interno</strong>

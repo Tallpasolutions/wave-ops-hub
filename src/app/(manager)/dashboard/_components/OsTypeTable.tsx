@@ -1,4 +1,6 @@
+'use client'
 import type { FinalidadeRow } from '../_lib/aggregate'
+import { useDrilldown } from '../_lib/useDrilldown'
 
 const fmtBRL = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -10,6 +12,8 @@ interface Props {
 
 export function OsTypeTable({ rows, totalVisitas }: Props) {
   const max = Math.max(...rows.map((r) => r.qtd), 1)
+  const { drill, activeOf } = useDrilldown()
+  const active = activeOf('finalidade')
 
   return (
     <table className="w-full border-collapse">
@@ -46,7 +50,12 @@ export function OsTypeTable({ rows, totalVisitas }: Props) {
                 : 'text-[var(--amber)]'
 
           return (
-            <tr key={row.nome} className="group">
+            <tr
+              key={row.nome}
+              onClick={() => drill('finalidade', row.nome)}
+              title="Filtrar o painel por esta finalidade"
+              className={`group cursor-pointer ${active === row.nome ? 'bg-[rgba(0,212,255,0.07)]' : ''}`}
+            >
               <td className="border-b border-[var(--line)] py-[13px] px-3 text-[13px] group-last:border-0 group-hover:bg-white/[0.015]">
                 <span
                   className={`mr-2.5 inline-block h-[22px] w-[22px] rounded-[6px] text-center font-mono text-[10px] font-bold leading-[22px] ${

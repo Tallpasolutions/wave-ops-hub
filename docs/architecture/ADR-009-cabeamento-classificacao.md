@@ -1,6 +1,7 @@
 # ADR-009 — Payout de Cabeamento/Condomínio por classificação do gestor
 
-**Status:** Proposto (aguardando validação Gemini — CLAUDE.md §11)
+**Status:** Aceito (implementado e deployado em 2026-07-04 — Fases 1–4; classificação dos
+padrões e verificação end-to-end do payout a cargo do gestor em `/cabeamento`)
 **Data:** 2026-07-04
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** Roadmap pós-estabilização, frente A — os ~31 payouts `no_rule_match` de junho/2026, todos do grupo Cabeamento/Condomínio (pendência herdada da Sprint 12, Fase C)

@@ -1,6 +1,6 @@
 # ADR-010 — Drill-down interativo do dashboard por filtros combináveis na URL
 
-**Status:** Proposto (aguardando validação Gemini — CLAUDE.md §11)
+**Status:** Aceito (implementado e verificado em produção em 2026-07-04)
 **Data:** 2026-07-04
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** Feedback do gestor 04/07 (`tech-debt.md` D3) — os gráficos do dashboard eram

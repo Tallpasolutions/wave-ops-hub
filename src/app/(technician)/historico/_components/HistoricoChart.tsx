@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 
 type MonthData = {
   label: string
-  arrecadacao: number
+  pontos: number
   taxaSucesso: number
 }
 
@@ -46,7 +46,7 @@ export function HistoricoChart({ data }: Props) {
         />
         <Line
           type="monotone"
-          dataKey="arrecadacao"
+          dataKey="pontos"
           stroke="#00D4FF"
           strokeWidth={2.5}
           dot={{ fill: '#00D4FF', r: 3, stroke: '#051127', strokeWidth: 2 }}

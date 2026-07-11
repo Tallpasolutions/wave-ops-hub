@@ -4,6 +4,7 @@ import { BarChart3 } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { PAID_STATUSES, payoutValor } from '../_lib/points'
 
 export const metadata: Metadata = { title: 'Histórico' }
 import { HistoricoChart } from './_components/HistoricoChart'
@@ -25,7 +26,7 @@ type MonthData = {
   totalVisitas: number
   finalizadas: number
   taxaSucesso: number
-  arrecadacao: number
+  pontos: number
 }
 
 export default async function HistoricoPage() {
@@ -36,23 +37,44 @@ export default async function HistoricoPage() {
   const supabase = await createSupabaseServerClient()
   const start = sixMonthBounds()
 
-  const { data: visits } = await supabase
-    .from('service_visits')
-    .select('data_execucao, sucesso, valor_recebido_unetvale')
-    .eq('tenant_id', user.tenantId)
-    .eq('technician_id', user.technicianId)
-    .gte('data_execucao', start)
-    .order('data_execucao', { ascending: true })
+  const [{ data: visits }, { data: payoutsRaw }] = await Promise.all([
+    supabase
+      .from('service_visits')
+      .select('data_execucao, sucesso')
+      .eq('tenant_id', user.tenantId)
+      .eq('technician_id', user.technicianId)
+      .eq('fora_escopo', false)
+      .gte('data_execucao', start)
+      .order('data_execucao', { ascending: true }),
 
-  // Agregar por mês
-  const monthMap = new Map<string, { totalVisitas: number; finalizadas: number; arrecadacao: number }>()
+    // Pontos = payout do técnico por mês (mesma base do gestor), não a receita da Unetvale
+    supabase
+      .from('payouts')
+      .select('status, valor_calculado, valor_override, service_visits!inner(data_execucao)')
+      .eq('tenant_id', user.tenantId)
+      .eq('technician_id', user.technicianId)
+      .gte('service_visits.data_execucao', start),
+  ])
+
+  // Contagens por mês (visitas)
+  const monthMap = new Map<string, { totalVisitas: number; finalizadas: number }>()
   for (const v of visits ?? []) {
     const mes = (v.data_execucao as string).slice(0, 7)
-    const cur = monthMap.get(mes) ?? { totalVisitas: 0, finalizadas: 0, arrecadacao: 0 }
+    const cur = monthMap.get(mes) ?? { totalVisitas: 0, finalizadas: 0 }
     cur.totalVisitas += 1
     if ((v.sucesso as string)?.toLowerCase().startsWith('s')) cur.finalizadas += 1
-    cur.arrecadacao += (v.valor_recebido_unetvale as number) ?? 0
     monthMap.set(mes, cur)
+  }
+
+  // Pontos (payout) por mês
+  const pontosMap = new Map<string, number>()
+  for (const p of payoutsRaw ?? []) {
+    const status = (p as { status: string }).status
+    if (!PAID_STATUSES.includes(status)) continue
+    const sv = (p as { service_visits?: { data_execucao?: string } | null }).service_visits
+    if (!sv?.data_execucao) continue
+    const mes = sv.data_execucao.slice(0, 7)
+    pontosMap.set(mes, (pontosMap.get(mes) ?? 0) + payoutValor(p))
   }
 
   // Preencher os 6 meses mesmo que vazios
@@ -72,14 +94,14 @@ export default async function HistoricoPage() {
         (data?.totalVisitas ?? 0) > 0
           ? ((data?.finalizadas ?? 0) / data!.totalVisitas) * 100
           : 0,
-      arrecadacao: data?.arrecadacao ?? 0,
+      pontos: pontosMap.get(mes) ?? 0,
     })
   }
 
   const mesAnterior = months[months.length - 2]
 
   // "Wrapped" do mês anterior
-  const melhorMes = [...months].sort((a, b) => b.arrecadacao - a.arrecadacao)[0]
+  const melhorMes = [...months].sort((a, b) => b.pontos - a.pontos)[0]
 
   const temDados = months.some((m) => m.totalVisitas > 0)
 
@@ -131,7 +153,7 @@ export default async function HistoricoPage() {
                         )}
                       </p>
                       <p className="mt-1 font-mono text-[16px] font-bold text-[var(--text)]">
-                        {fmtPts(m.arrecadacao)}
+                        {fmtPts(m.pontos)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -183,7 +205,7 @@ export default async function HistoricoPage() {
                   <span className="font-display font-extrabold text-[var(--cyan)]">02</span>
                   <span>
                     <strong className="text-[var(--text)]">
-                      {fmtPts(mesAnterior.arrecadacao)}
+                      {fmtPts(mesAnterior.pontos)}
                     </strong>{' '}
                     em pontos no período
                   </span>
@@ -194,7 +216,7 @@ export default async function HistoricoPage() {
                     <span>
                       Seu melhor mês recente foi{' '}
                       <strong className="text-[var(--text)] capitalize">{melhorMes.label}</strong>{' '}
-                      com {fmtPts(melhorMes.arrecadacao)}
+                      com {fmtPts(melhorMes.pontos)}
                     </span>
                   </li>
                 )}

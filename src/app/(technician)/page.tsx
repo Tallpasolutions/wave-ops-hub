@@ -5,6 +5,9 @@ import { ClipboardList, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-r
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import { PAID_STATUSES, payoutValor } from './_lib/points'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Início' }
@@ -12,13 +15,53 @@ export const metadata: Metadata = { title: 'Início' }
 const fmtPts = (n: number) =>
   `${Math.round(n).toLocaleString('pt-BR')} pts`
 
-function currentMonthBounds() {
-  const now = new Date()
-  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  const end = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`
-  const label = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+// Bounds do mês "YYYY-MM" → [start, end) em datas "YYYY-MM-DD".
+function monthBounds(ym: string) {
+  const [y, m] = ym.split('-').map(Number)
+  const start = `${ym}-01`
+  const nextMonth = m === 12 ? 1 : m + 1
+  const nextYear = m === 12 ? y + 1 : y
+  const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+  const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
   return { start, end, label }
+}
+
+// Ranking anônimo: o RLS impede o técnico de ver payouts de outros, então a posição é
+// calculada no servidor com o admin client (retorna só posição + total, no mesmo período).
+async function computeRank(
+  tenantId: string,
+  technicianId: string,
+  start: string,
+  end: string,
+): Promise<{ rankPos: number; totalTechs: number }> {
+  const admin = createSupabaseAdminClient()
+  const { rows } = await fetchAllPages<{
+    technician_id: string | null
+    valor_calculado: number | null
+    valor_override: number | null
+  }>((from, to) =>
+    admin
+      .from('payouts')
+      .select('technician_id, valor_calculado, valor_override, service_visits!inner(data_execucao)')
+      .eq('tenant_id', tenantId)
+      .not('technician_id', 'is', null)
+      .in('status', PAID_STATUSES)
+      .gte('service_visits.data_execucao', start)
+      .lt('service_visits.data_execucao', end)
+      .order('id')
+      .range(from, to),
+  )
+  const rankMap = new Map<string, number>()
+  for (const p of rows) {
+    if (!p.technician_id) continue
+    rankMap.set(p.technician_id, (rankMap.get(p.technician_id) ?? 0) + payoutValor(p))
+  }
+  const sorted = [...rankMap.entries()].sort((a, b) => b[1] - a[1])
+  return { rankPos: sorted.findIndex(([id]) => id === technicianId) + 1, totalTechs: sorted.length }
 }
 
 export default async function TechnicianHomePage() {
@@ -27,80 +70,82 @@ export default async function TechnicianHomePage() {
   if (!user.technicianId || !user.tenantId) redirect('/profile')
 
   const supabase = await createSupabaseServerClient()
-  const { start, end, label: mesLabel } = currentMonthBounds()
 
-  const [tenantRes, visitsRes, allPayoutsRes] = await Promise.all([
-    supabase
-      .from('tenants')
-      .select('config')
-      .eq('id', user.tenantId)
-      .single(),
+  // Período = último mês com visitas DESTE técnico (não o mês corrente vazio). Antes a home
+  // abria em julho vazio (0 visitas) e somava payouts de TODOS os meses — os pontos não batiam
+  // com o "A pagar" do gestor.
+  const { data: ultimaVisita } = await supabase
+    .from('service_visits')
+    .select('data_execucao')
+    .eq('tenant_id', user.tenantId)
+    .eq('technician_id', user.technicianId)
+    .eq('fora_escopo', false)
+    .order('data_execucao', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const ym = (ultimaVisita?.data_execucao ?? new Date().toISOString()).slice(0, 7)
+  const { start, end, label: mesLabel } = monthBounds(ym)
+
+  const [tenantRes, visitsRes, myPayoutsRes] = await Promise.all([
+    supabase.from('tenants').select('config').eq('id', user.tenantId).single(),
 
     supabase
       .from('service_visits')
       .select('id, sucesso, improdutiva, valor_recebido_unetvale, finalidade, reason_id')
       .eq('tenant_id', user.tenantId)
       .eq('technician_id', user.technicianId)
+      .eq('fora_escopo', false)
       .gte('data_execucao', start)
       .lt('data_execucao', end),
 
-    // Payouts de todos os técnicos do período — para calcular ranking anônimo
+    // Payouts DESTE técnico no período (join pela data da visita) — mesma base do "A pagar"
+    // do gestor. RLS já restringe ao próprio técnico.
     supabase
       .from('payouts')
-      .select('technician_id, valor_calculado, valor_override, valor_deixado_na_mesa, status')
+      .select(
+        'status, valor_calculado, valor_override, valor_deixado_na_mesa, service_visits!inner(data_execucao)',
+      )
       .eq('tenant_id', user.tenantId)
-      .not('technician_id', 'is', null),
+      .eq('technician_id', user.technicianId)
+      .gte('service_visits.data_execucao', start)
+      .lt('service_visits.data_execucao', end),
   ])
 
   const tenantConfig = (tenantRes.data?.config ?? {}) as Record<string, unknown>
   const showMoney = tenantConfig.show_money_on_technician_panel !== false
 
   const visits = visitsRes.data ?? []
-  const allPayouts = allPayoutsRes.data ?? []
-
-  // KPIs do técnico no mês
-  // Para "a receber": payout dos ids de visita deste técnico neste mês
-  const myMonthPayouts = allPayouts.filter(
-    (p) =>
-      (p as { technician_id?: string }).technician_id === user.technicianId &&
-      ['pending', 'pending_review', 'approved', 'override'].includes(
-        (p as { status?: string }).status ?? '',
-      ),
-  )
+  const myPayouts = (myPayoutsRes.data ?? []) as {
+    status: string
+    valor_calculado: number | null
+    valor_override: number | null
+    valor_deixado_na_mesa: number | null
+  }[]
 
   const totalVisitas = visits.length
   const finalizadas = visits.filter((v) => (v.sucesso as string)?.toLowerCase().startsWith('s')).length
   const taxaSucesso = totalVisitas > 0 ? (finalizadas / totalVisitas) * 100 : 0
 
-  const aReceber = myMonthPayouts.reduce((acc, p) => {
-    const valor =
-      (p as { valor_override?: number | null }).valor_override ??
-      (p as { valor_calculado?: number | null }).valor_calculado ??
-      0
-    return acc + valor
-  }, 0)
+  // Pontos = "A pagar" do período (mesma fórmula/status do painel do gestor).
+  const aReceber = myPayouts
+    .filter((p) => PAID_STATUSES.includes(p.status))
+    .reduce((acc, p) => acc + payoutValor(p), 0)
+  const pendentesCount = myPayouts.filter((p) =>
+    ['pending', 'pending_review'].includes(p.status),
+  ).length
 
-  const deixadoNaMesa = allPayouts
-    .filter((p) => (p as { technician_id?: string }).technician_id === user.technicianId)
-    .reduce(
-      (acc, p) => acc + ((p as { valor_deixado_na_mesa?: number | null }).valor_deixado_na_mesa ?? 0),
-      0,
-    )
+  const deixadoNaMesa = myPayouts.reduce(
+    (acc, p) => acc + Number(p.valor_deixado_na_mesa ?? 0),
+    0,
+  )
 
-  // Ranking anônimo — agrupa por técnico e ordena por valor
-  const rankMap = new Map<string, number>()
-  for (const p of allPayouts) {
-    const tid = (p as { technician_id?: string }).technician_id
-    if (!tid) continue
-    const val =
-      (p as { valor_override?: number | null }).valor_override ??
-      (p as { valor_calculado?: number | null }).valor_calculado ??
-      0
-    rankMap.set(tid, (rankMap.get(tid) ?? 0) + val)
-  }
-  const sorted = [...rankMap.entries()].sort((a, b) => b[1] - a[1])
-  const rankPos = sorted.findIndex(([id]) => id === user.technicianId) + 1
-  const totalTechs = sorted.length
+  const { rankPos, totalTechs } = await computeRank(
+    user.tenantId,
+    user.technicianId,
+    start,
+    end,
+  )
 
   // Insights
   const topFinalidade = (() => {
@@ -153,8 +198,8 @@ export default async function TechnicianHomePage() {
             {fmtPts(aReceber)}
           </p>
           <p className="mt-1 text-[12px] text-[var(--text-2)]">
-            {myMonthPayouts.length} pontuação{myMonthPayouts.length !== 1 ? 's' : ''} pendente
-            {myMonthPayouts.length !== 1 ? 's' : ''} de aprovação
+            {pendentesCount} pontuação{pendentesCount !== 1 ? 's' : ''} pendente
+            {pendentesCount !== 1 ? 's' : ''} de aprovação
           </p>
         </div>
       )}

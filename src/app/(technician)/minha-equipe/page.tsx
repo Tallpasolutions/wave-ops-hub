@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { PAID_STATUSES, payoutValor } from '../_lib/points'
 
 export const metadata: Metadata = { title: 'Minha Equipe' }
 export const dynamic = 'force-dynamic'
@@ -12,10 +13,6 @@ const isSuccess = (sucesso: string | null) =>
 export default async function MinhaEquipePage() {
   const user = await getCurrentUser()
   if (!user || user.role !== 'tenant_supervisor') redirect('/')
-
-  const now = new Date()
-  const mesInicio = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const mesFim = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
 
   const supabase = await createSupabaseServerClient()
 
@@ -37,21 +34,45 @@ export default async function MinhaEquipePage() {
 
   const technicianIds = supervisorTeam.map((r) => r.technician_id)
 
+  // Período = último mês com visitas da equipe (não o mês corrente vazio)
+  const { data: ultima } = await supabase
+    .from('service_visits')
+    .select('data_execucao')
+    .eq('tenant_id', user.tenantId!)
+    .in('tecnico_id', technicianIds)
+    .eq('fora_escopo', false)
+    .order('data_execucao', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const ym = (ultima?.data_execucao ?? new Date().toISOString()).slice(0, 7)
+  const [yy, mm] = ym.split('-').map(Number)
+  const start = `${ym}-01`
+  const end = `${mm === 12 ? yy + 1 : yy}-${String(mm === 12 ? 1 : mm + 1).padStart(2, '0')}-01`
+  const mesLabel = new Date(Date.UTC(yy, mm - 1, 1)).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+
   const [{ data: visits }, { data: payouts }] = await Promise.all([
     supabase
       .from('service_visits')
       .select('tecnico_id, sucesso')
       .eq('tenant_id', user.tenantId!)
       .in('tecnico_id', technicianIds)
-      .gte('data_execucao', mesInicio)
-      .lte('data_execucao', mesFim),
+      .eq('fora_escopo', false)
+      .gte('data_execucao', start)
+      .lt('data_execucao', end),
+    // Payout pela DATA DA VISITA (não created_at) — mesma base do gestor
     supabase
       .from('payouts')
-      .select('technician_id, valor_calculado, valor_override, valor_deixado_na_mesa')
+      .select(
+        'technician_id, status, valor_calculado, valor_override, valor_deixado_na_mesa, service_visits!inner(data_execucao)',
+      )
       .eq('tenant_id', user.tenantId!)
       .in('technician_id', technicianIds)
-      .gte('created_at', mesInicio)
-      .lte('created_at', mesFim),
+      .gte('service_visits.data_execucao', start)
+      .lt('service_visits.data_execucao', end),
   ])
 
   type KpiRow = {
@@ -76,10 +97,9 @@ export default async function MinhaEquipePage() {
     const successCount = techVisits.filter((v) => isSuccess(v.sucesso)).length
     const taxa = total > 0 ? Math.round((successCount / total) * 100) : 0
 
-    const totalPayout = techPayouts.reduce((sum, p) => {
-      const val = p.valor_override !== null ? p.valor_override : (p.valor_calculado ?? 0)
-      return sum + val
-    }, 0)
+    const totalPayout = techPayouts
+      .filter((p) => PAID_STATUSES.includes((p as { status: string }).status))
+      .reduce((sum, p) => sum + payoutValor(p), 0)
 
     const deixadoNaMesa = techPayouts.reduce(
       (sum, p) => sum + (p.valor_deixado_na_mesa ?? 0),
@@ -95,8 +115,6 @@ export default async function MinhaEquipePage() {
       deixadoNaMesa,
     }
   })
-
-  const mesLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
     <div className="p-4 lg:p-8">

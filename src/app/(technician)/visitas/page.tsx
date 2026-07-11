@@ -48,7 +48,7 @@ export default async function VisitasPage({ searchParams }: PageProps) {
       .from('service_visits')
       .select('id, os_num, data_execucao, finalidade, sucesso, improdutiva, valor_recebido_unetvale, reason_id')
       .eq('tenant_id', user.tenantId)
-      .eq('technician_id', user.technicianId)
+      .eq('tecnico_id', user.technicianId)
       .gte('data_execucao', start)
       .lt('data_execucao', end)
       .order('data_execucao', { ascending: false }),

@@ -21,6 +21,30 @@ describe('parseBrNumber (formato brasileiro)', () => {
     expect(parseBrNumber(0)).toBe(0)
   })
 
+  // Regressão do bug de produção (Julho/2026): o SheetJS com raw:false formata
+  // números em locale US, então o valor chegava como string "24,100.10" ou
+  // "24100.10" e era inflado ×100 → fechamento em R$ 2.410.010,00.
+  it('formato US com milhar: "24,100.10" → 24100.10 (não infla)', () => {
+    expect(parseBrNumber('24,100.10')).toBeCloseTo(24100.1, 2)
+    expect(parseBrNumber('4,688.83')).toBeCloseTo(4688.83, 2)
+  })
+
+  it('formato US só decimal: "24100.10" → 24100.10 (não vira 2410010)', () => {
+    expect(parseBrNumber('24100.10')).toBeCloseTo(24100.1, 2)
+    expect(parseBrNumber('1500.00')).toBeCloseTo(1500, 2)
+    expect(parseBrNumber('1500.50')).toBeCloseTo(1500.5, 2)
+  })
+
+  it('símbolo de moeda e espaços são ignorados', () => {
+    expect(parseBrNumber('R$ 4.688,83')).toBeCloseTo(4688.83, 2)
+    expect(parseBrNumber('R$ 24,100.10')).toBeCloseTo(24100.1, 2)
+  })
+
+  it('milhar de múltiplos grupos: "12.345.678" → 12345678', () => {
+    expect(parseBrNumber('12.345.678')).toBe(12345678)
+    expect(parseBrNumber('1.234.567,89')).toBeCloseTo(1234567.89, 2)
+  })
+
   it('vazio, traço, nulo → 0', () => {
     expect(parseBrNumber('')).toBe(0)
     expect(parseBrNumber('-')).toBe(0)

@@ -176,8 +176,15 @@ export default async function UploadDetailPage({
                 </button>
               </form>
             )}
-            {/* Reprocessar via ingestor: quando há erros ou status não-final */}
-            {(u.erros > 0 || u.status === 'pending' || u.status === 'processing' || u.status === 'failed') &&
+            {/* Reprocessar via ingestor: re-baixa o arquivo do Storage e re-parseia com
+                o código atual. Disponível também em uploads com sucesso — é o único
+                caminho para reingerir após uma correção no parser (o reenvio do mesmo
+                arquivo é bloqueado pelo dedup de file_hash em prepareUpload). */}
+            {(u.erros > 0 ||
+              u.status === 'success' ||
+              u.status === 'pending' ||
+              u.status === 'processing' ||
+              u.status === 'failed') &&
               u.status !== 'duplicate' && (
                 <form action={rerunUpload.bind(null, u.id)}>
                   <button

@@ -34,6 +34,15 @@ describe('parseXlsx', () => {
     expect(rows[0].Sucesso).toBe('Sim')
   })
 
+  it('parseia Valor decimal sem inflar (regressão bug Julho/2026)', () => {
+    // 24100.10 escrito como número real na célula: com raw:false o SheetJS o
+    // formata em locale US e a versão antiga do parser o inflava ×100.
+    const buf = makeXlsxBuffer([{ ...BASE_ROW, Valor: 24100.1 }])
+    const { rows, errors } = parseXlsx(buf)
+    expect(errors).toHaveLength(0)
+    expect(rows[0].Valor).toBeCloseTo(24100.1, 2)
+  })
+
   it('aceita header garbled TÈcnico (encoding latin-1)', () => {
     const buf = makeXlsxBuffer([{ ...BASE_ROW, Técnico: undefined, TÈcnico: 'WAVE - Maria' }])
     const { rows, errors } = parseXlsx(buf)

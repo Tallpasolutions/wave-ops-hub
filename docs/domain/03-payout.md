@@ -103,16 +103,21 @@ O valor **efetivo** sempre é: `COALESCE(valor_override, valor_calculado)`.
 
 ---
 
-### Improdutiva padrão (auto-aprovação 15,98 → 15,00)
+### Improdutiva por receita da Unetvale
 
-A Unetvale paga **R$ 15,98** pela visita improdutiva padrão; a Wave repassa **R$ 15,00 fixos** ao técnico. Quando `valor_recebido_unetvale` casa exatamente com 15,98, o payout já é calculado como **aprovado** (`status = 'approved'`, `improdutiva_aprovada = true`, `valor_calculado = 15,00`) e **não entra na fila de aprovação de improdutivas** — a tela `/improdutivas` passa a mostrar apenas as exceções.
+O payout da improdutiva é decidido pela receita da Unetvale (`valor_recebido_unetvale`), no cálculo (`buildPayoutUpsert`), **independente da classificação do motivo**:
 
-Regras:
-- Vale **independente da classificação do motivo** — sobrepõe `paga_improdutiva`, `valor_improdutiva` e a categoria (inclusive `falha_tecnico` e `pendente_classificacao`). Não gera "deixado na mesa".
-- Exige **técnico mapeado** (`tecnico_id` não nulo). Sem técnico, cai no fluxo normal (o fechamento sinaliza a visita sem técnico).
-- Improdutivas com receita Unetvale **diferente de 15,98** seguem o fluxo normal: entram na fila `/improdutivas` para validação manual conforme o motivo.
+| Receita Unetvale | Payout ao técnico | Status / fila |
+|---|---|---|
+| **R$ 15,98** (improdutiva padrão) | **R$ 15,00 fixos** | `approved`, `improdutiva_aprovada = true` — **fora da fila** |
+| **R$ 0,00** (Unetvale não reembolsou, típico de falha do técnico) | **R$ 0,00** | `improdutiva_aprovada = false` — **fora da fila**; preserva "deixado na mesa" |
+| **Qualquer outro valor** | fluxo normal (motivo/LPU) | entra na fila `/improdutivas` para validação manual |
+
+Detalhes:
+- **15,98 → 15,00**: sobrepõe `paga_improdutiva`/`valor_improdutiva`/categoria (inclusive `falha_tecnico` e `pendente_classificacao`). Exige **técnico mapeado** (`tecnico_id` não nulo); sem técnico cai no fluxo normal (o fechamento sinaliza a visita sem técnico). Como sai `approved`, fica travada contra recálculo (ver invariante abaixo); reverter exige **Desfazer** na fila ou reabrir fechamento.
+- **0,00 → 0,00**: decisão automática de não pagar; sai da fila mas **não trava** (não é `approved`), então o recálculo reavalia — se a receita mudar para 15,98 num re-upload, passa a 15,00. `null` (receita desconhecida) **não** conta como zero: segue o fluxo normal.
+- **Decisão manual do gestor prevalece**: quando existe `override_by` (rejeição manual) — ou o payout está `approved`/`paid` (aprovação manual, já travado) — as regras automáticas **não** se aplicam.
 - Valores fixos no código (`src/lib/payouts/calculate.ts`): `UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598`, `PAYOUT_IMPRODUTIVA_PADRAO = 15,00`. Comparação em centavos (evita drift de float). Tornar configurável por tenant exige ADR.
-- Aplica no cálculo (`buildPayoutUpsert`), portanto em toda ingestão de upload e recálculo. Como sai `approved`, fica travada contra recálculo (ver invariante abaixo); reverter exige **Desfazer** na fila ou reabrir fechamento.
 
 ---
 

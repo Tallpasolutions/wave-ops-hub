@@ -190,6 +190,53 @@ describe("buildPayoutUpsert — improdutiva padrão (Unetvale 15,98)", () => {
     expect(result.improdutivaAprovada).toBeNull();
   });
 
+  it("improdutiva com Unetvale 0,00 → payout R$ 0, sai da fila (improdutivaAprovada=false), preserva deixado na mesa", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 0,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const rules = [makeRule({ conditions: { sucesso: "Sim" } })];
+    const result = buildPayoutUpsert(visit, rules, [reason], LPU_ID, TENANT_ID);
+    expect(result.valorCalculado).toBe(0);
+    expect(result.improdutivaAprovada).toBe(false);
+    expect(result.status).toBe("pending_review");
+    expect(result.valorDeixadoNaMesa).toBe(80); // deixado na mesa preservado
+  });
+
+  it("improdutiva com Unetvale 0,00 e decisão manual existente → fluxo normal (não força R$ 0 automático)", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 0,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const result = buildPayoutUpsert(
+      visit,
+      [makeRule()],
+      [reason],
+      LPU_ID,
+      TENANT_ID,
+      undefined,
+      undefined,
+      true, // manualDecisionExists
+    );
+    expect(result.improdutivaAprovada).toBeNull();
+  });
+
+  it("improdutiva com Unetvale null (desconhecida) → NÃO trata como zero, segue fluxo normal", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: null,
+    });
+    const reason = makeReason({ categoria: "falha_cliente", pagaImprodutiva: true, valorImprodutiva: 25 });
+    const result = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID);
+    expect(result.improdutivaAprovada).toBeNull();
+    expect(result.valorCalculado).toBe(25);
+  });
+
   it("improdutiva 15,98 com decisão manual existente → NÃO auto-aprova (respeita o gestor)", () => {
     const visit = makeVisit({
       sucesso: "Não",

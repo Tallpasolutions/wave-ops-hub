@@ -22,17 +22,25 @@ export type FeriadoCtx = {
   pct: number;
 };
 
-// Improdutiva padrão: a Unetvale paga R$ 15,98 pela improdutiva e a Wave repassa R$ 15,00
-// fixos ao técnico, sem depender da classificação do motivo. Quando a receita da Unetvale
-// casa exatamente com esse valor, o payout já sai aprovado e não entra na fila de aprovação.
-// Improdutivas com receita diferente seguem o fluxo normal (fila de validação por motivo).
-// Valores fixos por ora (troca exige deploy); comparação em centavos para evitar drift de float.
+// Regra de improdutiva por receita da Unetvale (valores fixos por ora; troca exige deploy):
+//   - Unetvale = R$ 15,98 → improdutiva padrão: Wave repassa R$ 15,00 fixos ao técnico e o
+//     payout já sai APROVADO, sem depender da classificação do motivo. Não entra na fila.
+//   - Unetvale = R$ 0,00 → a Unetvale não reembolsou (típico de falha do técnico): payout
+//     R$ 0,00 e sai da fila automaticamente (decisão de não pagar). Preserva o "deixado na mesa".
+//   - Qualquer outra receita → fluxo normal, entra na fila de validação por motivo.
+// Comparações em centavos para evitar drift de float.
 const UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598;
 const PAYOUT_IMPRODUTIVA_PADRAO = 15.0;
 
 function isImprodutivaPadrao(valorRecebidoUnetvale: number | null): boolean {
   if (valorRecebidoUnetvale === null) return false;
   return Math.round(valorRecebidoUnetvale * 100) === UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS;
+}
+
+// Unetvale = R$ 0,00 exato. `null` (receita desconhecida) NÃO conta como zero — cai no fluxo normal.
+function isUnetvaleZero(valorRecebidoUnetvale: number | null): boolean {
+  if (valorRecebidoUnetvale === null) return false;
+  return Math.round(valorRecebidoUnetvale * 100) === 0;
 }
 
 // Mapeia o status de 4 valores do match engine para o status de 10 valores do DB.
@@ -51,8 +59,9 @@ export function buildPayoutUpsert(
   tenantId: string,
   classification?: ClassificationCtx,
   feriado?: FeriadoCtx,
-  // Já existe decisão manual (aprovada/rejeitada) para esta visita? Nesse caso a
-  // auto-aprovação da improdutiva padrão NÃO se aplica — respeita a decisão do gestor.
+  // Já existe override manual do gestor (aprovação trava o payout; rejeição grava override_by)
+  // para esta visita? Nesse caso as regras automáticas de improdutiva NÃO se aplicam —
+  // respeita a decisão do gestor.
   manualDecisionExists = false,
 ): PayoutUpsertData {
   // ADR-009: visita com sucesso do grupo Cabeamento/Condomínio → payout vem da
@@ -81,6 +90,26 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: 0,
       status: "approved",
       improdutivaAprovada: true,
+    };
+  }
+
+  // Improdutiva com Unetvale = R$ 0,00: a Unetvale não reembolsou (típico de falha do técnico).
+  // Payout R$ 0,00 e sai da fila (improdutivaAprovada = false = decisão automática de não pagar).
+  // Preserva o "deixado na mesa" quando o motivo é falha do técnico, para o relatório.
+  if (!isSucesso && !manualDecisionExists && isUnetvaleZero(visit.valorRecebidoUnetvale)) {
+    const reason = visit.reasonId ? reasons.find((r) => r.id === visit.reasonId) : undefined;
+    const deixadoNaMesa = reason ? calculateDeixadoNaMesa(visit, rules, reason) : 0;
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: 0,
+      valorDeixadoNaMesa: deixadoNaMesa,
+      status: "pending_review",
+      improdutivaAprovada: false,
     };
   }
 

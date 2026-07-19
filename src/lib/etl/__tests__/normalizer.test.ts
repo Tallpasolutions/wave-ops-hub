@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalize, isFinalidadeInfra } from '../normalizer'
+import { normalize, isFinalidadeInfra, deriveSubterraneoAereo } from '../normalizer'
 import type { RawRow } from '../schemas'
 
 const BASE_RAW: RawRow = {
@@ -40,6 +40,22 @@ describe('isFinalidadeInfra', () => {
 
   it('conjunto vazio não marca nada (default)', () => {
     expect(isFinalidadeInfra('Projeto Infra', new Set())).toBe(false)
+  })
+})
+
+describe('deriveSubterraneoAereo', () => {
+  it('deriva Aéreo/Subterrâneo do texto da explicação (accent-insensitive)', () => {
+    expect(deriveSubterraneoAereo('Suporte com troca de drop aérea | 160 * 1.1')).toBe('Aéreo')
+    expect(deriveSubterraneoAereo('Instalação aéreo padrão')).toBe('Aéreo')
+    expect(deriveSubterraneoAereo('rede subterrânea complexa')).toBe('Subterrâneo')
+    expect(deriveSubterraneoAereo('SUBTERRANEO sem acento')).toBe('Subterrâneo')
+  })
+
+  it('retorna null quando não há indicação ou explicação vazia', () => {
+    expect(deriveSubterraneoAereo(null)).toBeNull()
+    expect(deriveSubterraneoAereo(undefined)).toBeNull()
+    expect(deriveSubterraneoAereo('')).toBeNull()
+    expect(deriveSubterraneoAereo('Venda de produto sem meio físico')).toBeNull()
   })
 })
 
@@ -133,5 +149,29 @@ describe('normalize', () => {
     )
     expect(result.finalidade).toBe('Instalação')
     expect(result.tecnicoRaw).toBe('Maria')
+  })
+
+  it('subterraneaAereo: coluna preenchida tem prioridade sobre a explicação', () => {
+    const result = normalize(
+      { ...BASE_RAW, SubterraneoAereo: 'Subterrâneo', ExplicacaoValor: 'troca de drop aérea' },
+      BASE_ARGS.tenantId, BASE_ARGS.uploadId, null, null, BASE_ARGS.contentHash,
+    )
+    expect(result.subterraneaAereo).toBe('Subterrâneo')
+  })
+
+  it('subterraneaAereo: coluna vazia → deriva da explicação', () => {
+    const result = normalize(
+      { ...BASE_RAW, SubterraneoAereo: '  ', ExplicacaoValor: 'Suporte com troca de drop aérea' },
+      BASE_ARGS.tenantId, BASE_ARGS.uploadId, null, null, BASE_ARGS.contentHash,
+    )
+    expect(result.subterraneaAereo).toBe('Aéreo')
+  })
+
+  it('subterraneaAereo: sem coluna e sem indicação na explicação → null', () => {
+    const result = normalize(
+      { ...BASE_RAW, ExplicacaoValor: 'Venda de produto' },
+      BASE_ARGS.tenantId, BASE_ARGS.uploadId, null, null, BASE_ARGS.contentHash,
+    )
+    expect(result.subterraneaAereo).toBeNull()
   })
 })

@@ -22,6 +22,19 @@ export type FeriadoCtx = {
   pct: number;
 };
 
+// Improdutiva padrão: a Unetvale paga R$ 15,98 pela improdutiva e a Wave repassa R$ 15,00
+// fixos ao técnico, sem depender da classificação do motivo. Quando a receita da Unetvale
+// casa exatamente com esse valor, o payout já sai aprovado e não entra na fila de aprovação.
+// Improdutivas com receita diferente seguem o fluxo normal (fila de validação por motivo).
+// Valores fixos por ora (troca exige deploy); comparação em centavos para evitar drift de float.
+const UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598;
+const PAYOUT_IMPRODUTIVA_PADRAO = 15.0;
+
+function isImprodutivaPadrao(valorRecebidoUnetvale: number | null): boolean {
+  if (valorRecebidoUnetvale === null) return false;
+  return Math.round(valorRecebidoUnetvale * 100) === UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS;
+}
+
 // Mapeia o status de 4 valores do match engine para o status de 10 valores do DB.
 // O resultado do motor LPU usa "pending" para "regra encontrada e payout calculado".
 // No DB, payouts recém-calculados ficam como "pending_review" (aguardando fechamento).
@@ -38,12 +51,38 @@ export function buildPayoutUpsert(
   tenantId: string,
   classification?: ClassificationCtx,
   feriado?: FeriadoCtx,
+  // Já existe decisão manual (aprovada/rejeitada) para esta visita? Nesse caso a
+  // auto-aprovação da improdutiva padrão NÃO se aplica — respeita a decisão do gestor.
+  manualDecisionExists = false,
 ): PayoutUpsertData {
   // ADR-009: visita com sucesso do grupo Cabeamento/Condomínio → payout vem da
   // classificação (não da LPU). Improdutivas e demais finalidades seguem o fluxo normal.
   const finalidadeKey = visit.finalidade?.trim().toLowerCase();
   const isGrupo = !!finalidadeKey && !!classification?.finalidades.has(finalidadeKey);
   const isSucesso = visit.sucesso.trim().toLowerCase().startsWith("sim");
+
+  // Improdutiva padrão (Unetvale = R$ 15,98): repassa R$ 15,00 fixos e já sai APROVADA,
+  // independente da classificação do motivo. Exige técnico mapeado — sem técnico não há a
+  // quem pagar, então cai no fluxo normal (o fechamento sinaliza a visita sem técnico).
+  if (
+    !isSucesso &&
+    !manualDecisionExists &&
+    visit.tecnicoId &&
+    isImprodutivaPadrao(visit.valorRecebidoUnetvale)
+  ) {
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: PAYOUT_IMPRODUTIVA_PADRAO,
+      valorDeixadoNaMesa: 0,
+      status: "approved",
+      improdutivaAprovada: true,
+    };
+  }
 
   // ADR-011: +pct% sobre execução com sucesso em domingo/feriado (não vale p/ improdutiva).
   const aplicaAcrescimo =
@@ -65,6 +104,7 @@ export function buildPayoutUpsert(
       valorCalculado: comAcrescimo(valor ?? null),
       valorDeixadoNaMesa: 0,
       status: valor != null ? "pending_review" : "no_rule_match",
+      improdutivaAprovada: null,
     };
   }
 
@@ -88,5 +128,6 @@ export function buildPayoutUpsert(
     valorCalculado: comAcrescimo(result.valor),
     valorDeixadoNaMesa: deixadoNaMesa,
     status: mapStatus(result.status),
+    improdutivaAprovada: null,
   };
 }

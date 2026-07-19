@@ -103,6 +103,19 @@ O valor **efetivo** sempre é: `COALESCE(valor_override, valor_calculado)`.
 
 ---
 
+### Improdutiva padrão (auto-aprovação 15,98 → 15,00)
+
+A Unetvale paga **R$ 15,98** pela visita improdutiva padrão; a Wave repassa **R$ 15,00 fixos** ao técnico. Quando `valor_recebido_unetvale` casa exatamente com 15,98, o payout já é calculado como **aprovado** (`status = 'approved'`, `improdutiva_aprovada = true`, `valor_calculado = 15,00`) e **não entra na fila de aprovação de improdutivas** — a tela `/improdutivas` passa a mostrar apenas as exceções.
+
+Regras:
+- Vale **independente da classificação do motivo** — sobrepõe `paga_improdutiva`, `valor_improdutiva` e a categoria (inclusive `falha_tecnico` e `pendente_classificacao`). Não gera "deixado na mesa".
+- Exige **técnico mapeado** (`tecnico_id` não nulo). Sem técnico, cai no fluxo normal (o fechamento sinaliza a visita sem técnico).
+- Improdutivas com receita Unetvale **diferente de 15,98** seguem o fluxo normal: entram na fila `/improdutivas` para validação manual conforme o motivo.
+- Valores fixos no código (`src/lib/payouts/calculate.ts`): `UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598`, `PAYOUT_IMPRODUTIVA_PADRAO = 15,00`. Comparação em centavos (evita drift de float). Tornar configurável por tenant exige ADR.
+- Aplica no cálculo (`buildPayoutUpsert`), portanto em toda ingestão de upload e recálculo. Como sai `approved`, fica travada contra recálculo (ver invariante abaixo); reverter exige **Desfazer** na fila ou reabrir fechamento.
+
+---
+
 ## Recálculo de payouts
 
 Recálculo é automático e disparado por:

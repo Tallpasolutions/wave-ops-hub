@@ -14,6 +14,9 @@ export type PayoutUpsertData = {
   valorCalculado: number | null;
   valorDeixadoNaMesa: number;
   status: DbPayoutStatus;
+  // true → improdutiva padrão auto-aprovada (Unetvale 15,98 → 15,00 fixos); null → sem decisão
+  // automática, preserva a decisão manual existente no upsert.
+  improdutivaAprovada: boolean | null;
 };
 
 export type BatchRecalcResult = {

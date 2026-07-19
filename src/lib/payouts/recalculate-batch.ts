@@ -178,7 +178,7 @@ async function processVisitPage(
 
   const { data: existingPayouts, error: payoutsError } = await supabase
     .from("payouts")
-    .select("visit_id, status")
+    .select("visit_id, status, improdutiva_aprovada")
     .in("visit_id", visits.map((v) => v.id));
 
   if (payoutsError) return { processed: 0, skipped: 0, errors: 1, periodos };
@@ -187,6 +187,13 @@ async function processVisitPage(
     (existingPayouts ?? [])
       .filter((p) => p.status === "approved" || p.status === "paid")
       .map((p) => p.visit_id),
+  );
+
+  // Decisão manual de improdutiva (aprovada/rejeitada) fica em improdutiva_aprovada. O upsert
+  // sempre grava essa coluna, então precisamos preservar o valor existente para não apagar a
+  // decisão do gestor — exceto quando o cálculo auto-aprova a improdutiva padrão (true).
+  const existingAprovadaByVisit = new Map(
+    (existingPayouts ?? []).map((p) => [p.visit_id, p.improdutiva_aprovada as boolean | null]),
   );
 
   const toProcess = visits.filter((v) => !lockedVisitIds.has(v.id));
@@ -203,6 +210,7 @@ async function processVisitPage(
       tenantId,
       { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
+      (existingAprovadaByVisit.get(v.id) ?? null) !== null,
     ),
   );
 
@@ -217,6 +225,8 @@ async function processVisitPage(
       valor_calculado: u.valorCalculado,
       valor_deixado_na_mesa: u.valorDeixadoNaMesa,
       status: u.status,
+      improdutiva_aprovada:
+        u.improdutivaAprovada ?? existingAprovadaByVisit.get(u.visitId) ?? null,
     })),
     { onConflict: "visit_id" },
   );

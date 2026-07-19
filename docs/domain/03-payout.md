@@ -131,12 +131,14 @@ Recálculo é automático e disparado por:
 4. **Vinculação manual de técnico** — `linkTechnicianRaw` chama `recalculatePendingPayouts` com IDs das visitas vinculadas
 
 A função `recalculatePendingPayouts` (`src/lib/payouts/recalculate-batch.ts`):
-- Busca visitas pendentes (sem payout `approved`/`paid`)
+- Busca visitas pendentes (sem payout travado — ver invariante abaixo)
 - Calcula via `buildPayoutUpsert` para cada visita
 - Faz upsert em `payouts` com `ON CONFLICT visit_id → UPDATE`
 - Cria `monthly_closing` do período se não existir (idempotente)
 
-**Invariante crítica:** Recálculo NUNCA afeta payouts com `status IN ('approved', 'paid')`. Esses estão travados para preservar histórico financeiro.
+**Invariante crítica:** Recálculo NUNCA reprocessa payouts travados — preserva **status E valor**:
+- `status IN ('approved', 'paid')`: fechados/pagos, travados para preservar histórico financeiro.
+- `override_by` preenchido: **override/rejeição manual do gestor**. Reprocessar sobrescreveria o status — ex.: uma improdutiva rejeitada, ao ser reprocessada pela LPU, viraria `no_rule_match` e **travaria o fechamento**, mesmo com `valor_override` mantendo R$ 0. Os fluxos de **desfazer** e **reabertura** limpam `override_by` ANTES de recalcular, então continuam reprocessando normalmente.
 
 Para forçar recálculo de aprovado, gestor precisa primeiro **reabrir o fechamento** (ação auditada com motivo obrigatório de 20 chars).
 

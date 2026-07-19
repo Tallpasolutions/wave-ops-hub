@@ -183,18 +183,15 @@ async function processVisitPage(
 
   if (payoutsError) return { processed: 0, skipped: 0, errors: 1, periodos };
 
+  // Payouts que o recálculo NUNCA reprocessa — preserva status E valor:
+  //  - approved/paid: fechados/pagos (invariante da Sprint 4);
+  //  - override_by preenchido: override/rejeição MANUAL do gestor. Reprocessar sobrescreveria o
+  //    status (ex.: improdutiva rejeitada reprocessada pela LPU vira no_rule_match e trava o
+  //    fechamento, apesar do valor_override manter R$0). Os fluxos de "desfazer"/reabertura
+  //    limpam override_by ANTES de recalcular, então continuam reprocessando normalmente.
   const lockedVisitIds = new Set(
     (existingPayouts ?? [])
-      .filter((p) => p.status === "approved" || p.status === "paid")
-      .map((p) => p.visit_id),
-  );
-
-  // Rejeição manual do gestor grava override_by (que o recálculo preserva). É o sinal durável
-  // de "decisão manual existe" — as regras automáticas de improdutiva não sobrescrevem isso.
-  // (Aprovação manual vira status approved e já é filtrada em lockedVisitIds.)
-  const manualDecisionVisitIds = new Set(
-    (existingPayouts ?? [])
-      .filter((p) => p.override_by !== null)
+      .filter((p) => p.status === "approved" || p.status === "paid" || p.override_by !== null)
       .map((p) => p.visit_id),
   );
 
@@ -218,7 +215,6 @@ async function processVisitPage(
       tenantId,
       { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
-      manualDecisionVisitIds.has(v.id),
     ),
   );
 

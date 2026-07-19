@@ -5,18 +5,12 @@ import { isValidMes } from '../_lib/period'
 import {
   LayoutDashboard,
   Users,
-  HardHat,
   FileUp,
   ClipboardList,
   DollarSign,
-  CalendarCheck,
-  Tag,
-  ScrollText,
-  TrendingUp,
+  SlidersHorizontal,
   HelpCircle,
   LogOut,
-  CheckCircle2,
-  Cable,
 } from 'lucide-react'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { signOut } from '@/lib/auth/logout'
@@ -25,29 +19,45 @@ type NavItem = {
   href: string
   label: string
   icon: React.ElementType
+  // Rotas-filhas que também destacam este item (telas-hub que agrupam várias páginas).
+  match?: string[]
+  // Mostra o badge de improdutivas pendentes neste item (o grupo que contém /improdutivas).
+  badge?: 'improdutivas'
   disabled?: boolean
 }
 
 // Telas cujo link deve carregar o período atual na URL, para o mês escolhido se manter
-// ao navegar (URLs distintas por mês evitam o staleness do Router Cache do Next).
-// /improdutivas fica de fora de propósito: é fila de aprovação, default "todos os períodos".
-const PERIOD_NAV = new Set(['/dashboard', '/oss', '/financeiro', '/pagamentos'])
+// ao navegar (URLs distintas por mês evitam o staleness do Router Cache do Next). Só os
+// links diretos do sidebar que são telas de período — os hubs (Financeiro) não usam mês.
+const PERIOD_NAV = new Set(['/dashboard', '/oss'])
 
+// Navegação agrupada em telas-hub: Usuários (/equipe, /técnicos), Regras (/motivos,
+// /improdutivas, /lpu, /cabeamento) e Financeiro (/pagamentos, /visão-geral, /fechamento).
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/equipe', label: 'Equipe', icon: Users },
-  { href: '/equipe/tecnicos', label: 'Técnicos', icon: HardHat },
+  { href: '/usuarios', label: 'Usuários', icon: Users, match: ['/equipe'] },
   { href: '/uploads', label: 'Uploads', icon: FileUp },
-  { href: '/motivos', label: 'Improdutivas', icon: Tag },
-  { href: '/improdutivas', label: 'Aprovação', icon: CheckCircle2 },
-  { href: '/lpu', label: 'LPU', icon: ScrollText },
-  { href: '/cabeamento', label: 'Cabeamento', icon: Cable },
+  {
+    href: '/regras',
+    label: 'Regras',
+    icon: SlidersHorizontal,
+    match: ['/motivos', '/improdutivas', '/lpu', '/cabeamento'],
+    badge: 'improdutivas',
+  },
   { href: '/oss', label: 'OSs', icon: ClipboardList },
-  { href: '/pagamentos', label: 'Pagamentos', icon: DollarSign },
-  { href: '/financeiro', label: 'Financeiro', icon: TrendingUp },
-  { href: '/fechamento', label: 'Fechamento', icon: CalendarCheck },
+  {
+    href: '/financeiro',
+    label: 'Financeiro',
+    icon: DollarSign,
+    match: ['/pagamentos', '/fechamento'],
+  },
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
+
+function isActive(item: NavItem, pathname: string): boolean {
+  const paths = [item.href, ...(item.match ?? [])]
+  return paths.some((p) => pathname === p || pathname.startsWith(p + '/'))
+}
 
 interface ManagerSidebarProps {
   nomeCompleto: string
@@ -88,7 +98,8 @@ export function ManagerSidebar({
       </div>
 
       <nav className="flex-1 px-3 py-4">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, disabled }) => {
+        {NAV_ITEMS.map((item) => {
+          const { href, label, icon: Icon, disabled } = item
           if (disabled) {
             return (
               <span
@@ -104,13 +115,13 @@ export function ManagerSidebar({
             )
           }
 
-          const active =
-            href === '/equipe'
-              ? pathname === '/equipe'
-              : pathname === href || pathname.startsWith(href + '/')
+          const active = isActive(item, pathname)
 
           const linkHref =
             PERIOD_NAV.has(href) && isValidMes(currentMes) ? `${href}?mes=${currentMes}` : href
+
+          const showBadge =
+            item.badge === 'improdutivas' && !!improdutivasPendentes && improdutivasPendentes > 0
 
           return (
             <Link
@@ -125,7 +136,7 @@ export function ManagerSidebar({
             >
               <Icon size={16} />
               {label}
-              {href === '/improdutivas' && !!improdutivasPendentes && improdutivasPendentes > 0 && (
+              {showBadge && (
                 <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--red)] px-1 text-[9px] font-bold text-white">
                   {improdutivasPendentes}
                 </span>

@@ -1,38 +1,32 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { DollarSign, TrendingUp, CalendarCheck } from 'lucide-react'
+import { Users, HardHat } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = { title: 'Financeiro' }
+export const metadata: Metadata = { title: 'Usuários' }
 
 const LINKS = [
   {
-    href: '/pagamentos',
-    icon: DollarSign,
-    title: 'Pagamentos',
-    description: 'Payouts por visita, pendências de regra e recálculo.',
+    href: '/equipe',
+    icon: Users,
+    title: 'Equipe',
+    description: 'Gestores e supervisores da operação, com último acesso e permissões.',
   },
   {
-    href: '/financeiro/visao-geral',
-    icon: TrendingUp,
-    title: 'Visão Geral',
-    description: 'Receita da Unetvale, total a pagar e margem — com gráfico dos últimos meses.',
-  },
-  {
-    href: '/fechamento',
-    icon: CalendarCheck,
-    title: 'Fechamento',
-    description: 'Consolidação mensal para aprovação, pagamento e exportação.',
+    href: '/equipe/tecnicos',
+    icon: HardHat,
+    title: 'Técnicos',
+    description: 'Cadastro de técnicos, vínculos com a planilha e acesso ao portal.',
   },
 ]
 
-export default function FinanceiroPage() {
+export default function UsuariosPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 lg:px-8">
-      <h1 className="font-display text-2xl font-bold text-[var(--text)]">Financeiro</h1>
+      <h1 className="font-display text-2xl font-bold text-[var(--text)]">Usuários</h1>
       <p className="mt-2 text-sm text-[var(--text-3)]">
-        Pagamentos, visão de receita/margem e fechamento mensal.
+        Equipe interna e técnicos da operação.
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">

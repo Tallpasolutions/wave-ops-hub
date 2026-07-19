@@ -19,6 +19,22 @@ export function isFinalidadeInfra(
   return infraSet.has(finalidade.trim().toLowerCase())
 }
 
+// Deriva Aéreo/Subterrâneo a partir da "Explicação do valor" quando a coluna
+// "Subterrâneo/Aéreo" vem vazia na planilha. As regras da LPU (match exato) distinguem o
+// preço por esse campo (ex.: Suporte Aéreo Externo R$120 vs Subterrâneo R$135); sem ele
+// nenhuma regra casa e o payout fica "sem regra". O texto da explicação indica de forma
+// confiável o meio ("... troca de drop aérea ..."). Retorna os valores canônicos que as
+// regras esperam ("Aéreo"/"Subterrâneo"), ou null quando a explicação não indica.
+export function deriveSubterraneoAereo(
+  explicacao: string | null | undefined,
+): string | null {
+  if (!explicacao) return null
+  const t = explicacao.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  if (t.includes('aere')) return 'Aéreo'
+  if (t.includes('subterr')) return 'Subterrâneo'
+  return null
+}
+
 export function normalize(
   row: RawRow,
   tenantId: string,
@@ -52,7 +68,9 @@ export function normalize(
     faixaDrop: row.FaixaDrop?.trim() ?? null,
     conectoresUsados: parseNullableInt(row.ConectoresUsados),
     condominio: parseBool(row.Condominio),
-    subterraneaAereo: row.SubterraneoAereo?.trim() ?? null,
+    // A coluna da planilha tem prioridade; se vier vazia, deriva da explicação do valor.
+    subterraneaAereo:
+      row.SubterraneoAereo?.trim() || deriveSubterraneoAereo(row.ExplicacaoValor),
     garantia: parseBool(row.Garantia),
     validada: parseBool(row.Validada),
     agregada: parseBool(row.Agregada),

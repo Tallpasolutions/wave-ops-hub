@@ -19,17 +19,18 @@ export function isFinalidadeInfra(
   return infraSet.has(finalidade.trim().toLowerCase())
 }
 
-// Deriva Aéreo/Subterrâneo a partir da "Explicação do valor" quando a coluna
-// "Subterrâneo/Aéreo" vem vazia na planilha. As regras da LPU (match exato) distinguem o
-// preço por esse campo (ex.: Suporte Aéreo Externo R$120 vs Subterrâneo R$135); sem ele
-// nenhuma regra casa e o payout fica "sem regra". O texto da explicação indica de forma
-// confiável o meio ("... troca de drop aérea ..."). Retorna os valores canônicos que as
-// regras esperam ("Aéreo"/"Subterrâneo"), ou null quando a explicação não indica.
+// Canonicaliza o meio (Aéreo/Subterrâneo) a partir de um texto: o valor da coluna
+// "Subterrâneo/Aéreo" ou, como fallback, a "Explicação do valor". As regras da LPU fazem
+// match EXATO por esse campo (Suporte Aéreo Externo R$120 vs Subterrâneo R$135), então
+// qualquer variante quebra o match. Dois casos: (1) coluna com mojibake não reparado
+// ("AÈreo" — o detector do encoding.ts não pega palavra iniciada em maiúscula) e (2) coluna
+// vazia, com o meio só na explicação ("... troca de drop aérea ..."). O NFD+strip de acentos
+// normaliza "AÈreo"→"aereo" e "aérea"→"aerea". Retorna o valor canônico, ou null.
 export function deriveSubterraneoAereo(
-  explicacao: string | null | undefined,
+  texto: string | null | undefined,
 ): string | null {
-  if (!explicacao) return null
-  const t = explicacao.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  if (!texto) return null
+  const t = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   if (t.includes('aere')) return 'Aéreo'
   if (t.includes('subterr')) return 'Subterrâneo'
   return null
@@ -68,9 +69,10 @@ export function normalize(
     faixaDrop: row.FaixaDrop?.trim() ?? null,
     conectoresUsados: parseNullableInt(row.ConectoresUsados),
     condominio: parseBool(row.Condominio),
-    // A coluna da planilha tem prioridade; se vier vazia, deriva da explicação do valor.
+    // Canonicaliza o valor da coluna (conserta mojibake "AÈreo" → "Aéreo"); se a coluna não
+    // resolver (vazia ou irreconhecível), deriva o meio da explicação do valor.
     subterraneaAereo:
-      row.SubterraneoAereo?.trim() || deriveSubterraneoAereo(row.ExplicacaoValor),
+      deriveSubterraneoAereo(row.SubterraneoAereo) ?? deriveSubterraneoAereo(row.ExplicacaoValor),
     garantia: parseBool(row.Garantia),
     validada: parseBool(row.Validada),
     agregada: parseBool(row.Agregada),

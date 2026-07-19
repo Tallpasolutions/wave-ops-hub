@@ -51,7 +51,13 @@ describe('deriveSubterraneoAereo', () => {
     expect(deriveSubterraneoAereo('SUBTERRANEO sem acento')).toBe('Subterrâneo')
   })
 
-  it('retorna null quando não há indicação ou explicação vazia', () => {
+  it('canonicaliza o valor da coluna, inclusive com mojibake (AÈreo → Aéreo)', () => {
+    expect(deriveSubterraneoAereo('Aéreo')).toBe('Aéreo')
+    expect(deriveSubterraneoAereo('AÈreo')).toBe('Aéreo') // mojibake Mac Roman de "Aéreo"
+    expect(deriveSubterraneoAereo('Subterrâneo')).toBe('Subterrâneo')
+  })
+
+  it('retorna null quando não há indicação ou texto vazio', () => {
     expect(deriveSubterraneoAereo(null)).toBeNull()
     expect(deriveSubterraneoAereo(undefined)).toBeNull()
     expect(deriveSubterraneoAereo('')).toBeNull()
@@ -157,6 +163,14 @@ describe('normalize', () => {
       BASE_ARGS.tenantId, BASE_ARGS.uploadId, null, null, BASE_ARGS.contentHash,
     )
     expect(result.subterraneaAereo).toBe('Subterrâneo')
+  })
+
+  it('subterraneaAereo: coluna com mojibake (AÈreo) é canonicalizada para Aéreo', () => {
+    const result = normalize(
+      { ...BASE_RAW, SubterraneoAereo: 'AÈreo', ExplicacaoValor: 'troca de drop aérea' },
+      BASE_ARGS.tenantId, BASE_ARGS.uploadId, null, null, BASE_ARGS.contentHash,
+    )
+    expect(result.subterraneaAereo).toBe('Aéreo')
   })
 
   it('subterraneaAereo: coluna vazia → deriva da explicação', () => {

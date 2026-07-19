@@ -22,6 +22,27 @@ export type FeriadoCtx = {
   pct: number;
 };
 
+// Regra de improdutiva por receita da Unetvale (valores fixos por ora; troca exige deploy):
+//   - Unetvale = R$ 15,98 → improdutiva padrão: Wave repassa R$ 15,00 fixos ao técnico e o
+//     payout já sai APROVADO, sem depender da classificação do motivo. Não entra na fila.
+//   - Unetvale = R$ 0,00 → a Unetvale não reembolsou (típico de falha do técnico): payout
+//     R$ 0,00 e sai da fila automaticamente (decisão de não pagar). Preserva o "deixado na mesa".
+//   - Qualquer outra receita → fluxo normal, entra na fila de validação por motivo.
+// Comparações em centavos para evitar drift de float.
+const UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598;
+const PAYOUT_IMPRODUTIVA_PADRAO = 15.0;
+
+function isImprodutivaPadrao(valorRecebidoUnetvale: number | null): boolean {
+  if (valorRecebidoUnetvale === null) return false;
+  return Math.round(valorRecebidoUnetvale * 100) === UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS;
+}
+
+// Unetvale = R$ 0,00 exato. `null` (receita desconhecida) NÃO conta como zero — cai no fluxo normal.
+function isUnetvaleZero(valorRecebidoUnetvale: number | null): boolean {
+  if (valorRecebidoUnetvale === null) return false;
+  return Math.round(valorRecebidoUnetvale * 100) === 0;
+}
+
 // Mapeia o status de 4 valores do match engine para o status de 10 valores do DB.
 // O resultado do motor LPU usa "pending" para "regra encontrada e payout calculado".
 // No DB, payouts recém-calculados ficam como "pending_review" (aguardando fechamento).
@@ -38,12 +59,59 @@ export function buildPayoutUpsert(
   tenantId: string,
   classification?: ClassificationCtx,
   feriado?: FeriadoCtx,
+  // Já existe override manual do gestor (aprovação trava o payout; rejeição grava override_by)
+  // para esta visita? Nesse caso as regras automáticas de improdutiva NÃO se aplicam —
+  // respeita a decisão do gestor.
+  manualDecisionExists = false,
 ): PayoutUpsertData {
   // ADR-009: visita com sucesso do grupo Cabeamento/Condomínio → payout vem da
   // classificação (não da LPU). Improdutivas e demais finalidades seguem o fluxo normal.
   const finalidadeKey = visit.finalidade?.trim().toLowerCase();
   const isGrupo = !!finalidadeKey && !!classification?.finalidades.has(finalidadeKey);
   const isSucesso = visit.sucesso.trim().toLowerCase().startsWith("sim");
+
+  // Improdutiva padrão (Unetvale = R$ 15,98): repassa R$ 15,00 fixos e já sai APROVADA,
+  // independente da classificação do motivo. Exige técnico mapeado — sem técnico não há a
+  // quem pagar, então cai no fluxo normal (o fechamento sinaliza a visita sem técnico).
+  if (
+    !isSucesso &&
+    !manualDecisionExists &&
+    visit.tecnicoId &&
+    isImprodutivaPadrao(visit.valorRecebidoUnetvale)
+  ) {
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: PAYOUT_IMPRODUTIVA_PADRAO,
+      valorDeixadoNaMesa: 0,
+      status: "approved",
+      improdutivaAprovada: true,
+    };
+  }
+
+  // Improdutiva com Unetvale = R$ 0,00: a Unetvale não reembolsou (típico de falha do técnico).
+  // Payout R$ 0,00 e sai da fila (improdutivaAprovada = false = decisão automática de não pagar).
+  // Preserva o "deixado na mesa" quando o motivo é falha do técnico, para o relatório.
+  if (!isSucesso && !manualDecisionExists && isUnetvaleZero(visit.valorRecebidoUnetvale)) {
+    const reason = visit.reasonId ? reasons.find((r) => r.id === visit.reasonId) : undefined;
+    const deixadoNaMesa = reason ? calculateDeixadoNaMesa(visit, rules, reason) : 0;
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: 0,
+      valorDeixadoNaMesa: deixadoNaMesa,
+      status: "pending_review",
+      improdutivaAprovada: false,
+    };
+  }
 
   // ADR-011: +pct% sobre execução com sucesso em domingo/feriado (não vale p/ improdutiva).
   const aplicaAcrescimo =
@@ -65,6 +133,7 @@ export function buildPayoutUpsert(
       valorCalculado: comAcrescimo(valor ?? null),
       valorDeixadoNaMesa: 0,
       status: valor != null ? "pending_review" : "no_rule_match",
+      improdutivaAprovada: null,
     };
   }
 
@@ -88,5 +157,6 @@ export function buildPayoutUpsert(
     valorCalculado: comAcrescimo(result.valor),
     valorDeixadoNaMesa: deixadoNaMesa,
     status: mapStatus(result.status),
+    improdutivaAprovada: null,
   };
 }

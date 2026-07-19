@@ -103,6 +103,24 @@ O valor **efetivo** sempre é: `COALESCE(valor_override, valor_calculado)`.
 
 ---
 
+### Improdutiva por receita da Unetvale
+
+O payout da improdutiva é decidido pela receita da Unetvale (`valor_recebido_unetvale`), no cálculo (`buildPayoutUpsert`), **independente da classificação do motivo**:
+
+| Receita Unetvale | Payout ao técnico | Status / fila |
+|---|---|---|
+| **R$ 15,98** (improdutiva padrão) | **R$ 15,00 fixos** | `approved`, `improdutiva_aprovada = true` — **fora da fila** |
+| **R$ 0,00** (Unetvale não reembolsou, típico de falha do técnico) | **R$ 0,00** | `improdutiva_aprovada = false` — **fora da fila**; preserva "deixado na mesa" |
+| **Qualquer outro valor** | fluxo normal (motivo/LPU) | entra na fila `/improdutivas` para validação manual |
+
+Detalhes:
+- **15,98 → 15,00**: sobrepõe `paga_improdutiva`/`valor_improdutiva`/categoria (inclusive `falha_tecnico` e `pendente_classificacao`). Exige **técnico mapeado** (`tecnico_id` não nulo); sem técnico cai no fluxo normal (o fechamento sinaliza a visita sem técnico). Como sai `approved`, fica travada contra recálculo (ver invariante abaixo); reverter exige **Desfazer** na fila ou reabrir fechamento.
+- **0,00 → 0,00**: decisão automática de não pagar; sai da fila mas **não trava** (não é `approved`), então o recálculo reavalia — se a receita mudar para 15,98 num re-upload, passa a 15,00. `null` (receita desconhecida) **não** conta como zero: segue o fluxo normal.
+- **Decisão manual do gestor prevalece**: quando existe `override_by` (rejeição manual) — ou o payout está `approved`/`paid` (aprovação manual, já travado) — as regras automáticas **não** se aplicam.
+- Valores fixos no código (`src/lib/payouts/calculate.ts`): `UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598`, `PAYOUT_IMPRODUTIVA_PADRAO = 15,00`. Comparação em centavos (evita drift de float). Tornar configurável por tenant exige ADR.
+
+---
+
 ## Recálculo de payouts
 
 Recálculo é automático e disparado por:

@@ -178,7 +178,7 @@ async function processVisitPage(
 
   const { data: existingPayouts, error: payoutsError } = await supabase
     .from("payouts")
-    .select("visit_id, status")
+    .select("visit_id, status, improdutiva_aprovada, override_by")
     .in("visit_id", visits.map((v) => v.id));
 
   if (payoutsError) return { processed: 0, skipped: 0, errors: 1, periodos };
@@ -187,6 +187,21 @@ async function processVisitPage(
     (existingPayouts ?? [])
       .filter((p) => p.status === "approved" || p.status === "paid")
       .map((p) => p.visit_id),
+  );
+
+  // Rejeição manual do gestor grava override_by (que o recálculo preserva). É o sinal durável
+  // de "decisão manual existe" — as regras automáticas de improdutiva não sobrescrevem isso.
+  // (Aprovação manual vira status approved e já é filtrada em lockedVisitIds.)
+  const manualDecisionVisitIds = new Set(
+    (existingPayouts ?? [])
+      .filter((p) => p.override_by !== null)
+      .map((p) => p.visit_id),
+  );
+
+  // O upsert sempre grava improdutiva_aprovada. Quando o cálculo não emite decisão automática
+  // (null), preservamos o valor existente para não apagar a decisão do gestor.
+  const existingAprovadaByVisit = new Map(
+    (existingPayouts ?? []).map((p) => [p.visit_id, p.improdutiva_aprovada as boolean | null]),
   );
 
   const toProcess = visits.filter((v) => !lockedVisitIds.has(v.id));
@@ -203,6 +218,7 @@ async function processVisitPage(
       tenantId,
       { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
+      manualDecisionVisitIds.has(v.id),
     ),
   );
 
@@ -217,6 +233,8 @@ async function processVisitPage(
       valor_calculado: u.valorCalculado,
       valor_deixado_na_mesa: u.valorDeixadoNaMesa,
       status: u.status,
+      improdutiva_aprovada:
+        u.improdutivaAprovada ?? existingAprovadaByVisit.get(u.visitId) ?? null,
     })),
     { onConflict: "visit_id" },
   );

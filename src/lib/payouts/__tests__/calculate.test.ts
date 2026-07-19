@@ -135,6 +135,138 @@ describe("buildPayoutUpsert", () => {
   });
 });
 
+// Improdutiva padrão: Unetvale 15,98 → Wave paga 15,00 fixos e auto-aprova, independente do motivo.
+describe("buildPayoutUpsert — improdutiva padrão (Unetvale 15,98)", () => {
+  it("improdutiva com Unetvale 15,98 → 15,00 aprovada, independente do motivo (falha_tecnico)", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 15.98,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const result = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID);
+    expect(result.valorCalculado).toBe(15);
+    expect(result.status).toBe("approved");
+    expect(result.improdutivaAprovada).toBe(true);
+    expect(result.valorDeixadoNaMesa).toBe(0);
+  });
+
+  it("improdutiva com Unetvale 15,98 auto-aprova mesmo sem motivo classificado", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: null,
+      valorRecebidoUnetvale: 15.98,
+    });
+    const result = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(result.valorCalculado).toBe(15);
+    expect(result.status).toBe("approved");
+    expect(result.improdutivaAprovada).toBe(true);
+  });
+
+  it("improdutiva com Unetvale fora de 15,98 → segue fluxo normal, sem auto-aprovação", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 20,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const rules = [makeRule({ conditions: { sucesso: "Sim" } })];
+    const result = buildPayoutUpsert(visit, rules, [reason], LPU_ID, TENANT_ID);
+    expect(result.status).toBe("pending_review");
+    expect(result.improdutivaAprovada).toBeNull();
+    expect(result.valorCalculado).toBe(0);
+  });
+
+  it("improdutiva 15,98 sem técnico mapeado → NÃO auto-aprova (cai no fluxo normal)", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      tecnicoId: null,
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 15.98,
+    });
+    const reason = makeReason({ categoria: "pendente_classificacao" });
+    const result = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID);
+    expect(result.status).not.toBe("approved");
+    expect(result.improdutivaAprovada).toBeNull();
+  });
+
+  it("improdutiva com Unetvale 0,00 → payout R$ 0, sai da fila (improdutivaAprovada=false), preserva deixado na mesa", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 0,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const rules = [makeRule({ conditions: { sucesso: "Sim" } })];
+    const result = buildPayoutUpsert(visit, rules, [reason], LPU_ID, TENANT_ID);
+    expect(result.valorCalculado).toBe(0);
+    expect(result.improdutivaAprovada).toBe(false);
+    expect(result.status).toBe("pending_review");
+    expect(result.valorDeixadoNaMesa).toBe(80); // deixado na mesa preservado
+  });
+
+  it("improdutiva com Unetvale 0,00 e decisão manual existente → fluxo normal (não força R$ 0 automático)", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 0,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const result = buildPayoutUpsert(
+      visit,
+      [makeRule()],
+      [reason],
+      LPU_ID,
+      TENANT_ID,
+      undefined,
+      undefined,
+      true, // manualDecisionExists
+    );
+    expect(result.improdutivaAprovada).toBeNull();
+  });
+
+  it("improdutiva com Unetvale null (desconhecida) → NÃO trata como zero, segue fluxo normal", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: null,
+    });
+    const reason = makeReason({ categoria: "falha_cliente", pagaImprodutiva: true, valorImprodutiva: 25 });
+    const result = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID);
+    expect(result.improdutivaAprovada).toBeNull();
+    expect(result.valorCalculado).toBe(25);
+  });
+
+  it("improdutiva 15,98 com decisão manual existente → NÃO auto-aprova (respeita o gestor)", () => {
+    const visit = makeVisit({
+      sucesso: "Não",
+      reasonId: "reason-1",
+      valorRecebidoUnetvale: 15.98,
+    });
+    const reason = makeReason({ categoria: "falha_tecnico", pagaImprodutiva: false });
+    const result = buildPayoutUpsert(
+      visit,
+      [makeRule()],
+      [reason],
+      LPU_ID,
+      TENANT_ID,
+      undefined,
+      undefined,
+      true, // manualDecisionExists
+    );
+    expect(result.status).not.toBe("approved");
+    expect(result.improdutivaAprovada).toBeNull();
+  });
+
+  it("sucesso com Unetvale 15,98 → não é improdutiva, segue regra de LPU", () => {
+    const visit = makeVisit({ sucesso: "Sim", valorRecebidoUnetvale: 15.98 });
+    const result = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(result.status).toBe("pending_review");
+    expect(result.valorCalculado).toBe(80);
+    expect(result.improdutivaAprovada).toBeNull();
+  });
+});
+
 // ADR-009: Cabeamento/Condomínio pagam pela classificação do gestor (explicacao_valor), não pela LPU.
 describe("buildPayoutUpsert — classificação de Cabeamento (ADR-009)", () => {
   const classification = {

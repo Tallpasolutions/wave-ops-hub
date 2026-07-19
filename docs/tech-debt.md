@@ -86,6 +86,7 @@
 **Impacto se não resolver:** Duplicação de motivos/cidades por variação de escrita; agrupamentos e filtros por cidade/finalidade podem não casar; exibição inconsistente na UI.
 **Esforço estimado pra resolver:** S — adicionar funções de normalização (trim + title case + remoção de acentos opcionalmente) no `normalizer.ts` antes de persistir.
 **Quando idealmente resolver:** Quando o cliente Wave reportar inconsistência nos relatórios por cidade ou finalidade — ou como melhoria planejada em Sprint 6+.
+**Atualização (2026-07-19):** manifestou-se no campo `subterraneo_aereo` — valores com mojibake (`"AÈreo"`) e vazios deixavam visitas "sem regra de LPU" (match exato). Resolvido **pontualmente** para esse campo (`deriveSubterraneoAereo` em `normalizer.ts` + migrations 0017/0018 — ver ADR-006). A dívida geral (demais campos) segue em aberto.
 
 ### 011 — Ingestor batch: `periodo` de carga determina o SELECT inicial
 **Identificado em:** Sprint 5, Etapa 1 (validação com planilha real)

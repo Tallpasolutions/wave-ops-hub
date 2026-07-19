@@ -59,9 +59,11 @@ export function buildPayoutUpsert(
   tenantId: string,
   classification?: ClassificationCtx,
   feriado?: FeriadoCtx,
-  // Já existe override manual do gestor (aprovação trava o payout; rejeição grava override_by)
-  // para esta visita? Nesse caso as regras automáticas de improdutiva NÃO se aplicam —
-  // respeita a decisão do gestor.
+  // Salvaguarda de função pura: se já existe decisão manual do gestor para esta visita, as
+  // regras automáticas de improdutiva NÃO se aplicam. Na prática o recálculo em lote já protege
+  // isso antes (pula payouts com override_by/approved/paid — ver recalculate-batch.ts), então
+  // este parâmetro fica em `false`; existe para manter o contrato correto se a função for
+  // chamada por outro caminho.
   manualDecisionExists = false,
 ): PayoutUpsertData {
   // ADR-009: visita com sucesso do grupo Cabeamento/Condomínio → payout vem da

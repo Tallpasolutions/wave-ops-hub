@@ -393,6 +393,32 @@ Quando referenciar colunas do banco em queries TypeScript (Supabase client), usa
 
 ---
 
+## Adendos (2026-07-19 — canonicalização de `subterraneo_aereo`)
+
+### Derivação e canonicalização do meio (Aéreo/Subterrâneo)
+
+As regras da LPU fazem **match exato** por `subterraneo_aereo` (Aéreo vs Subterrâneo definem preços diferentes). Duas falhas deixavam visitas de sucesso "sem regra de LPU" (payout R$ 0, travando o fechamento):
+
+1. **Mojibake não reparado na coluna.** O valor chegava `"AÈreo"` em vez de `"Aéreo"`. O detector de mojibake (`src/lib/etl/encoding.ts`, `hasMojibake`) só dispara quando há **letra minúscula antes** do caractere acentuado corrompido (ex.: `"instalaÁ„o"`); palavra iniciada em maiúscula (`"Aéreo"`) passa batido. `"AÈreo" ≠ "Aéreo"` → nenhuma regra casa.
+2. **Coluna vazia** — o meio existia só no texto livre `explicacao_valor` (`"... troca de drop aérea ..."`).
+
+**Correção** (`src/lib/etl/normalizer.ts`, `deriveSubterraneoAereo`): o normalizer passa o valor da coluna por uma normalização accent/encoding-insensitive (`NFD` + strip de acentos + `includes('aere'|'subterr')`), que canonicaliza `"AÈreo" → "Aéreo"`; se a coluna não resolver, deriva o meio da `explicacao_valor`. Retorna sempre o valor canônico (`"Aéreo"`/`"Subterrâneo"`) ou `null`.
+
+```typescript
+subterraneaAereo:
+  deriveSubterraneoAereo(row.SubterraneoAereo) ?? deriveSubterraneoAereo(row.ExplicacaoValor),
+```
+
+Escopo consciente: **não** mexemos no detector geral de mojibake (`hasMojibake`) para não arriscar falsos-positivos em texto legítimo em maiúsculas — a canonicalização é feita só no campo controlado `subterraneo_aereo` (vocabulário de 2 valores). Se outros campos com maiúscula inicial apresentarem o mesmo problema, reavaliar `hasMojibake`.
+
+Reparo dos dados já gravados: migrations `0017` (deriva vazios) e `0018` (canonicaliza mojibake + vazios). Após aplicar, rodar "Recalcular pendentes".
+
+### Finalidades "não repassadas ao técnico" → regra LPU R$ 0
+
+Quando a Unetvale paga a Wave por um serviço mas o técnico **não** recebe (ex.: "Venda Produto Externo", "Configuração de Roteador"), o tratamento correto é uma **regra de LPU com payout fixo R$ 0** para aquela finalidade — não override manual. A regra deixa a visita "com regra" (não bloqueia o fechamento) e é **robusta ao recálculo** (diferente do override, que era preservado mas cujo status já foi motivo de bug — ver `docs/domain/03-payout.md`).
+
+---
+
 ## Considerados e rejeitados
 
 ### Edge Function como gatilho automático no upload do Storage

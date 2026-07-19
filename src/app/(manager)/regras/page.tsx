@@ -1,38 +1,44 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { DollarSign, TrendingUp, CalendarCheck } from 'lucide-react'
+import { Tag, CheckCircle2, ScrollText, Cable } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = { title: 'Financeiro' }
+export const metadata: Metadata = { title: 'Regras' }
 
 const LINKS = [
   {
-    href: '/pagamentos',
-    icon: DollarSign,
-    title: 'Pagamentos',
-    description: 'Payouts por visita, pendências de regra e recálculo.',
+    href: '/motivos',
+    icon: Tag,
+    title: 'Improdutivas',
+    description: 'Classifique os motivos de improdutiva (categoria e política de pagamento).',
   },
   {
-    href: '/financeiro/visao-geral',
-    icon: TrendingUp,
-    title: 'Visão Geral',
-    description: 'Receita da Unetvale, total a pagar e margem — com gráfico dos últimos meses.',
+    href: '/improdutivas',
+    icon: CheckCircle2,
+    title: 'Aprovação',
+    description: 'Fila para aprovar ou rejeitar as improdutivas pendentes.',
   },
   {
-    href: '/fechamento',
-    icon: CalendarCheck,
-    title: 'Fechamento',
-    description: 'Consolidação mensal para aprovação, pagamento e exportação.',
+    href: '/lpu',
+    icon: ScrollText,
+    title: 'LPU',
+    description: 'Lista de Preços Unitários: regras de quanto pagar ao técnico por serviço.',
+  },
+  {
+    href: '/cabeamento',
+    icon: Cable,
+    title: 'Cabeamento',
+    description: 'Classificação de cabeamento / segundo ponto por valor da explicação.',
   },
 ]
 
-export default function FinanceiroPage() {
+export default function RegrasPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 lg:px-8">
-      <h1 className="font-display text-2xl font-bold text-[var(--text)]">Financeiro</h1>
+      <h1 className="font-display text-2xl font-bold text-[var(--text)]">Regras</h1>
       <p className="mt-2 text-sm text-[var(--text-3)]">
-        Pagamentos, visão de receita/margem e fechamento mensal.
+        Regras e aprovações que definem como o pagamento é calculado.
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">

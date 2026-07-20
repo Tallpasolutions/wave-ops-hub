@@ -274,8 +274,11 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
               </Link>
             )}
             {blockers.semTecnico > 0 && (
-              <Link href="/equipe/tecnicos" className="underline hover:text-[var(--text)]">
-                {blockers.semTecnico} sem técnico vinculado → vincular técnicos
+              <Link
+                href={`/pagamentos?mes=${periodo}&semTecnico=1`}
+                className="underline hover:text-[var(--text)]"
+              >
+                {blockers.semTecnico} sem técnico vinculado → ver OSs sem técnico
               </Link>
             )}
           </div>

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { runIqiCollection } from '@/lib/iqi'
 
-// Endpoint de coleta agendada do IQI (ADR-012). Disparado pelo Vercel Cron 2x/dia
-// (08:00 e 20:00 America/São_Paulo = 11:00/23:00 UTC — ver vercel.json).
+// Endpoint de coleta agendada do IQI (ADR-012). Disparado 2x/dia pelo workflow
+// .github/workflows/iqi-cron.yml (08:00 e 20:00 America/São_Paulo = 11:00/23:00 UTC).
 // Exceção de estrutura de rotas justificada no ADR-012: cron não é página de usuário.
-// Protegido por CRON_SECRET (a Vercel injeta `Authorization: Bearer <CRON_SECRET>`).
+// Protegido por CRON_SECRET (o workflow envia `Authorization: Bearer <CRON_SECRET>`).
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 60

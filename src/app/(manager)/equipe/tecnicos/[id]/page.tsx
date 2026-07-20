@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePeriod } from '../../../_lib/period'
 import { getEffectivePeriod } from '../../../_lib/period-server'
 import { TechnicianAccess } from './_components/TechnicianAccess'
+import { TechnicianLpuSelector } from './_components/TechnicianLpuSelector'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,7 +62,7 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
     await Promise.all([
     supabase
       .from('technicians')
-      .select('id, nome_completo, email, cpf, celular, codigo_unetvale, ativo, data_admissao, observacoes')
+      .select('id, nome_completo, email, cpf, celular, codigo_unetvale, ativo, data_admissao, observacoes, lpu_id')
       .eq('id', id)
       .eq('tenant_id', user.tenantId!)
       .single(),
@@ -92,6 +93,14 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
   ])
 
   if (!tech) notFound()
+
+  // ADR-014: LPUs do tenant para o seletor de LPU por técnico.
+  const { data: lpusData } = await supabase
+    .from('lpus')
+    .select('id, nome, ativa')
+    .eq('tenant_id', user.tenantId!)
+    .order('ativa', { ascending: false })
+  const lpus = (lpusData ?? []) as { id: string; nome: string; ativa: boolean }[]
 
   const visits = visitsRaw ?? []
   const payouts = payoutsRaw ?? []
@@ -177,6 +186,15 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
           technicianId={tech.id}
           email={tech.email}
           user={loginUser ?? null}
+        />
+      )}
+
+      {/* LPU do técnico (ADR-014) */}
+      {canManageTechnicians(user) && (
+        <TechnicianLpuSelector
+          technicianId={tech.id}
+          currentLpuId={(tech as { lpu_id: string | null }).lpu_id}
+          lpus={lpus}
         />
       )}
 

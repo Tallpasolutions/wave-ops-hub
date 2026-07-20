@@ -76,6 +76,9 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
 type RecalcContext = {
   lpuId: string | null;
   rules: LpuRuleNarrowed[];
+  // ADR-014: LPU por técnico. technicianId → { lpuId, rules } quando o técnico tem
+  // uma LPU atribuída (technicians.lpu_id). Ausente = usa a LPU padrão acima.
+  lpuByTecnico: Map<string, { lpuId: string; rules: LpuRuleNarrowed[] }>;
   reasons: ReasonForPayout[];
   // ADR-009: classificação de Cabeamento/Condomínio (explicacao_key → valor) + grupo de
   // finalidades (normalizado trim+lower). Mapa vazio/set vazio → comportamento igual ao anterior.
@@ -106,6 +109,34 @@ async function loadRecalcContext(
       .eq("lpu_id", lpuId)
       .eq("ativa", true);
     rules = (rulesRaw ?? []) as LpuRuleNarrowed[];
+  }
+
+  // ADR-014: LPUs atribuídas a técnicos específicos (technicians.lpu_id). Carrega as
+  // regras de cada LPU alternativa uma vez e mapeia technicianId → { lpuId, rules }.
+  const lpuByTecnico = new Map<string, { lpuId: string; rules: LpuRuleNarrowed[] }>();
+  const { data: assignedTechs } = await supabase
+    .from("technicians")
+    .select("id, lpu_id")
+    .eq("tenant_id", tenantId)
+    .not("lpu_id", "is", null);
+  const altLpuIds = [
+    ...new Set((assignedTechs ?? []).map((t) => t.lpu_id as string)),
+  ];
+  const rulesByLpu = new Map<string, LpuRuleNarrowed[]>();
+  for (const altLpuId of altLpuIds) {
+    const { data: altRules } = await supabase
+      .from("lpu_rules")
+      .select("*")
+      .eq("lpu_id", altLpuId)
+      .eq("ativa", true);
+    rulesByLpu.set(altLpuId, (altRules ?? []) as LpuRuleNarrowed[]);
+  }
+  for (const t of assignedTechs ?? []) {
+    const altLpuId = t.lpu_id as string;
+    lpuByTecnico.set(t.id as string, {
+      lpuId: altLpuId,
+      rules: rulesByLpu.get(altLpuId) ?? [],
+    });
   }
 
   const { data: reasonsRaw } = await supabase
@@ -155,7 +186,7 @@ async function loadRecalcContext(
     pct: typeof cfg.feriado_acrescimo_pct === "number" ? cfg.feriado_acrescimo_pct : 0,
   };
 
-  return { lpuId, rules, reasons, classifications, finalidadesClassificar, feriado };
+  return { lpuId, rules, lpuByTecnico, reasons, classifications, finalidadesClassificar, feriado };
 }
 
 type PageResult = {
@@ -206,17 +237,19 @@ async function processVisitPage(
 
   if (toProcess.length === 0) return { processed: 0, skipped, errors: 0, periodos };
 
-  const upserts = toProcess.map((v) =>
-    buildPayoutUpsert(
+  const upserts = toProcess.map((v) => {
+    // ADR-014: usa a LPU atribuída ao técnico, se houver; senão a padrão do tenant.
+    const assigned = v.tecnico_id ? ctx.lpuByTecnico.get(v.tecnico_id) : undefined;
+    return buildPayoutUpsert(
       rowToSimVisit(v),
-      ctx.rules,
+      assigned?.rules ?? ctx.rules,
       ctx.reasons,
-      ctx.lpuId,
+      assigned?.lpuId ?? ctx.lpuId,
       tenantId,
       { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
-    ),
-  );
+    );
+  });
 
   const { error: upsertError } = await supabase.from("payouts").upsert(
     upserts.map((u) => ({

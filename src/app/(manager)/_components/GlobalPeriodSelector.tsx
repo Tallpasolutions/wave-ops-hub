@@ -6,7 +6,7 @@ import { buildPeriodOptions, PERIODO_COOKIE } from '../_lib/period'
 
 // Só as telas de lista onde o período faz sentido. Match EXATO — antes usava
 // startsWith('/oss'), que fazia o chip aparecer inerte nos detalhes (/oss/569020).
-const PERIOD_PATHS = ['/dashboard', '/oss', '/financeiro/visao-geral', '/pagamentos', '/improdutivas']
+const PERIOD_PATHS = ['/dashboard', '/produtividade', '/oss', '/financeiro/visao-geral', '/pagamentos', '/improdutivas']
 
 type Props = {
   // Períodos reais do tenant (desc) e o período efetivo resolvido no server.

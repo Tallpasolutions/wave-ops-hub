@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { isValidMes } from '../_lib/period'
 import {
   LayoutDashboard,
+  Gauge,
   Users,
   FileUp,
   ClipboardList,
@@ -29,12 +30,13 @@ type NavItem = {
 // Telas cujo link deve carregar o período atual na URL, para o mês escolhido se manter
 // ao navegar (URLs distintas por mês evitam o staleness do Router Cache do Next). Só os
 // links diretos do sidebar que são telas de período — os hubs (Financeiro) não usam mês.
-const PERIOD_NAV = new Set(['/dashboard', '/oss'])
+const PERIOD_NAV = new Set(['/dashboard', '/oss', '/produtividade'])
 
 // Navegação agrupada em telas-hub: Usuários (/equipe, /técnicos), Regras (/motivos,
 // /improdutivas, /lpu, /cabeamento) e Financeiro (/pagamentos, /visão-geral, /fechamento).
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/produtividade', label: 'Produtividade', icon: Gauge },
   { href: '/usuarios', label: 'Usuários', icon: Users, match: ['/equipe'] },
   { href: '/uploads', label: 'Uploads', icon: FileUp },
   {

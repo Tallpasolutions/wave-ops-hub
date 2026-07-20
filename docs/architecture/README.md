@@ -20,6 +20,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-010](./ADR-010-dashboard-drilldown.md) | Drill-down interativo do dashboard por filtros combináveis na URL | Aceito |
 | [ADR-011](./ADR-011-acrescimo-domingo-feriado.md) | Acréscimo de 15% em domingos e feriados no payout | Proposto |
 | [ADR-012](./ADR-012-iqi-ingestao-scraping.md) | Ingestão do Indicador IQI via scraping do Unetvale | Proposto |
+| [ADR-013](./ADR-013-aprovacao-contestacao-tecnico.md) | Aprovação/contestação de payouts pelo técnico | Aceito |
 
 ## Template para novos ADRs
 

@@ -13,6 +13,7 @@ import { aggregate } from '../dashboard/_lib/aggregate'
 import type { VisitRow, TechRow, ReasonRow } from '../dashboard/_lib/aggregate'
 import { KpiCard } from '../dashboard/_components/KpiCard'
 import { SyncIqiButton } from './_components/SyncIqiButton'
+import { TecnicoFilter } from './_components/TecnicoFilter'
 import { ProdutividadeTable } from './_components/ProdutividadeTable'
 import type { ProdutividadeRow } from './_components/ProdutividadeTable'
 
@@ -24,7 +25,7 @@ const IqiTrendChart = dynamic(
 )
 
 interface PageProps {
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{ mes?: string; tecnico?: string }>
 }
 
 const fmtNum = (n: number) => n.toLocaleString('pt-BR')
@@ -47,17 +48,23 @@ export default async function ProdutividadePage({ searchParams }: PageProps) {
   const supabase = await createSupabaseServerClient()
   const mesEfetivo = await getEffectivePeriod(sp.mes, supabase, user.tenantId)
   const { start, end, label: periodLabel } = parsePeriod(mesEfetivo)
+  const tecnicoFiltro = sp.tecnico
+
+  // Drill-down por técnico (ADR-010): aplica .eq('tecnico_id') na query de visitas
+  // quando há filtro; os painéis passam a refletir o subconjunto.
+  let visitsQuery = supabase
+    .from('service_visits')
+    .select(
+      'os_num, data_execucao, tecnico_id, tecnico_raw, finalidade, tipo_atendimento, sucesso, improdutiva, rejeitada, valor_recebido_unetvale, cidade, reason_id',
+    )
+    .eq('tenant_id', user.tenantId)
+    .eq('fora_escopo', false)
+    .gte('data_execucao', start)
+    .lt('data_execucao', end)
+  if (tecnicoFiltro) visitsQuery = visitsQuery.eq('tecnico_id', tecnicoFiltro)
 
   const [visitsRes, techsRes, reasonsRes, iqiRes] = await Promise.all([
-    supabase
-      .from('service_visits')
-      .select(
-        'os_num, data_execucao, tecnico_id, tecnico_raw, finalidade, tipo_atendimento, sucesso, improdutiva, rejeitada, valor_recebido_unetvale, cidade, reason_id',
-      )
-      .eq('tenant_id', user.tenantId)
-      .eq('fora_escopo', false)
-      .gte('data_execucao', start)
-      .lt('data_execucao', end),
+    visitsQuery,
 
     supabase.from('technicians').select('id, nome_completo').eq('tenant_id', user.tenantId),
 
@@ -83,7 +90,8 @@ export default async function ProdutividadePage({ searchParams }: PageProps) {
 
   const { kpis, porTecnico } = aggregate(visits, techs, reasons, daysInPeriod, start)
 
-  // IQI: normaliza para camelCase e deriva tendência + recorte da competência atual.
+  // IQI: normaliza para camelCase. `iqiScope` aplica o filtro de técnico (para
+  // tendência e KPI); `iqiDoMes` usa o conjunto completo (lookup por id na tabela).
   const iqiInputs: IqiSnapshotInput[] = iqiRows.map((r) => ({
     tecnicoId: r.tecnico_id,
     competencia: r.competencia,
@@ -91,16 +99,27 @@ export default async function ProdutividadePage({ searchParams }: PageProps) {
     contratosReincidentes: r.contratos_reincidentes,
     pctReincidencia: Number(r.pct_reincidencia),
   }))
-  const trend = buildIqiTrend(iqiInputs)
+  const iqiScope = tecnicoFiltro
+    ? iqiInputs.filter((r) => r.tecnicoId === tecnicoFiltro)
+    : iqiInputs
+  const trend = buildIqiTrend(iqiScope)
   const iqiDoMes = iqiByTecnico(iqiInputs, mesEfetivo)
-  const equipe = teamIqi(iqiInputs, mesEfetivo)
+  const equipe = teamIqi(iqiScope, mesEfetivo)
   const lastSync = iqiRows.reduce<string | null>(
     (acc, r) => (acc === null || r.synced_at > acc ? r.synced_at : acc),
     null,
   )
 
+  // Opções do filtro (todos os técnicos do tenant, por nome) e rótulo do selecionado.
+  const tecnicoOptions = [...techs]
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, 'pt-BR'))
+    .map((t) => ({ id: t.id, nome: t.nome_completo }))
+  const tecnicoNome = tecnicoFiltro
+    ? (techs.find((t) => t.id === tecnicoFiltro)?.nome_completo ?? null)
+    : null
+
   const semVisitas = kpis.totalVisitas === 0
-  const semIqi = iqiInputs.length === 0
+  const semIqi = iqiScope.length === 0
 
   const rows: ProdutividadeRow[] = porTecnico.map((t) => ({
     id: t.id,
@@ -128,9 +147,11 @@ export default async function ProdutividadePage({ searchParams }: PageProps) {
           <p className="mt-1.5 text-[13px] text-[var(--text-2)]">
             Produtividade da equipe cruzada com o IQI (reincidência) da Unetvale ·{' '}
             <span className="capitalize">{periodLabel}</span>
+            {tecnicoNome && <span className="text-[var(--cyan)]"> · {tecnicoNome}</span>}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-end gap-2.5">
+          <TecnicoFilter options={tecnicoOptions} selected={tecnicoFiltro} />
           <SyncIqiButton />
           {lastSync && (
             <span className="text-[11px] text-[var(--text-3)]">
@@ -151,7 +172,11 @@ export default async function ProdutividadePage({ searchParams }: PageProps) {
           variant="card"
           icon={Gauge}
           title="Sem dados no período"
-          description={`Nenhuma visita ou IQI para ${periodLabel}. Faça upload da planilha do mês e sincronize o IQI.`}
+          description={
+            tecnicoNome
+              ? `Nenhuma visita ou IQI de ${tecnicoNome} em ${periodLabel}. Ajuste o técnico ou o período.`
+              : `Nenhuma visita ou IQI para ${periodLabel}. Faça upload da planilha do mês e sincronize o IQI.`
+          }
         />
       ) : (
         <>
@@ -160,7 +185,7 @@ export default async function ProdutividadePage({ searchParams }: PageProps) {
             <div className="relative overflow-hidden rounded-[14px] border border-[var(--line)] bg-gradient-to-b from-[var(--bg-1)] to-[rgba(13,21,48,0.6)] px-[18px] py-5">
               <div className="absolute inset-x-0 top-0 h-0.5 bg-grad opacity-70" />
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[1.4px] text-[var(--text-3)]">
-                IQI da Equipe
+                {tecnicoFiltro ? 'IQI do Técnico' : 'IQI da Equipe'}
               </p>
               {equipe ? (
                 <>

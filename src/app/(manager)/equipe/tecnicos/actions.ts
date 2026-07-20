@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { requireRole } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import { recalculatePendingPayouts } from '@/lib/payouts'
 
 const createTechnicianSchema = z.object({
   nomeCompleto: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
@@ -59,6 +61,59 @@ export async function createTechnician(
 
   const from = formData.get('from') as string | null
   redirect(from && from.startsWith('/') ? from : '/equipe/tecnicos')
+}
+
+// ADR-014: atribui (ou remove) a LPU específica de um técnico. lpuId null = usa a
+// LPU padrão ativa do tenant. Recalcula os payouts do técnico (escopo por visitIds
+// para não estourar o timeout do recálculo do tenant inteiro).
+export async function setTechnicianLpu(
+  technicianId: string,
+  lpuId: string | null,
+): Promise<{ error?: string }> {
+  const user = await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
+  if (!user.tenantId) return { error: 'Usuário sem tenant.' }
+  const supabase = await createSupabaseServerClient()
+
+  if (lpuId) {
+    const { data: lpu } = await supabase
+      .from('lpus')
+      .select('id')
+      .eq('id', lpuId)
+      .eq('tenant_id', user.tenantId)
+      .maybeSingle()
+    if (!lpu) return { error: 'LPU inválida.' }
+  }
+
+  const { error } = await supabase
+    .from('technicians')
+    .update({ lpu_id: lpuId })
+    .eq('id', technicianId)
+    .eq('tenant_id', user.tenantId)
+  if (error) return { error: 'Erro ao salvar a LPU do técnico.' }
+
+  // Recalcula os payouts pendentes do técnico com a nova LPU (approved/paid ficam
+  // preservados). Escopo por visitIds do técnico.
+  const { rows: visitRows } = await fetchAllPages<{ id: string }>((from, to) =>
+    supabase
+      .from('service_visits')
+      .select('id')
+      .eq('tenant_id', user.tenantId!)
+      .eq('tecnico_id', technicianId)
+      .eq('fora_escopo', false)
+      .order('id')
+      .range(from, to),
+  )
+  const visitIds = visitRows.map((v) => v.id)
+  if (visitIds.length > 0) {
+    try {
+      await recalculatePendingPayouts(user.tenantId, supabase, { visitIds })
+    } catch {
+      // vínculo da LPU já gravado; um "Recalcular pendentes" posterior ajusta valores
+    }
+  }
+
+  revalidatePath(`/equipe/tecnicos/${technicianId}`)
+  return {}
 }
 
 export async function toggleTechnicianAtivo(id: string, ativo: boolean): Promise<void> {

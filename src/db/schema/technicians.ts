@@ -30,6 +30,10 @@ export const technicians = pgTable(
     cpf: text("cpf"),
     celular: text("celular"),
     codigoUnetvale: text("codigo_unetvale"),
+    // LPU específica do técnico (ADR-014). NULL = usa a LPU padrão ativa do tenant.
+    // FK para lpus(id) definida na migration 0023 — não declarada com .references()
+    // aqui para evitar ciclo de import (users → technicians → lpus → users).
+    lpuId: uuid("lpu_id"),
     ativo: boolean("ativo").notNull().default(true),
     dataAdmissao: date("data_admissao"),
     observacoes: text("observacoes"),

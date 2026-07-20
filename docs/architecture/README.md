@@ -21,6 +21,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-011](./ADR-011-acrescimo-domingo-feriado.md) | Acréscimo de 15% em domingos e feriados no payout | Proposto |
 | [ADR-012](./ADR-012-iqi-ingestao-scraping.md) | Ingestão do Indicador IQI via scraping do Unetvale | Proposto |
 | [ADR-013](./ADR-013-aprovacao-contestacao-tecnico.md) | Aprovação/contestação de payouts pelo técnico | Aceito |
+| [ADR-014](./ADR-014-lpu-por-tecnico.md) | LPU por técnico (tabela alternativa) | Aceito |
 
 ## Template para novos ADRs
 

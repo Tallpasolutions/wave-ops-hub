@@ -276,17 +276,37 @@ export async function linkTechnicianRaw(
   if (!user.tenantId) return { error: 'Usuário sem tenant.' }
   const supabase = await createSupabaseServerClient()
 
-  const { error } = await supabase
+  // 1. Vincula as visitas com aquele nome cru e captura os ids afetados.
+  const { data: linked, error } = await supabase
     .from('service_visits')
     .update({ tecnico_id: tecnicoId })
     .eq('tenant_id', user.tenantId)
     .is('tecnico_id', null)
     .eq('tecnico_raw', tecnicoRaw)
+    .select('id')
 
   if (error) return { error: 'Erro ao vincular técnico.' }
 
-  // Recalcula payouts das visitas recém-vinculadas
-  await recalculatePendingPayouts(user.tenantId, supabase)
+  const visitIds = (linked ?? []).map((v) => v.id as string)
+  if (visitIds.length === 0) {
+    revalidatePath(returnPath)
+    return {}
+  }
+
+  // 2. Corrige o technician_id dos payouts dessas visitas — inclusive os já
+  //    approved/paid (o recálculo preserva/pula esses, então sem este UPDATE o
+  //    fechamento continuaria acusando "sem técnico"). É correção de associação,
+  //    não de valor/status.
+  await supabase.from('payouts').update({ technician_id: tecnicoId }).in('visit_id', visitIds)
+
+  // 3. Recalcula APENAS as visitas vinculadas (escopo por visitIds). O recálculo do
+  //    tenant inteiro numa única invocação estourava o timeout — daí o erro ao vincular.
+  try {
+    await recalculatePendingPayouts(user.tenantId, supabase, { visitIds })
+  } catch {
+    // O vínculo (passos 1-2) já está gravado; falha no recálculo de valor não deve
+    // derrubar a ação. Um "Recalcular pendentes" posterior conserta o valor.
+  }
 
   revalidatePath(returnPath)
   return {}

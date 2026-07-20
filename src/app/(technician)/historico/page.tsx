@@ -42,7 +42,7 @@ export default async function HistoricoPage() {
       .from('service_visits')
       .select('data_execucao, sucesso')
       .eq('tenant_id', user.tenantId)
-      .eq('technician_id', user.technicianId)
+      .eq('tecnico_id', user.technicianId)
       .eq('fora_escopo', false)
       .gte('data_execucao', start)
       .order('data_execucao', { ascending: true }),

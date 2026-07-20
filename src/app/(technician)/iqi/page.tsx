@@ -32,7 +32,7 @@ export default async function TechnicianIqiPage() {
     .from('service_visits')
     .select('data_execucao')
     .eq('tenant_id', user.tenantId)
-    .eq('technician_id', user.technicianId)
+    .eq('tecnico_id', user.technicianId)
     .eq('fora_escopo', false)
     .order('data_execucao', { ascending: false })
     .limit(1)
@@ -61,7 +61,7 @@ export default async function TechnicianIqiPage() {
       .from('service_visits')
       .select('os_num, data_execucao, sucesso')
       .eq('tenant_id', user.tenantId)
-      .eq('technician_id', user.technicianId)
+      .eq('tecnico_id', user.technicianId)
       .eq('fora_escopo', false)
       .gte('data_execucao', start)
       .lt('data_execucao', end),

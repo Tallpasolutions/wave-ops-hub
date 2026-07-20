@@ -78,7 +78,7 @@ export default async function TechnicianHomePage() {
     .from('service_visits')
     .select('data_execucao')
     .eq('tenant_id', user.tenantId)
-    .eq('technician_id', user.technicianId)
+    .eq('tecnico_id', user.technicianId)
     .eq('fora_escopo', false)
     .order('data_execucao', { ascending: false })
     .limit(1)
@@ -94,7 +94,7 @@ export default async function TechnicianHomePage() {
       .from('service_visits')
       .select('id, sucesso, improdutiva, valor_recebido_unetvale, finalidade, reason_id')
       .eq('tenant_id', user.tenantId)
-      .eq('technician_id', user.technicianId)
+      .eq('tecnico_id', user.technicianId)
       .eq('fora_escopo', false)
       .gte('data_execucao', start)
       .lt('data_execucao', end),

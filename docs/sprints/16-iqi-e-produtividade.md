@@ -44,9 +44,9 @@ gerencial de produtividade de equipes, e também no app do técnico (visão indi
 - Credencial só via env/Vault no servidor (`UNETVALE_USER`, `UNETVALE_PASSWORD`). Técnicos sem
   `codigo_unetvale` são reportados, não quebram a coleta.
 - Server Action `sincronizarIqi()` (service role) que orquestra e faz upsert idempotente.
-- **Coleta agendada 2x/dia às 08:00 e 20:00 (America/São_Paulo)** via Vercel Cron (ADR-012):
-  `vercel.json` com `0 11 * * *` e `0 23 * * *` (UTC = 08:00/20:00 BRT) → route handler
-  `src/app/api/cron/iqi/route.ts` protegido por `CRON_SECRET`, chamando o mesmo coletor.
+- **Coleta agendada 2x/dia às 08:00 e 20:00 (America/São_Paulo)** via GitHub Actions (ADR-012):
+  `.github/workflows/iqi-cron.yml` com `0 11,23 * * *` (UTC = 08:00/20:00 BRT) → `curl` no route
+  handler `src/app/api/cron/iqi/route.ts` protegido por `CRON_SECRET`, chamando o mesmo coletor.
 
 **DoD:** o cron dispara às 08:00/20:00 BRT e popula `iqi_snapshots` para os técnicos com
 `codigo_unetvale`; a sincronização manual também popula; o `pct_reincidencia` de um técnico/mês

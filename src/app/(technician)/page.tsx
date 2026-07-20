@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ClipboardList, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
+import { ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -71,6 +71,17 @@ export default async function TechnicianHomePage() {
 
   const supabase = await createSupabaseServerClient()
 
+  // Revisão de fechamento pendente/contestada — banner de conferência (Sprint 18).
+  const { data: pendingReview } = await supabase
+    .from('closing_technician_reviews')
+    .select('periodo')
+    .eq('tenant_id', user.tenantId)
+    .eq('technician_id', user.technicianId)
+    .in('status', ['pendente', 'contestado'])
+    .order('periodo', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   // Período = último mês com visitas DESTE técnico (não o mês corrente vazio). Antes a home
   // abria em julho vazio (0 visitas) e somava payouts de TODOS os meses — os pontos não batiam
   // com o "A pagar" do gestor.
@@ -78,7 +89,7 @@ export default async function TechnicianHomePage() {
     .from('service_visits')
     .select('data_execucao')
     .eq('tenant_id', user.tenantId)
-    .eq('technician_id', user.technicianId)
+    .eq('tecnico_id', user.technicianId)
     .eq('fora_escopo', false)
     .order('data_execucao', { ascending: false })
     .limit(1)
@@ -94,7 +105,7 @@ export default async function TechnicianHomePage() {
       .from('service_visits')
       .select('id, sucesso, improdutiva, valor_recebido_unetvale, finalidade, reason_id')
       .eq('tenant_id', user.tenantId)
-      .eq('technician_id', user.technicianId)
+      .eq('tecnico_id', user.technicianId)
       .eq('fora_escopo', false)
       .gte('data_execucao', start)
       .lt('data_execucao', end),
@@ -173,6 +184,29 @@ export default async function TechnicianHomePage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-6">
+      {/* Banner de conferência de fechamento (Sprint 18) */}
+      {pendingReview && (
+        <Link
+          href="/aprovacoes"
+          className="mb-4 flex items-center justify-between gap-3 rounded-xl border p-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,181,71,0.12), rgba(255,181,71,0.05))',
+            borderColor: 'rgba(255,181,71,0.25)',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <ClipboardCheck size={18} className="text-[var(--amber)]" />
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--text)]">OSs para conferir</p>
+              <p className="text-[11px] text-[var(--text-3)]">
+                A Wave solicitou sua conferência — revise, aprove ou conteste
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={16} className="shrink-0 text-[var(--amber)]" />
+        </Link>
+      )}
+
       {/* Saudação */}
       <div className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[2px] text-[var(--text-3)]">

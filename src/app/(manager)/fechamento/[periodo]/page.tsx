@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, MessageSquareWarning, Users } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -18,6 +18,7 @@ import {
   marcarComoPago,
 } from '../actions'
 import { ReopenForm } from './_components/ReopenForm'
+import { ResolverContestacaoForm } from './_components/ResolverContestacaoForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -126,6 +127,42 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
   )
 
   const payouts = (payoutsRaw ?? []) as PayoutRow[]
+
+  // Conferência dos técnicos (Sprint 18): status por técnico + contestações abertas.
+  const [{ data: reviewsRaw }, { data: contestacoesRaw }] = await Promise.all([
+    supabase
+      .from('closing_technician_reviews')
+      .select('technician_id, status, reviewed_at, technicians(nome_completo)')
+      .eq('tenant_id', user.tenantId!)
+      .eq('periodo', periodo),
+    supabase
+      .from('payout_contestacoes')
+      .select('id, motivo, created_at, payout_id, technician_id, technicians(nome_completo)')
+      .eq('tenant_id', user.tenantId!)
+      .eq('periodo', periodo)
+      .eq('status', 'aberta')
+      .order('created_at', { ascending: true }),
+  ])
+
+  const nomeFrom = (t: unknown): string => {
+    const o = Array.isArray(t) ? t[0] : t
+    return (o as { nome_completo?: string } | null)?.nome_completo ?? '—'
+  }
+  const osByPayout = new Map<string, number>()
+  for (const p of payouts) {
+    const sv = p.service_visits as unknown as { os_num?: number } | null
+    if (sv?.os_num != null) osByPayout.set(p.id, sv.os_num)
+  }
+  const reviews = (reviewsRaw ?? []).map((r) => ({
+    tecnico: nomeFrom((r as { technicians: unknown }).technicians),
+    status: (r as { status: string }).status as 'pendente' | 'aprovado' | 'contestado',
+  }))
+  const contestacoes = (contestacoesRaw ?? []).map((c) => ({
+    id: (c as { id: string }).id,
+    tecnico: nomeFrom((c as { technicians: unknown }).technicians),
+    motivo: (c as { motivo: string }).motivo,
+    osNum: osByPayout.get((c as { payout_id: string }).payout_id) ?? null,
+  }))
 
   const BLOCKING_STATUSES = ['no_rule_match', 'pending_classification', 'conflict']
   const blockers = {
@@ -274,10 +311,66 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
               </Link>
             )}
             {blockers.semTecnico > 0 && (
-              <Link href="/equipe/tecnicos" className="underline hover:text-[var(--text)]">
-                {blockers.semTecnico} sem técnico vinculado → vincular técnicos
+              <Link
+                href={`/pagamentos?mes=${periodo}&semTecnico=1`}
+                className="underline hover:text-[var(--text)]"
+              >
+                {blockers.semTecnico} sem técnico vinculado → ver OSs sem técnico
               </Link>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Conferência dos técnicos (Sprint 18) */}
+      {reviews.length > 0 && (
+        <div className="mb-6 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-4">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+            <Users size={14} className="text-[var(--text-3)]" />
+            Conferência dos técnicos
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {reviews.map((r) => {
+              const cfg =
+                r.status === 'aprovado'
+                  ? { txt: 'aprovou', cls: 'bg-[rgba(46,230,168,0.12)] text-[var(--green)]' }
+                  : r.status === 'contestado'
+                    ? { txt: 'contestou', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' }
+                    : { txt: 'conferindo', cls: 'bg-[rgba(250,204,21,0.12)] text-yellow-400' }
+              return (
+                <span
+                  key={r.tecnico}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${cfg.cls}`}
+                >
+                  {r.tecnico} · {cfg.txt}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Contestações abertas — voltam para a Wave por técnico */}
+      {contestacoes.length > 0 && (
+        <div className="mb-6 rounded-xl border border-[rgba(255,181,71,0.3)] bg-[rgba(255,181,71,0.05)] p-4">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--amber)]">
+            <MessageSquareWarning size={15} />
+            {contestacoes.length} contestação{contestacoes.length !== 1 ? 'ões' : ''} aberta
+            {contestacoes.length !== 1 ? 's' : ''}
+          </p>
+          <div className="space-y-3">
+            {contestacoes.map((c) => (
+              <div key={c.id} className="rounded-lg border border-[var(--line)] bg-[var(--bg-1)] p-3">
+                <p className="text-[13px] font-semibold text-[var(--text)]">
+                  {c.tecnico}
+                  {c.osNum != null && (
+                    <span className="ml-1.5 font-mono text-[var(--text-3)]">· OS {c.osNum}</span>
+                  )}
+                </p>
+                <p className="mt-1 text-[12px] text-[var(--text-2)]">{c.motivo}</p>
+                <ResolverContestacaoForm contestacaoId={c.id} />
+              </div>
+            ))}
           </div>
         </div>
       )}

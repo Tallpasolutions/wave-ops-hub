@@ -16,3 +16,4 @@ export * from "./notifications";
 export * from "./supervisor-technicians";
 export * from "./cabeamento-classifications";
 export * from "./iqi-snapshots";
+export * from "./aprovacao";

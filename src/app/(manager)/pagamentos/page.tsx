@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: 'Pagamentos' }
 export const dynamic = 'force-dynamic'
 
 type Props = {
-  searchParams: Promise<{ mes?: string; status?: string; q?: string; page?: string }>
+  searchParams: Promise<{ mes?: string; status?: string; q?: string; page?: string; semTecnico?: string }>
 }
 
 function formatBRL(value: number | null): string {
@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function PayoutsPage({ searchParams }: Props) {
-  const { mes, status: statusFilter, q, page } = await searchParams
+  const { mes, status: statusFilter, q, page, semTecnico } = await searchParams
 
   const user = await getCurrentUser()
   if (!user) notFound()
@@ -126,6 +126,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
   const payoutsFiltrados = allPayouts.filter(
     (p) =>
       (!statusFilter || p.status === statusFilter) &&
+      (!semTecnico || !p.technician_id) &&
       (!query || String(p.os_num).includes(query)),
   )
   const { pageItems: payouts, info: pageInfo } = paginate(payoutsFiltrados, page)

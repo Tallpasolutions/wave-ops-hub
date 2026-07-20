@@ -93,27 +93,26 @@ CREATE TABLE iqi_snapshots (
 -- RLS por tenant (padrão ADR-002). Técnico só lê a própria linha; gestor lê as do tenant.
 ```
 
-### 4. Disparo: coleta agendada 2x/dia (08:00 e 20:00 America/São_Paulo) via Vercel Cron
+### 4. Disparo: coleta agendada 2x/dia (08:00 e 20:00 America/São_Paulo) via GitHub Actions
 
 A coleta roda **automaticamente duas vezes por dia, às 08:00 e às 20:00 (horário de Brasília)**.
-O projeto é hospedado na Vercel (README), então usamos **Vercel Cron**:
+O agendamento usa **GitHub Actions** (o Vercel Cron exigiria plano Pro para 2 execuções/dia; o
+repo já usa Actions e o custo é zero):
 
-- `vercel.json` com duas entradas de cron apontando para um route handler.
-  **Vercel Cron executa em UTC** e o Brasil é UTC−3 sem horário de verão → 08:00/20:00 BRT =
-  **11:00 / 23:00 UTC**:
-  ```json
-  {
-    "crons": [
-      { "path": "/api/cron/iqi", "schedule": "0 11 * * *" },
-      { "path": "/api/cron/iqi", "schedule": "0 23 * * *" }
-    ]
-  }
-  ```
+- `.github/workflows/iqi-cron.yml` com `schedule: cron: '0 11,23 * * *'`.
+  **GitHub Cron executa em UTC** e o Brasil é UTC−3 sem horário de verão → 08:00/20:00 BRT =
+  **11:00 / 23:00 UTC**. O job só faz um `curl` autenticado ao endpoint.
 - **Route handler** `src/app/api/cron/iqi/route.ts` — fino, só orquestra: valida o header
-  `Authorization: Bearer $CRON_SECRET` (segredo que a Vercel injeta) e chama o **mesmo coletor**
-  de `src/lib/iqi/` usado pela sincronização manual. Nenhuma lógica duplicada.
+  `Authorization: Bearer $CRON_SECRET` e chama o **mesmo coletor** de `src/lib/iqi/` usado pela
+  sincronização manual. Nenhuma lógica duplicada. O segredo fica em GitHub Secrets (workflow) e
+  em env do servidor (Vercel), com o mesmo valor.
 - **Sincronização manual** continua existindo (botão "Sincronizar IQI" na tela gerencial →
   Server Action que chama o mesmo coletor), para forçar uma coleta fora do horário.
+
+> Notas do GitHub Actions: agendamentos só disparam a partir da branch default (`main`) e podem
+> atrasar alguns minutos sob carga — irrelevante para uma coleta 2x/dia. Se um dia migrar para o
+> plano Pro da Vercel, dá para trocar por `vercel.json` (crons `0 11 * * *` e `0 23 * * *`) sem
+> mudar o endpoint.
 
 > **Exceção de estrutura de rotas (documentada por este ADR):** o CLAUDE.md restringe rotas aos
 > grupos `(public)/(admin)/(manager)/(technician)`. Um endpoint de cron não é uma página de
@@ -169,5 +168,7 @@ ambiente/Vault do servidor.
 - Nova tabela `iqi_snapshots` + migration numerada.
 - Novo módulo `src/lib/iqi/` com testes (lógica de domínio → testes obrigatórios, CLAUDE.md §6).
 - Novos envs no servidor: `UNETVALE_USER`, `UNETVALE_PASSWORD`, `CRON_SECRET` (nunca `NEXT_PUBLIC_`).
-- Novo `vercel.json` (crons) e route handler `src/app/api/cron/iqi` (exceção de rota documentada).
+- `CRON_SECRET` também em GitHub Secrets (mesmo valor) para o workflow de agendamento.
+- Novo workflow `.github/workflows/iqi-cron.yml` e route handler `src/app/api/cron/iqi`
+  (exceção de rota documentada).
 - Base para a tela gerencial de produtividade e para o IQI no app do técnico (ver plano de sprint).

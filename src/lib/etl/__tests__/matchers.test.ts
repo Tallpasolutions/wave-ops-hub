@@ -5,6 +5,7 @@ import type { TechnicianRef, ReasonRef } from '../matchers'
 const TECH_LIST: TechnicianRef[] = [
   { id: 'tech-1', nome_completo: 'João Silva' },
   { id: 'tech-2', nome_completo: 'Maria Souza' },
+  { id: 'tech-3', nome_completo: 'Douglas Ribeiro' },
 ]
 
 const REASON_LIST: ReasonRef[] = [
@@ -35,6 +36,19 @@ describe('matchTechnician', () => {
   it('tolera espaços extras ao redor do prefixo', () => {
     const result = matchTechnician('WAVE -  João Silva', TECH_LIST)
     expect(result?.id).toBe('tech-1')
+  })
+
+  it('remove o prefixo "INFRA WAVE - "', () => {
+    expect(matchTechnician('INFRA WAVE - Douglas Ribeiro', TECH_LIST)?.id).toBe('tech-3')
+    expect(matchTechnician('INFRA WAVE - João Silva', TECH_LIST)?.id).toBe('tech-1')
+  })
+
+  it('colapsa espaço interno duplo (nome que exibe idêntico)', () => {
+    expect(matchTechnician('Douglas  Ribeiro', TECH_LIST)?.id).toBe('tech-3')
+  })
+
+  it('casa NBSP e prefixo combinados', () => {
+    expect(matchTechnician('INFRA WAVE - Douglas Ribeiro', TECH_LIST)?.id).toBe('tech-3')
   })
 })
 

@@ -15,3 +15,4 @@ export * from "./payouts";
 export * from "./notifications";
 export * from "./supervisor-technicians";
 export * from "./cabeamento-classifications";
+export * from "./iqi-snapshots";

@@ -4,6 +4,7 @@ import { normalize } from './normalizer'
 import { matchTechnician, matchReason } from './matchers'
 import { computeContentHash } from './content-hash'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import { isUniqueViolation } from '@/lib/supabase/errors'
 import type { TechnicianRef, ReasonRef } from './matchers'
 import type { IngestResult, IngestCounts, IngestError, NormalizedRow } from './types'
 
@@ -81,13 +82,6 @@ function buildDbRow(row: NormalizedRow) {
 // Tamanho máximo por lote de insert e de updates paralelos
 const BATCH_INSERT_SIZE = 200
 const BATCH_UPDATE_CONCURRENCY = 30
-
-// Violação de unique (Postgres 23505). Num re-upload da mesma planilha a linha já existe
-// no banco: isso é deduplicação (ignorada), não uma falha do upload.
-function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false
-  return error.code === '23505' || /duplicate key value/i.test(error.message ?? '')
-}
 
 export async function run(
   uploadId: string,

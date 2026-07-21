@@ -52,6 +52,20 @@ describe('matchTechnician', () => {
   })
 })
 
+describe('matchTechnician com cadastro prefixado', () => {
+  it('casa quando o nome_completo tem o prefixo', () => {
+    // Técnicos foram cadastrados COM o prefixo (ex: "INFRA WAVE - Joao Revair Dill").
+    // O prefixo é removido dos dois lados antes de comparar.
+    const listaComPrefixo: TechnicianRef[] = [
+      { id: 'p-1', nome_completo: 'INFRA WAVE - Joao Revair Dill' },
+      { id: 'p-2', nome_completo: 'WAVE - Maria Souza' },
+    ]
+    expect(matchTechnician('INFRA WAVE - Joao Revair Dill', listaComPrefixo)?.id).toBe('p-1')
+    expect(matchTechnician('Joao Revair Dill', listaComPrefixo)?.id).toBe('p-1')
+    expect(matchTechnician('INFRA WAVE - Maria Souza', listaComPrefixo)?.id).toBe('p-2')
+  })
+})
+
 describe('matchReason', () => {
   it('retorna null quando sucesso começa com Sim', () => {
     expect(matchReason('Sim', REASON_LIST)).toBeNull()

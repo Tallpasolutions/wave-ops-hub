@@ -3,6 +3,7 @@ import { parseXlsx } from './parser'
 import { normalize } from './normalizer'
 import { matchTechnician, matchReason } from './matchers'
 import { computeContentHash } from './content-hash'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import type { TechnicianRef, ReasonRef } from './matchers'
 import type { IngestResult, IngestCounts, IngestError, NormalizedRow } from './types'
 
@@ -122,15 +123,37 @@ export async function run(
         .from('reasons')
         .select('id, motivo_original')
         .eq('tenant_id', tenantId),
-      // Carrega TODAS as visitas do período de uma vez — elimina 1 SELECT por linha
-      supabase
-        .from('service_visits')
-        .select('id, content_hash, os_num, data_execucao, tecnico_id, tecnico_raw')
-        .eq('tenant_id', tenantId)
-        .gte('data_execucao', periodoInicio)
-        .lte('data_execucao', periodoFim + 'T23:59:59.999Z'),
+      // Carrega TODAS as visitas do período — PAGINADO. Sem paginação o PostgREST corta
+      // silenciosamente em 1000 linhas: num mês com >1000 visitas, as excedentes ficam de
+      // fora do mapa de dedup, o re-upload as trata como novas e o INSERT viola a unique
+      // (tenant_id, os_num, data_execucao, tecnico_id). Por isso re-uploads davam "duplicate key".
+      fetchAllPages<{
+        id: string
+        content_hash: string
+        os_num: number
+        data_execucao: string
+        tecnico_id: string | null
+        tecnico_raw: string | null
+      }>((from, to) =>
+        supabase
+          .from('service_visits')
+          .select('id, content_hash, os_num, data_execucao, tecnico_id, tecnico_raw')
+          .eq('tenant_id', tenantId)
+          .gte('data_execucao', periodoInicio)
+          .lte('data_execucao', periodoFim + 'T23:59:59.999Z')
+          .order('id')
+          .range(from, to),
+      ),
       supabase.from('tenants').select('config').eq('id', tenantId).single(),
     ])
+
+    // Falha explícita se a carga de existentes deu erro — inserir sem o mapa de dedup
+    // completo geraria "duplicate key" em massa (o bug que este fix corrige).
+    if (existingRes.error) {
+      const msg = `Falha ao carregar visitas existentes para deduplicação: ${existingRes.error.message}`
+      await markFailed(uploadId, msg, parseErrors, supabase)
+      return { status: 'failed', error: msg, errors: parseErrors }
+    }
 
     const techList: TechnicianRef[] = techRes.data ?? []
     const reasonList: ReasonRef[] = reasonRes.data ?? []
@@ -146,14 +169,14 @@ export async function run(
     // Mapa em memória: chave → { id, content_hash }
     type ExistingVisit = { id: string; content_hash: string }
     const existingMap = new Map<string, ExistingVisit>()
-    for (const v of existingRes.data ?? []) {
+    for (const v of existingRes.rows) {
       const k = visitKey(
-        v.os_num as number,
-        v.data_execucao as string,
-        v.tecnico_id as string | null,
-        v.tecnico_raw as string | null,
+        v.os_num,
+        v.data_execucao,
+        v.tecnico_id,
+        v.tecnico_raw,
       )
-      existingMap.set(k, { id: v.id as string, content_hash: v.content_hash as string })
+      existingMap.set(k, { id: v.id, content_hash: v.content_hash })
     }
 
     // 4. Processa cada linha — apenas lógica de matching (sem IO por linha)

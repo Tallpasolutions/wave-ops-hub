@@ -13,14 +13,21 @@ function normalizeStr(s: string): string {
     .trim()
 }
 
+// Prefixo de organização que aparece na planilha da Unetvale ("WAVE - ", "INFRA WAVE - ").
+const ORG_PREFIX = /^\s*(?:INFRA\s+)?WAVE\s*-\s*/i
+
 export function matchTechnician(
   rawName: string,
   technicians: TechnicianRef[],
 ): TechnicianRef | null {
-  // Remove o prefixo de organização ("WAVE - " e "INFRA WAVE - ") antes do match.
-  const clean = normalizeStr(rawName.replace(/^\s*(?:INFRA\s+)?WAVE\s*-\s*/i, ''))
+  // Remove o prefixo dos DOIS lados: parte dos técnicos foi cadastrada COM o prefixo no
+  // nome_completo (ex: "INFRA WAVE - Joao Revair Dill"). Removê-lo só do nome cru fazia o
+  // match falhar sempre nesses casos — toda visita entrava sem técnico. Normalizar ambos
+  // casa tanto cadastros com prefixo quanto sem.
+  const clean = normalizeStr(rawName.replace(ORG_PREFIX, ''))
   return (
-    technicians.find((t) => normalizeStr(t.nome_completo) === clean) ?? null
+    technicians.find((t) => normalizeStr(t.nome_completo.replace(ORG_PREFIX, '')) === clean) ??
+    null
   )
 }
 

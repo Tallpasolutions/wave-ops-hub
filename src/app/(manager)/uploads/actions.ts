@@ -10,6 +10,7 @@ import { run as runIngestor } from '@/lib/etl'
 import type { IngestResult } from '@/lib/etl'
 import { recalculatePendingPayouts } from '@/lib/payouts'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import { isUniqueViolation } from '@/lib/supabase/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Recalcula APENAS os payouts das visitas deste upload (escopo por upload_id).
@@ -309,30 +310,54 @@ export async function linkTechnicianRaw(
   if (!user.tenantId) return { error: 'Usuário sem tenant.' }
   const supabase = await createSupabaseServerClient()
 
-  // 1. Vincula as visitas com aquele nome cru e captura os ids afetados.
-  const { data: linked, error } = await supabase
+  // 1. Carrega as visitas não vinculadas com aquele nome cru.
+  const { data: pendentes, error: loadError } = await supabase
     .from('service_visits')
-    .update({ tecnico_id: tecnicoId })
+    .select('id')
     .eq('tenant_id', user.tenantId)
     .is('tecnico_id', null)
     .eq('tecnico_raw', tecnicoRaw)
-    .select('id')
 
-  if (error) return { error: 'Erro ao vincular técnico.' }
+  if (loadError) return { error: 'Erro ao carregar visitas para vínculo.' }
+  if ((pendentes ?? []).length === 0) {
+    revalidatePath(returnPath)
+    return {}
+  }
 
-  const visitIds = (linked ?? []).map((v) => v.id as string)
+  // 2. Vincula uma a uma. Um UPDATE em lote falhava por completo quando UMA linha nula
+  //    colidia com a unique (tenant, os_num, data_execucao, tecnico_id) — cenário comum:
+  //    a visita já foi atribuída a este técnico e a linha nula é uma duplicata criada por
+  //    re-upload. Nesse caso a linha nula é redundante e é removida (o payout dela, se
+  //    existir, é nulo — cascata segura). Só erros reais abortam.
+  const visitIds: string[] = []
+  for (const v of pendentes ?? []) {
+    const id = v.id as string
+    const { error: upError } = await supabase
+      .from('service_visits')
+      .update({ tecnico_id: tecnicoId })
+      .eq('id', id)
+
+    if (!upError) {
+      visitIds.push(id)
+    } else if (isUniqueViolation(upError)) {
+      await supabase.from('service_visits').delete().eq('id', id)
+    } else {
+      return { error: 'Erro ao vincular técnico.' }
+    }
+  }
+
   if (visitIds.length === 0) {
     revalidatePath(returnPath)
     return {}
   }
 
-  // 2. Corrige o technician_id dos payouts dessas visitas — inclusive os já
+  // 3. Corrige o technician_id dos payouts dessas visitas — inclusive os já
   //    approved/paid (o recálculo preserva/pula esses, então sem este UPDATE o
   //    fechamento continuaria acusando "sem técnico"). É correção de associação,
   //    não de valor/status.
   await supabase.from('payouts').update({ technician_id: tecnicoId }).in('visit_id', visitIds)
 
-  // 3. Recalcula APENAS as visitas vinculadas (escopo por visitIds). O recálculo do
+  // 4. Recalcula APENAS as visitas vinculadas (escopo por visitIds). O recálculo do
   //    tenant inteiro numa única invocação estourava o timeout — daí o erro ao vincular.
   try {
     await recalculatePendingPayouts(user.tenantId, supabase, { visitIds })

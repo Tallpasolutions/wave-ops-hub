@@ -81,15 +81,20 @@ function makeMockFrom({
 function makeServiceVisitsMock(existingVisits: unknown[]) {
   const mock: Record<string, unknown> = {}
 
-  // All chaining methods return mock so .select().eq().gte().lte() chains freely.
+  // All chaining methods return mock so .select().eq().gte().lte().order() chains freely.
   const chainFn = vi.fn().mockReturnValue(mock)
   mock.select = chainFn
   mock.eq = chainFn
   mock.is = chainFn
   mock.gte = chainFn
   mock.lte = chainFn
+  mock.order = chainFn
 
-  // Thenable: the batch SELECT resolves to { data: existingVisits, error: null }.
+  // A carga de existentes é paginada (fetchAllPages): .order('id').range(from, to).
+  // Uma página com todos os existentes (< PAGE_SIZE) encerra o loop.
+  mock.range = vi.fn().mockResolvedValue({ data: existingVisits, error: null })
+
+  // Thenable de fallback (caminhos que aguardam a chain diretamente).
   mock.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve({ data: existingVisits, error: null }).then(resolve)
 

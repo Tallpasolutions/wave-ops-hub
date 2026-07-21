@@ -9,6 +9,32 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { run as runIngestor } from '@/lib/etl'
 import type { IngestResult } from '@/lib/etl'
 import { recalculatePendingPayouts } from '@/lib/payouts'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+// Recalcula APENAS os payouts das visitas deste upload (escopo por upload_id).
+// Recalcular o tenant inteiro numa única invocação estoura o timeout/503 — e no
+// reprocessar isso matava a Server Action antes do redirect, deixando a tela com
+// os erros antigos.
+async function recalcUploadVisits(
+  uploadId: string,
+  tenantId: string,
+  supabase: SupabaseClient,
+): Promise<void> {
+  const { rows } = await fetchAllPages<{ id: string }>((from, to) =>
+    supabase
+      .from('service_visits')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('upload_id', uploadId)
+      .order('id')
+      .range(from, to),
+  )
+  const visitIds = rows.map((r) => r.id)
+  if (visitIds.length > 0) {
+    await recalculatePendingPayouts(tenantId, supabase, { visitIds })
+  }
+}
 
 export type PrepareUploadResult =
   | { duplicate: true; uploadId: string }
@@ -109,9 +135,9 @@ export async function processUpload(uploadId: string): Promise<IngestResult> {
   const buffer = Buffer.from(await blob.arrayBuffer())
   const result = await runIngestor(uploadId, buffer, upload.tenant_id, upload.uploaded_by, supabase)
 
-  // 4. Recalcula payouts de todas as visitas pendentes do tenant após ingestão bem-sucedida
+  // 4. Recalcula payouts das visitas deste upload após ingestão bem-sucedida (escopo).
   if (result.status === 'success') {
-    await recalculatePendingPayouts(upload.tenant_id, supabase)
+    await recalcUploadVisits(uploadId, upload.tenant_id, supabase)
   }
 
   return result
@@ -133,7 +159,12 @@ export async function rerunUpload(uploadId: string): Promise<void> {
     if (!upload || upload.tenant_id !== user.tenantId) throw new Error('Upload não encontrado')
     if (upload.status === 'duplicate') throw new Error('Uploads duplicados não podem ser reprocessados')
 
-    await supabase.from('uploads').update({ status: 'processing' }).eq('id', uploadId)
+    // Limpa o error_log antigo já ao iniciar — se o reprocesso concluir sem erros,
+    // a tela não deve continuar mostrando os erros da tentativa anterior.
+    await supabase
+      .from('uploads')
+      .update({ status: 'processing', error_log: null })
+      .eq('id', uploadId)
 
     const { data: blob, error: downloadError } = await admin.storage
       .from('uploads')
@@ -149,13 +180,15 @@ export async function rerunUpload(uploadId: string): Promise<void> {
       const result = await runIngestor(uploadId, buffer, upload.tenant_id, upload.uploaded_by ?? '', supabase)
 
       if (result.status === 'success' && user.tenantId) {
-        await recalculatePendingPayouts(user.tenantId, supabase)
+        await recalcUploadVisits(uploadId, user.tenantId, supabase)
       }
     }
   } catch {
     // Erros são persistidos pelo ingestor via markFailed — não propagar para não perder o redirect
   }
 
+  revalidatePath('/uploads/' + uploadId)
+  revalidatePath('/uploads')
   redirect('/uploads/' + uploadId)
 }
 

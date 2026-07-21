@@ -8,7 +8,7 @@ Configure a LPU **antes** de processar a primeira planilha do mês.
 
 ## Criar uma nova LPU
 
-1. No menu lateral, clique em **LPU**
+1. No menu lateral, abra **Regras** → clique em **LPU**
 2. Clique em **Nova LPU**
 3. Preencha o **nome** (ex: "LPU Maio 2026") e a **data de início de vigência**
 4. Clique em **Criar LPU**

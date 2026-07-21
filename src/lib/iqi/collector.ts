@@ -13,6 +13,32 @@ const LOOKBACK = '30'
 // Tenant único hoje (Wave). Multi-tenant real exigirá credencial por tenant.
 const TENANT_SLUG = 'wave'
 
+// Timeout por requisição à Unetvale. Sem isso, um fetch que pendura trava a coleta
+// inteira: o loop sequencial estourava o maxDuration da função (504
+// FUNCTION_INVOCATION_TIMEOUT no cron, spinner infinito no botão).
+const REQUEST_TIMEOUT_MS = 15_000
+// Técnicos coletados em paralelo por vez. A coleta era sequencial (~1 login + N
+// técnicos em série); com a Unetvale mais lenta o total passava de 60s. Paralelizar
+// com concorrência limitada mantém o tempo total bem abaixo do limite sem martelar
+// o servidor de origem.
+const FETCH_CONCURRENCY = 5
+
+// fetch com AbortController: aborta a requisição após REQUEST_TIMEOUT_MS.
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error(`Tempo esgotado (${REQUEST_TIMEOUT_MS}ms) em ${url}`)
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // Reduz cada string Set-Cookie ao par `nome=valor` (descarta Path/HttpOnly/etc.)
 // e acumula num mapa nome→valor para montar o header Cookie.
 function mergeSetCookies(jar: Map<string, string>, setCookies: string[]): void {
@@ -42,11 +68,11 @@ async function loginUnetvale(): Promise<string> {
   const jar = new Map<string, string>()
 
   // 1. Prime: obtém o cookie de sessão inicial.
-  const prime = await fetch(`${BASE_URL}/login`, { redirect: 'manual' })
+  const prime = await fetchWithTimeout(`${BASE_URL}/login`, { redirect: 'manual' })
   mergeSetCookies(jar, prime.headers.getSetCookie?.() ?? [])
 
   // 2. Valida as credenciais reaproveitando o cookie de sessão.
-  const res = await fetch(`${BASE_URL}${LOGIN_PATH}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}${LOGIN_PATH}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -66,7 +92,7 @@ async function loginUnetvale(): Promise<string> {
 /** Busca o JSON do IQI de um técnico. O header X-Requested-With é obrigatório. */
 async function fetchIqiRaw(cookie: string, techId: string): Promise<IqiRawResponse> {
   const url = `${BASE_URL}/index/iqi/${TIPOS_SERVICO}/${LOOKBACK}/${techId}`
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { Cookie: cookie, 'X-Requested-With': 'XMLHttpRequest' },
   })
   if (!res.ok) throw new Error(`IQI HTTP ${res.status} para técnico ${techId}`)
@@ -89,6 +115,8 @@ export async function runIqiCollection(): Promise<IqiCollectionResult> {
   if (tenantErr || !tenant) {
     throw new Error(`Tenant '${TENANT_SLUG}' não encontrado: ${tenantErr?.message ?? 'sem dados'}`)
   }
+  // Capturado em const para o narrowing sobreviver dentro do closure de coleta.
+  const tenantId = tenant.id
 
   const { data: technicians, error: techErr } = await supabase
     .from('technicians')
@@ -115,15 +143,17 @@ export async function runIqiCollection(): Promise<IqiCollectionResult> {
 
   const cookie = await loginUnetvale()
 
-  for (const tech of comCodigo) {
+  // Coleta cada técnico com isolamento de falha (um técnico que falha não derruba os
+  // demais) e concorrência limitada, para caber no orçamento de tempo da função.
+  async function coletarTecnico(tech: (typeof comCodigo)[number]): Promise<void> {
     try {
       const raw = await fetchIqiRaw(cookie, String(tech.codigo_unetvale))
       const meses = parseIqiResponse(raw)
       result.tecnicosProcessados++
-      if (meses.length === 0) continue
+      if (meses.length === 0) return
 
       const rows = meses.map((m) => ({
-        tenant_id: tenant.id,
+        tenant_id: tenantId,
         tecnico_id: tech.id,
         competencia: m.competencia,
         total_os: m.totalOs,
@@ -146,6 +176,11 @@ export async function runIqiCollection(): Promise<IqiCollectionResult> {
         erro: e instanceof Error ? e.message : String(e),
       })
     }
+  }
+
+  for (let i = 0; i < comCodigo.length; i += FETCH_CONCURRENCY) {
+    const lote = comCodigo.slice(i, i + FETCH_CONCURRENCY)
+    await Promise.all(lote.map(coletarTecnico))
   }
 
   return result

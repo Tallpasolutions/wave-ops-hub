@@ -10,8 +10,14 @@ export function SyncIqiButton() {
   function onClick() {
     setMsg(null)
     startTransition(async () => {
-      const r = await sincronizarIqi()
-      setMsg({ ok: r.ok, texto: r.mensagem })
+      try {
+        const r = await sincronizarIqi()
+        setMsg({ ok: r.ok, texto: r.mensagem })
+      } catch {
+        // Se a própria Server Action falhar (ex.: timeout da função), mostra erro em
+        // vez de deixar o botão girando indefinidamente.
+        setMsg({ ok: false, texto: 'Falha ao sincronizar. Tente novamente em instantes.' })
+      }
     })
   }
 

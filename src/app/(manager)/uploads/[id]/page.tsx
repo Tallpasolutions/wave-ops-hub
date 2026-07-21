@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Detalhe do Upload' }
 import type { UploadStatus } from '@/db/schema'
 import { LinkTechnicianForm } from '@/components/LinkTechnicianForm'
+import { PendingSubmitButton } from '@/components/PendingSubmitButton'
 import { deleteUpload, reprocessUpload, rerunUpload, recalculateUploadPayouts } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -168,12 +169,12 @@ export default async function UploadDetailPage({
             {/* Recalcular payouts: sempre disponível em uploads com sucesso */}
             {u.status === 'success' && (
               <form action={recalculateUploadPayouts.bind(null, u.id)}>
-                <button
-                  type="submit"
+                <PendingSubmitButton
+                  pendingLabel="Recalculando…"
                   className="rounded-lg border border-[var(--line)] bg-[var(--bg-2)] px-3 py-1.5 text-xs font-semibold text-[var(--text-2)] transition-colors hover:bg-[var(--bg-3)]"
                 >
                   Recalcular payouts
-                </button>
+                </PendingSubmitButton>
               </form>
             )}
             {/* Reprocessar via ingestor: re-baixa o arquivo do Storage e re-parseia com
@@ -187,33 +188,33 @@ export default async function UploadDetailPage({
               u.status === 'failed') &&
               u.status !== 'duplicate' && (
                 <form action={rerunUpload.bind(null, u.id)}>
-                  <button
-                    type="submit"
+                  <PendingSubmitButton
+                    pendingLabel="Reprocessando…"
                     className="rounded-lg border border-[var(--line)] bg-[var(--bg-2)] px-3 py-1.5 text-xs font-semibold text-[var(--text-2)] transition-colors hover:bg-[var(--bg-3)]"
                   >
                     Reprocessar
-                  </button>
+                  </PendingSubmitButton>
                 </form>
               )}
             {/* Corrigir contadores: pendente/processing sem arquivo no storage */}
             {(u.status === 'pending' || u.status === 'processing') && (
               <form action={reprocessUpload.bind(null, u.id)}>
-                <button
-                  type="submit"
+                <PendingSubmitButton
+                  pendingLabel="Corrigindo…"
                   className="rounded-lg border border-[var(--line)] bg-[var(--bg-2)] px-3 py-1.5 text-xs font-semibold text-[var(--text-3)] transition-colors hover:bg-[var(--bg-3)]"
                 >
                   Corrigir status
-                </button>
+                </PendingSubmitButton>
               </form>
             )}
             {u.status === 'failed' && (
               <form action={deleteUpload.bind(null, u.id)}>
-                <button
-                  type="submit"
+                <PendingSubmitButton
+                  pendingLabel="Excluindo…"
                   className="rounded-lg border border-[rgba(255,84,112,0.3)] bg-[rgba(255,84,112,0.08)] px-3 py-1.5 text-xs font-semibold text-[var(--red)] transition-colors hover:bg-[rgba(255,84,112,0.15)]"
                 >
                   Excluir
-                </button>
+                </PendingSubmitButton>
               </form>
             )}
           </div>

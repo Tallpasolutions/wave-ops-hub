@@ -82,6 +82,13 @@ function buildDbRow(row: NormalizedRow) {
 const BATCH_INSERT_SIZE = 200
 const BATCH_UPDATE_CONCURRENCY = 30
 
+// Violação de unique (Postgres 23505). Num re-upload da mesma planilha a linha já existe
+// no banco: isso é deduplicação (ignorada), não uma falha do upload.
+function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  return error.code === '23505' || /duplicate key value/i.test(error.message ?? '')
+}
+
 export async function run(
   uploadId: string,
   buffer: Buffer,
@@ -190,8 +197,10 @@ export async function run(
     const newReasons: string[] = []
     const rowErrors: IngestError[] = [...parseErrors]
 
-    const toInsert: ReturnType<typeof buildDbRow>[] = []
-    const toUpdate: Array<{ id: string; data: ReturnType<typeof buildDbRow> }> = []
+    type DbRow = ReturnType<typeof buildDbRow>
+    // row: número da linha real da planilha (i + 2), preservado para mensagens de erro
+    const toInsert: Array<{ row: number; data: DbRow }> = []
+    const toUpdate: Array<{ id: string; data: DbRow }> = []
 
     for (let i = 0; i < rows.length; i++) {
       const rawRow = rows[i]!
@@ -241,7 +250,7 @@ export async function run(
         const existing = existingMap.get(key)
 
         if (!existing) {
-          toInsert.push(dbRow)
+          toInsert.push({ row: i + 2, data: dbRow })
           counts.inseridas++
         } else if (existing.content_hash !== contentHash) {
           toUpdate.push({ id: existing.id, data: dbRow })
@@ -260,17 +269,30 @@ export async function run(
 
     // 5. Persiste em batch — INSERT em lotes, UPDATE em paralelo
 
-    // INSERTs em lotes de BATCH_INSERT_SIZE
+    // INSERTs em lotes de BATCH_INSERT_SIZE. Um único conflito de unique derruba o lote
+    // inteiro no PostgREST — então no erro caímos para insert linha-a-linha: as linhas
+    // genuinamente novas entram e as que já existem (re-upload da mesma planilha) viram
+    // "ignoradas" (dedup), não erro. Só falhas reais são reportadas.
     for (let i = 0; i < toInsert.length; i += BATCH_INSERT_SIZE) {
       const chunk = toInsert.slice(i, i + BATCH_INSERT_SIZE)
-      const { error } = await supabase.from('service_visits').insert(chunk)
-      if (error) {
-        // Falha no batch: registra como erros individuais mas continua
-        for (let j = 0; j < chunk.length; j++) {
-          counts.erros++
-          counts.inseridas--
-          rowErrors.push({ row: i + j + 2, message: `Insert falhou: ${error.message}` })
-        }
+      const { error } = await supabase.from('service_visits').insert(chunk.map((c) => c.data))
+      if (!error) continue
+
+      for (let j = 0; j < chunk.length; j += BATCH_UPDATE_CONCURRENCY) {
+        const sub = chunk.slice(j, j + BATCH_UPDATE_CONCURRENCY)
+        await Promise.all(
+          sub.map(async ({ row, data }) => {
+            const { error: rowError } = await supabase.from('service_visits').insert(data)
+            if (!rowError) return
+            counts.inseridas--
+            if (isUniqueViolation(rowError)) {
+              counts.ignoradas++
+            } else {
+              counts.erros++
+              rowErrors.push({ row, message: `Insert falhou: ${rowError.message}` })
+            }
+          }),
+        )
       }
     }
 

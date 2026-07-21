@@ -55,6 +55,7 @@ function makeMockFrom({
   reasons = [] as unknown[],
   existingVisits = [] as unknown[],
   newReasonData = null as unknown,
+  insertError = null as { code?: string; message?: string } | null,
 } = {}) {
   return vi.fn().mockImplementation((table: string) => {
     switch (table) {
@@ -66,7 +67,7 @@ function makeMockFrom({
         }
         return makeFluentMock({ data: reasons, error: null })
       case 'service_visits':
-        return makeServiceVisitsMock(existingVisits)
+        return makeServiceVisitsMock(existingVisits, insertError)
       case 'uploads':
         return makeFluentMock({ data: null, error: null })
       default:
@@ -78,7 +79,10 @@ function makeMockFrom({
 // service_visits mock for the batch-select + insert/update pattern.
 // The ingestor loads all visits for the period via .select().eq().gte().lte()
 // (awaited directly, no .single()), then does batched .insert() and .update().eq().
-function makeServiceVisitsMock(existingVisits: unknown[]) {
+function makeServiceVisitsMock(
+  existingVisits: unknown[],
+  insertError: { code?: string; message?: string } | null = null,
+) {
   const mock: Record<string, unknown> = {}
 
   // All chaining methods return mock so .select().eq().gte().lte().order() chains freely.
@@ -102,10 +106,10 @@ function makeServiceVisitsMock(existingVisits: unknown[]) {
   const updateEq = vi.fn().mockResolvedValue({ data: null, error: null })
   mock.update = vi.fn().mockReturnValue({ eq: updateEq })
 
-  // insert is thenable.
+  // insert is thenable — batch e fallback linha-a-linha passam pela mesma chamada.
   mock.insert = vi.fn().mockReturnValue({
     then: (resolve: (v: unknown) => unknown) =>
-      Promise.resolve({ data: null, error: null }).then(resolve),
+      Promise.resolve({ data: null, error: insertError }).then(resolve),
   })
 
   return mock
@@ -197,6 +201,46 @@ describe('ingestor.run', () => {
     expect(result.status).toBe('success')
     if (result.status === 'success') {
       expect(result.warnings.newReasons).toContain('Não - Motivo Novo')
+    }
+  })
+
+  it('re-upload da mesma planilha: duplicate key vira ignorada, não erro', async () => {
+    const buf = makeXlsxBuffer([BASE_ROW])
+    // Simula re-envio: o insert do banco rejeita com violação de unique (23505).
+    // A linha já existe → deve contar como ignorada (dedup), e o upload continua success.
+    const supabase = {
+      from: makeMockFrom({
+        insertError: {
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint "service_visits_tenant_id_os_num_data_execucao_tecnico_id_key"',
+        },
+      }),
+    } as unknown as SupabaseClient
+    const result = await run('upload-1', buf, 'tenant-1', 'user-1', supabase)
+
+    expect(result.status).toBe('success')
+    if (result.status === 'success') {
+      expect(result.counts.ignoradas).toBe(1)
+      expect(result.counts.inseridas).toBe(0)
+      expect(result.counts.erros).toBe(0)
+    }
+  })
+
+  it('erro de insert não-unique continua sendo reportado como erro', async () => {
+    const buf = makeXlsxBuffer([BASE_ROW])
+    const supabase = {
+      from: makeMockFrom({
+        insertError: { code: '23502', message: 'null value in column violates not-null constraint' },
+      }),
+    } as unknown as SupabaseClient
+    const result = await run('upload-1', buf, 'tenant-1', 'user-1', supabase)
+
+    expect(result.status).toBe('success')
+    if (result.status === 'success') {
+      expect(result.counts.erros).toBe(1)
+      expect(result.counts.inseridas).toBe(0)
+      expect(result.counts.ignoradas).toBe(0)
     }
   })
 

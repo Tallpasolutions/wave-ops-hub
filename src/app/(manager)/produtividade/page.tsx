@@ -19,6 +19,10 @@ import type { ProdutividadeRow } from './_components/ProdutividadeTable'
 
 export const metadata: Metadata = { title: 'Produtividade' }
 
+// A sincronização manual do IQI (Server Action desta rota) faz várias chamadas à
+// Unetvale; dá folga de tempo à função para não cortar a coleta no meio.
+export const maxDuration = 60
+
 const IqiTrendChart = dynamic(
   () => import('./_components/IqiTrendChart').then((m) => m.IqiTrendChart),
   { loading: () => <Skeleton className="h-[280px] w-full" /> },

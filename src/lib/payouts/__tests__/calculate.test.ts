@@ -220,6 +220,7 @@ describe("buildPayoutUpsert — improdutiva padrão (Unetvale 15,98)", () => {
       TENANT_ID,
       undefined,
       undefined,
+      undefined,
       true, // manualDecisionExists
     );
     expect(result.improdutivaAprovada).toBeNull();
@@ -250,6 +251,7 @@ describe("buildPayoutUpsert — improdutiva padrão (Unetvale 15,98)", () => {
       [reason],
       LPU_ID,
       TENANT_ID,
+      undefined,
       undefined,
       undefined,
       true, // manualDecisionExists
@@ -316,6 +318,130 @@ describe("buildPayoutUpsert — classificação de Cabeamento (ADR-009)", () => 
     expect(result.status).toBe("pending_review");
     expect(result.valorCalculado).toBe(80);
     expect(result.lpuRuleId).toBe("rule-1");
+  });
+});
+
+describe("buildPayoutUpsert — repasse de Homologação (ADR-015)", () => {
+  // valores da Unetvale em centavos → repasse ao técnico
+  const homologacao = {
+    valores: new Map([
+      [6446, 35], // base
+      [12892, 70], // dobrado
+      [14223, 79], // + 1 ponto adicional
+    ]),
+  };
+  const explBase = "Homologação | 60.50 (Reajuste +6,54% fevereiro/2025)";
+  const explPonto =
+    "Homologação | 60.50 (+73 * 1 ponto(s) adicional(is)) (Reajuste +6,54% fevereiro/2025)";
+
+  it("homologação base → repassa R$ 35, sem regra de LPU", () => {
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Sim",
+      explicacaoValor: explBase,
+      valorRecebidoUnetvale: 64.46,
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(result.status).toBe("pending_review");
+    expect(result.valorCalculado).toBe(35);
+    expect(result.lpuRuleId).toBeNull();
+    expect(result.valorDeixadoNaMesa).toBe(0);
+  });
+
+  it("homologação dobrada (Unetvale 128,92) → R$ 70", () => {
+    const visit = makeVisit({
+      finalidade: "Mudança Endereço Fibra",
+      sucesso: "Sim",
+      explicacaoValor: explBase, // mesmo texto da base; só o valor Unetvale distingue
+      valorRecebidoUnetvale: 128.92,
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(result.valorCalculado).toBe(70);
+  });
+
+  it("homologação + 1 ponto adicional (Unetvale 142,23) → R$ 79", () => {
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PJ",
+      sucesso: "Sim",
+      explicacaoValor: explPonto,
+      valorRecebidoUnetvale: 142.23,
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(result.valorCalculado).toBe(79);
+  });
+
+  it("homologação com valor Unetvale NÃO cadastrado → no_rule_match (surge na fila)", () => {
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Sim",
+      explicacaoValor: explBase,
+      valorRecebidoUnetvale: 99.99,
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(result.status).toBe("no_rule_match");
+    expect(result.valorCalculado).toBeNull();
+  });
+
+  it("homologação PRECEDE a regra de LPU da instalação (135 → 35)", () => {
+    const ruleInstalacao = makeRule({
+      conditions: { finalidade: ["Instalação - Fibra - PF"], subterraneaAereo: "Subterrâneo" },
+      payout: { type: "fixed", value: 135 },
+      prioridade: 300,
+    });
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Sim",
+      subterraneaAereo: "Subterrâneo",
+      explicacaoValor: explBase,
+      valorRecebidoUnetvale: 64.46,
+    });
+    const result = buildPayoutUpsert(visit, [ruleInstalacao], [], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(result.valorCalculado).toBe(35);
+    expect(result.lpuRuleId).toBeNull();
+  });
+
+  it("sem contexto de homologação → cai na LPU normal (feature desligada)", () => {
+    const ruleInstalacao = makeRule({
+      conditions: { finalidade: ["Instalação - Fibra - PF"], subterraneaAereo: "Subterrâneo" },
+      payout: { type: "fixed", value: 135 },
+      prioridade: 300,
+    });
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Sim",
+      subterraneaAereo: "Subterrâneo",
+      explicacaoValor: explBase,
+      valorRecebidoUnetvale: 64.46,
+    });
+    const result = buildPayoutUpsert(visit, [ruleInstalacao], [], LPU_ID, TENANT_ID);
+    expect(result.valorCalculado).toBe(135);
+    expect(result.lpuRuleId).toBe("rule-1");
+  });
+
+  it("homologação improdutiva → não é tratada como homologação (fluxo de motivo)", () => {
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Não",
+      reasonId: "reason-1",
+      explicacaoValor: explBase,
+      valorRecebidoUnetvale: 64.46,
+    });
+    const reason = makeReason({ categoria: "pendente_classificacao" });
+    const result = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(result.valorCalculado).not.toBe(35);
+  });
+
+  it("homologação em domingo → repasse com acréscimo (ADR-011)", () => {
+    const feriado = { feriados: new Set<string>(), pct: 15 };
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Sim",
+      explicacaoValor: explBase,
+      valorRecebidoUnetvale: 64.46,
+      dataExecucao: "2026-06-07", // domingo
+    });
+    const result = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, undefined, feriado, homologacao);
+    expect(result.valorCalculado).toBeCloseTo(40.25, 2); // 35 × 1,15
   });
 });
 

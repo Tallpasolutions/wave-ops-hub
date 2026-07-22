@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeExplicacao } from "../explicacao";
+import { normalizeExplicacao, isHomologacao } from "../explicacao";
 
 // Amostras reais de produção (coluna Z de visitas de Cabeamento — ADR-009).
 describe("normalizeExplicacao", () => {
@@ -54,5 +54,30 @@ describe("normalizeExplicacao", () => {
     expect(normalizeExplicacao("(Reajuste +6,54% fevereiro/2025)")).toBe("");
     expect(normalizeExplicacao(null)).toBe("");
     expect(normalizeExplicacao(undefined)).toBe("");
+  });
+});
+
+// ADR-015: detecção de homologação pela coluna Z.
+describe("isHomologacao", () => {
+  it("reconhece homologação base e com ponto adicional", () => {
+    expect(isHomologacao("Homologação | 60.50 (Reajuste +6,54% fevereiro/2025)")).toBe(true);
+    expect(
+      isHomologacao(
+        "Homologação | 60.50 (+73 * 1 ponto(s) adicional(is)) (Reajuste +6,54% fevereiro/2025)",
+      ),
+    ).toBe(true);
+  });
+
+  it("tolera caixa e acento", () => {
+    expect(isHomologacao("  homologacao | 60.50")).toBe(true);
+    expect(isHomologacao("HOMOLOGAÇÃO")).toBe(true);
+  });
+
+  it("não confunde com outros serviços nem com nulo", () => {
+    expect(isHomologacao("Cabeamento agregado | 73")).toBe(false);
+    expect(isHomologacao("Instalação | 120")).toBe(false);
+    expect(isHomologacao(null)).toBe(false);
+    expect(isHomologacao(undefined)).toBe(false);
+    expect(isHomologacao("")).toBe(false);
   });
 });

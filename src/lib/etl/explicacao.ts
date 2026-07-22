@@ -9,6 +9,14 @@
 //   "Cabeamento agregado | 73 (Reajuste +6,54% fevereiro/2025)"          → "Cabeamento agregado"
 //   "Cabeamento fibra aérea | 176 * 1.1 (+10% reajuste geral ...) (...)" → "Cabeamento fibra aérea"
 //   "Cabeamento | 88 (+73 * 1 ponto(s) adicional(is)) (Reajuste ...)"    → "Cabeamento (+73 * 1 ponto(s) adicional(is))"
+// ADR-015: homologação é reconhecida pelo início da coluna Z ("Homologa..."),
+// independente da finalidade. `startsWith("homologa")` cobre "Homologação",
+// "Homologacao" e variações de acento/caixa.
+export function isHomologacao(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  return raw.trim().toLowerCase().startsWith("homologa");
+}
+
 export function normalizeExplicacao(raw: string | null | undefined): string {
   if (!raw) return "";
   return (

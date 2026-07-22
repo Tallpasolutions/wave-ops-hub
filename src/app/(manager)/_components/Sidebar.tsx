@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/regras',
     label: 'Regras',
     icon: SlidersHorizontal,
-    match: ['/motivos', '/improdutivas', '/lpu', '/cabeamento'],
+    match: ['/motivos', '/improdutivas', '/lpu', '/cabeamento', '/homologacao'],
     badge: 'improdutivas',
   },
   { href: '/oss', label: 'OSs', icon: ClipboardList },

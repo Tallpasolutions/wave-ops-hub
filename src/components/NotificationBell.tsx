@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, X, CheckCheck } from 'lucide-react'
 import Link from 'next/link'
 import { markNotificationRead, markAllNotificationsRead } from '@/app/notifications/actions'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 export type NotifItem = {
   id: string
@@ -15,6 +16,7 @@ export type NotifItem = {
 
 interface Props {
   notifications: NotifItem[]
+  userId: string
 }
 
 function timeAgo(iso: string): string {
@@ -27,9 +29,54 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d`
 }
 
-export function NotificationBell({ notifications }: Props) {
+export function NotificationBell({ notifications, userId }: Props) {
   const [open, setOpen] = useState(false)
-  const unread = notifications.filter((n) => !n.readAt).length
+  // Notificações recebidas ao vivo desde a montagem. Ao navegar/revalidar, o
+  // servidor re-busca e as inclui em `notifications`; a mesclagem de-duplica por id.
+  const [live, setLive] = useState<NotifItem[]>([])
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient()
+    const channel = supabase
+      .channel(`notif:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const n = payload.new as {
+            id: string
+            title: string
+            body: string | null
+            link: string | null
+            read_at: string | null
+            created_at: string
+          }
+          setLive((prev) =>
+            prev.some((x) => x.id === n.id)
+              ? prev
+              : [
+                  {
+                    id: n.id,
+                    title: n.title,
+                    body: n.body,
+                    link: n.link,
+                    readAt: n.read_at,
+                    createdAt: n.created_at,
+                  },
+                  ...prev,
+                ],
+          )
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [userId])
+
+  const propIds = new Set(notifications.map((n) => n.id))
+  const merged = [...live.filter((l) => !propIds.has(l.id)), ...notifications]
+  const unread = merged.filter((n) => !n.readAt).length
 
   async function handleClick(notif: NotifItem) {
     if (!notif.readAt) {
@@ -89,13 +136,13 @@ export function NotificationBell({ notifications }: Props) {
             </div>
 
             <div className="max-h-80 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {merged.length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <Bell size={24} className="mx-auto mb-2 text-[var(--text-3)]" />
                   <p className="text-[12px] text-[var(--text-3)]">Nenhuma notificação</p>
                 </div>
               ) : (
-                notifications.map((notif) => {
+                merged.map((notif) => {
                   const isUnread = !notif.readAt
                   const inner = (
                     <div

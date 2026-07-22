@@ -484,3 +484,110 @@ describe("buildPayoutUpsert — acréscimo de domingo/feriado (ADR-011)", () => 
     expect(r.valorCalculado).toBe(30);
   });
 });
+
+// ADR-016: ajustes por coluna Z — Unetvale 29,30, pontos adicionais e Venda Produto Externo.
+describe("buildPayoutUpsert — ADR-016 (coluna Z)", () => {
+  const REAJ = "(Reajuste +6,54% fevereiro/2025)";
+  const instalSubterranea = makeRule({
+    conditions: { finalidade: ["Instalação - Fibra - PF"], subterraneaAereo: "Subterrâneo" },
+    payout: { type: "fixed", value: 135 },
+    prioridade: 300,
+  });
+
+  it("Unetvale 29,30 → não paga (R$ 0), qualquer finalidade", () => {
+    const visit = makeVisit({
+      finalidade: "Troca de Equipamentos",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 29.3,
+      explicacaoValor: `Roteador agregado ‡ OS de Suporte ou Cabeamento | 25 * 1.1 ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(0);
+    expect(r.lpuRuleId).toBeNull();
+  });
+
+  it("instalação subterrânea + 1 ponto adicional → base 135 + 36 = 171", () => {
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      subterraneaAereo: "Subterrâneo",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 356.23,
+      explicacaoValor: `Instalação nova | 180 (subterrâneo) * 1.1 (+73 * 1 ponto(s) adicional(is)) ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [instalSubterranea], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(171);
+  });
+
+  it("ponto adicional + domingo → (135 + 36) × 1,15 = 196,65", () => {
+    const feriado = { feriados: new Set<string>(), pct: 15 };
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      subterraneaAereo: "Subterrâneo",
+      sucesso: "Sim",
+      dataExecucao: "2026-06-07", // domingo
+      explicacaoValor: `Instalação nova | 180 (subterrâneo) (+73 * 1 ponto(s) adicional(is)) ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [instalSubterranea], [], LPU_ID, TENANT_ID, undefined, feriado);
+    expect(r.valorCalculado).toBeCloseTo(196.65, 2);
+  });
+
+  it("cabeamento com ponto → base 44 + 36 = 80 (corrige o 76 embutido)", () => {
+    const classification = {
+      finalidades: new Set(["cabeamento/segundo ponto"]),
+      map: new Map([["Cabeamento", 44]]),
+    };
+    const visit = makeVisit({
+      finalidade: "Cabeamento/Segundo Ponto",
+      sucesso: "Sim",
+      explicacaoValor: `Cabeamento | 88 (+73 * 1 ponto(s) adicional(is)) ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, classification);
+    expect(r.valorCalculado).toBe(80);
+  });
+
+  it("Venda Produto Externo · Roteador → R$ 30", () => {
+    const visit = makeVisit({
+      finalidade: "Venda Produto Externo",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 64.46,
+      explicacaoValor: `Roteador | 50 * 1.1 * 1.1 (+10% em instalações e suportes a partir de 03/2019) ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(30);
+    expect(r.lpuRuleId).toBeNull();
+  });
+
+  it("Venda Produto Externo · Cabeamento agregado → R$ 44", () => {
+    const visit = makeVisit({
+      finalidade: "Venda Produto Externo",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 77.77,
+      explicacaoValor: `Cabeamento agregado | 73 ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(44);
+  });
+
+  it("Venda Produto Externo · Roteador agregado (Unetvale 0) → R$ 0", () => {
+    const visit = makeVisit({
+      finalidade: "Venda Produto Externo",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 0,
+      explicacaoValor: `Roteador agregado à OS que não é de Suporte nem Cabeamento | 25 ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(0);
+  });
+
+  it("Venda Produto Externo não reconhecido → no_rule_match (surge na fila)", () => {
+    const visit = makeVisit({
+      finalidade: "Venda Produto Externo",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 93.76,
+      explicacaoValor: `Serviço desconhecido | 88 ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [makeRule()], [], LPU_ID, TENANT_ID);
+    expect(r.status).toBe("no_rule_match");
+    expect(r.valorCalculado).toBeNull();
+  });
+});

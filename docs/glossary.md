@@ -117,6 +117,9 @@ A categoria de cada motivo é configurada pelo gestor Wave em uma tela específi
 ### Match engine
 Algoritmo que, dada uma visita, encontra a regra LPU aplicável. Avalia regras em ordem de prioridade (mais específicas primeiro). Se nenhuma regra bate, a visita fica como `payout_pendente_revisao`.
 
+### Ponto adicional
+Modificador na coluna Z (`explicacao_valor`), no formato `(+73 * N ponto(s) adicional(is))`, que soma um acréscimo fixo de **R$ 36 por ponto** sobre o valor-base do serviço (instalação, condomínio, cabeamento). Ex.: instalação subterrânea 135 + 1 ponto = 171. Homologação é a exceção (+R$ 44, já embutido no mapa — ver [Homologação]). O acréscimo de domingo/feriado incide sobre base + ponto. Ver [ADR-016](./architecture/ADR-016-ajustes-coluna-z.md).
+
 ### Homologação
 Atendimento identificado pela coluna Z (`explicacao_valor` começa com "Homologa..."), não pela finalidade — a mesma finalidade de instalação pode ser uma instalação real ou uma homologação. A Unetvale paga uma taxa fixa e o técnico recebe um **repasse fixo por valor da Unetvale** (base R$ 64,46 → R$ 35; dobrado R$ 128,92 → R$ 70; +1 ponto adicional R$ 142,23 → R$ 79). O gestor mantém o mapa em `/homologacao`. Precede a LPU no cálculo. Ver [ADR-015](./architecture/ADR-015-homologacao-repasse.md).
 

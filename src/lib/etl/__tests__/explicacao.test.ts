@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeExplicacao, isHomologacao } from "../explicacao";
+import { normalizeExplicacao, isHomologacao, parsePontosAdicionais } from "../explicacao";
 
 // Amostras reais de produção (coluna Z de visitas de Cabeamento — ADR-009).
 describe("normalizeExplicacao", () => {
@@ -25,17 +25,19 @@ describe("normalizeExplicacao", () => {
     ).toBe("Cabeamento fibra subterrênea");
   });
 
-  it("preserva o modificador de pontos (distingue o payout)", () => {
+  // ADR-016: o modificador de pontos SAI da chave (vira acréscimo uniforme). As variantes
+  // com ponto colapsam na chave-base.
+  it("remove o modificador de pontos → chave-base (ADR-016)", () => {
     expect(
       normalizeExplicacao(
         "Cabeamento | 88 (+73 * 1 ponto(s) adicional(is)) (Reajuste +6,54% fevereiro/2025)",
       ),
-    ).toBe("Cabeamento (+73 * 1 ponto(s) adicional(is))");
+    ).toBe("Cabeamento");
     expect(
       normalizeExplicacao(
-        "Cabeamento agregado | 73 (+73 * 1 ponto(s) adicional(is)) (Reajuste +6,54% fevereiro/2025)",
+        "Cabeamento agregado | 73 (+73 * 2 ponto(s) adicional(is)) (Reajuste +6,54% fevereiro/2025)",
       ),
-    ).toBe("Cabeamento agregado (+73 * 1 ponto(s) adicional(is))");
+    ).toBe("Cabeamento agregado");
   });
 
   it("serviço com decimal e frase longa", () => {
@@ -79,5 +81,26 @@ describe("isHomologacao", () => {
     expect(isHomologacao(null)).toBe(false);
     expect(isHomologacao(undefined)).toBe(false);
     expect(isHomologacao("")).toBe(false);
+  });
+});
+
+// ADR-016: contagem de pontos adicionais na coluna Z.
+describe("parsePontosAdicionais", () => {
+  it("extrai N do modificador de pontos", () => {
+    expect(
+      parsePontosAdicionais(
+        "Instalação nova | 180 (subterrâneo) * 1.1 (+73 * 1 ponto(s) adicional(is)) (Reajuste +6,54% fevereiro/2025)",
+      ),
+    ).toBe(1);
+    expect(
+      parsePontosAdicionais("Cabeamento | 88 (+73 * 2 ponto(s) adicional(is)) (Reajuste ...)"),
+    ).toBe(2);
+  });
+
+  it("retorna 0 sem o modificador ou com entrada vazia", () => {
+    expect(parsePontosAdicionais("Instalação nova | 160 (aéreo) (Reajuste ...)")).toBe(0);
+    expect(parsePontosAdicionais(null)).toBe(0);
+    expect(parsePontosAdicionais(undefined)).toBe(0);
+    expect(parsePontosAdicionais("")).toBe(0);
   });
 });

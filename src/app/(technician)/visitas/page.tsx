@@ -8,7 +8,11 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Minhas Visitas' }
 import { parsePeriod, buildPeriodOptions } from '../_lib/period'
 import { PeriodSelector } from '../_components/PeriodSelector'
+import { ContestarOs, type Contestacao } from './_components/ContestarOs'
 import { Suspense } from 'react'
+
+// Payouts nestes estados são finais/fechados — não dá pra contestar.
+const NAO_CONTESTAVEL = new Set(['approved', 'paid'])
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +28,7 @@ const fmtDate = (iso: string) => {
 }
 
 type Payout = {
+  id: string
   visit_id: string
   valor_calculado: number | null
   valor_override: number | null
@@ -70,11 +75,30 @@ export default async function VisitasPage({ searchParams }: PageProps) {
   if (visitIds.length > 0) {
     const { data } = await supabase
       .from('payouts')
-      .select('visit_id, valor_calculado, valor_override, valor_deixado_na_mesa, status')
+      .select('id, visit_id, valor_calculado, valor_override, valor_deixado_na_mesa, status')
       .in('visit_id', visitIds)
     payouts = (data ?? []) as Payout[]
   }
   const payoutMap = new Map(payouts.map((p) => [p.visit_id, p]))
+
+  // Contestações do técnico para os payouts do período (contestação contínua — ADR-013).
+  const payoutIds = payouts.map((p) => p.id)
+  const contestacaoByPayout = new Map<string, Contestacao>()
+  if (payoutIds.length > 0) {
+    const { data: contestacoes } = await supabase
+      .from('payout_contestacoes')
+      .select('payout_id, status, motivo, resposta_gestor')
+      .eq('tenant_id', user.tenantId)
+      .eq('technician_id', user.technicianId)
+      .in('payout_id', payoutIds)
+    for (const c of contestacoes ?? []) {
+      contestacaoByPayout.set(c.payout_id as string, {
+        status: c.status as 'aberta' | 'resolvida',
+        motivo: c.motivo as string,
+        resposta: (c.resposta_gestor as string | null) ?? null,
+      })
+    }
+  }
 
   return (
     <div className="mx-auto max-w-md px-4 py-5">
@@ -170,6 +194,14 @@ export default async function VisitasPage({ searchParams }: PageProps) {
                   <p className="mt-2 rounded-md bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-[var(--text-3)]">
                     {motivo}
                   </p>
+                )}
+
+                {payout && !NAO_CONTESTAVEL.has(payout.status ?? '') && (
+                  <ContestarOs
+                    payoutId={payout.id}
+                    periodo={(v.data_execucao as string).slice(0, 7)}
+                    contestacao={contestacaoByPayout.get(payout.id) ?? null}
+                  />
                 )}
               </div>
             )

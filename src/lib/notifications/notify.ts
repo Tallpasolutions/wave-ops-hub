@@ -10,14 +10,25 @@ type Notif = { type: string; title: string; body?: string; link?: string }
 
 export async function notifyManagers(tenantId: string, n: Notif): Promise<void> {
   const admin = createSupabaseAdminClient()
-  const { data: managers } = await admin
-    .from('users')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .in('role', ['tenant_owner', 'tenant_manager'])
-  const rows = (managers ?? []).map((u) => ({
+  // Gestores do tenant + o operador Tallpa (tallpa_owner, sem tenant_id) — este último
+  // supervisiona a operação e também precisa ver as notificações do tenant.
+  const [{ data: managers }, { data: owners }] = await Promise.all([
+    admin
+      .from('users')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .in('role', ['tenant_owner', 'tenant_manager']),
+    admin.from('users').select('id').eq('role', 'tallpa_owner'),
+  ])
+  const userIds = [
+    ...new Set([
+      ...(managers ?? []).map((u) => u.id as string),
+      ...(owners ?? []).map((u) => u.id as string),
+    ]),
+  ]
+  const rows = userIds.map((uid) => ({
     tenant_id: tenantId,
-    user_id: u.id as string,
+    user_id: uid,
     type: n.type,
     title: n.title,
     body: n.body ?? null,

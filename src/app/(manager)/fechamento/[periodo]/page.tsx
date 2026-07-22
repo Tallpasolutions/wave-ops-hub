@@ -164,6 +164,18 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
     osNum: osByPayout.get((c as { payout_id: string }).payout_id) ?? null,
   }))
 
+  // Agrupa as contestações abertas por técnico (ambiente mais organizado no fechamento).
+  const contestacoesPorTecnico = [
+    ...contestacoes.reduce((m, c) => {
+      const arr = m.get(c.tecnico) ?? []
+      arr.push(c)
+      m.set(c.tecnico, arr)
+      return m
+    }, new Map<string, typeof contestacoes>()),
+  ]
+    .map(([tecnico, itens]) => ({ tecnico, itens }))
+    .sort((a, b) => a.tecnico.localeCompare(b.tecnico))
+
   const BLOCKING_STATUSES = ['no_rule_match', 'pending_classification', 'conflict']
   const blockers = {
     noRuleMatch: payouts.filter((p) => p.status === 'no_rule_match').length,
@@ -358,17 +370,28 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
             {contestacoes.length} contestação{contestacoes.length !== 1 ? 'ões' : ''} aberta
             {contestacoes.length !== 1 ? 's' : ''}
           </p>
-          <div className="space-y-3">
-            {contestacoes.map((c) => (
-              <div key={c.id} className="rounded-lg border border-[var(--line)] bg-[var(--bg-1)] p-3">
-                <p className="text-[13px] font-semibold text-[var(--text)]">
-                  {c.tecnico}
-                  {c.osNum != null && (
-                    <span className="ml-1.5 font-mono text-[var(--text-3)]">· OS {c.osNum}</span>
-                  )}
+          <div className="space-y-4">
+            {contestacoesPorTecnico.map((grupo) => (
+              <div key={grupo.tecnico}>
+                <p className="mb-2 flex items-center gap-1.5 text-[13px] font-bold text-[var(--text)]">
+                  {grupo.tecnico}
+                  <span className="rounded-full bg-[rgba(255,181,71,0.15)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--amber)]">
+                    {grupo.itens.length}
+                  </span>
                 </p>
-                <p className="mt-1 text-[12px] text-[var(--text-2)]">{c.motivo}</p>
-                <ResolverContestacaoForm contestacaoId={c.id} />
+                <div className="space-y-2 border-l-2 border-[rgba(255,181,71,0.3)] pl-3">
+                  {grupo.itens.map((c) => (
+                    <div key={c.id} className="rounded-lg border border-[var(--line)] bg-[var(--bg-1)] p-3">
+                      {c.osNum != null && (
+                        <p className="font-mono text-[12px] font-semibold text-[var(--text-2)]">
+                          OS {c.osNum}
+                        </p>
+                      )}
+                      <p className="mt-1 text-[12px] text-[var(--text-2)]">{c.motivo}</p>
+                      <ResolverContestacaoForm contestacaoId={c.id} />
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

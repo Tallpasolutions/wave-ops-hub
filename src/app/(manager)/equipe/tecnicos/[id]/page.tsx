@@ -22,6 +22,29 @@ type Props = {
 const isSuccess = (sucesso: string | null) =>
   sucesso?.trim().toLowerCase().startsWith('sim') ?? false
 
+type EmbeddedPayout = {
+  status: string
+  valor_calculado: string | number | null
+  valor_override: string | number | null
+  valor_deixado_na_mesa: string | number | null
+}
+
+// PostgREST embute a relação 1:1 (payouts.visit_id é UNIQUE) — dependendo do
+// caso pode vir como objeto único ou array de um item.
+function getPayout(v: { payouts: unknown }): EmbeddedPayout | null {
+  const p = v.payouts
+  if (Array.isArray(p)) return (p[0] as EmbeddedPayout) ?? null
+  return (p as EmbeddedPayout | null) ?? null
+}
+
+// Valor efetivo = override quando existe, senão o calculado. Mesmo critério do
+// detalhe da visita.
+function effectiveValue(p: EmbeddedPayout | null): number | null {
+  if (!p) return null
+  const val = p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado ?? 0)
+  return isNaN(val) ? null : val
+}
+
 function formatBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -58,7 +81,7 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
   const mesEfetivo = await getEffectivePeriod(mes, supabase, user.tenantId!)
   const { start, end, label: periodoLabel } = parsePeriod(mesEfetivo)
 
-  const [{ data: tech }, { data: visitsRaw }, { data: payoutsRaw }, { data: loginUser }] =
+  const [{ data: tech }, { data: visitsRaw }, { data: loginUser }] =
     await Promise.all([
     supabase
       .from('technicians')
@@ -66,23 +89,20 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
       .eq('id', id)
       .eq('tenant_id', user.tenantId!)
       .single(),
+    // Sem limite de linhas: um técnico em um mês fica muito abaixo do teto de 1000
+    // do PostgREST. O payout de cada visita vem embutido (relação 1:1 por visit_id),
+    // o que também alimenta os KPIs sobre o período completo.
     supabase
       .from('service_visits')
-      .select('id, os_num, data_execucao, sucesso, finalidade, cidade, valor_recebido_unetvale, reasons(motivo_normalizado, motivo_original)')
+      .select(
+        'id, os_num, data_execucao, sucesso, finalidade, cidade, valor_recebido_unetvale, reasons(motivo_normalizado, motivo_original), payouts(status, valor_calculado, valor_override, valor_deixado_na_mesa)',
+      )
       .eq('tenant_id', user.tenantId!)
       .eq('fora_escopo', false)
       .eq('tecnico_id', id)
       .gte('data_execucao', start)
       .lt('data_execucao', end)
-      .order('data_execucao', { ascending: false })
-      .limit(50),
-    supabase
-      .from('payouts')
-      .select('status, valor_calculado, valor_override, valor_deixado_na_mesa, service_visits!inner(data_execucao)')
-      .eq('tenant_id', user.tenantId!)
-      .eq('technician_id', id)
-      .gte('service_visits.data_execucao', start)
-      .lt('service_visits.data_execucao', end),
+      .order('data_execucao', { ascending: false }),
     supabase
       .from('users')
       .select('id, email, ativo')
@@ -103,7 +123,6 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
   const lpus = (lpusData ?? []) as { id: string; nome: string; ativa: boolean }[]
 
   const visits = visitsRaw ?? []
-  const payouts = payoutsRaw ?? []
 
   // KPIs do período
   const totalVisitas = visits.length
@@ -111,17 +130,16 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
   const taxaSucesso = totalVisitas > 0 ? Math.round((visitasResolvidas / totalVisitas) * 100) : 0
 
   const PAID_STATUSES = new Set(['approved', 'paid', 'override', 'pending_review', 'pending'])
-  const totalPago = payouts
-    .filter((p) => PAID_STATUSES.has(p.status))
-    .reduce((sum, p) => {
-      const v = p.valor_override !== null ? Number(p.valor_override) : Number(p.valor_calculado ?? 0)
-      return sum + (isNaN(v) ? 0 : v)
-    }, 0)
+  const totalPago = visits.reduce((sum, v) => {
+    const p = getPayout(v)
+    if (!p || !PAID_STATUSES.has(p.status)) return sum
+    return sum + (effectiveValue(p) ?? 0)
+  }, 0)
 
-  const totalDeixadoNaMesa = payouts.reduce(
-    (sum, p) => sum + Number(p.valor_deixado_na_mesa ?? 0),
-    0,
-  )
+  const totalDeixadoNaMesa = visits.reduce((sum, v) => {
+    const p = getPayout(v)
+    return sum + Number(p?.valor_deixado_na_mesa ?? 0)
+  }, 0)
 
   return (
     <div className="p-4 lg:p-8">
@@ -254,10 +272,12 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
             <table className="w-full">
               <thead className="bg-[var(--bg-1)]">
                 <tr>
-                  {['Data', 'OS', 'Finalidade', 'Cidade', 'Resultado', ''].map((h) => (
+                  {['Data', 'OS', 'Finalidade', 'Cidade', 'Resultado', 'Valor', ''].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]"
+                      className={`px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)] ${
+                        h === 'Valor' ? 'text-right' : 'text-left'
+                      }`}
                     >
                       {h}
                     </th>
@@ -271,6 +291,7 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
                     motivo_original: string
                   } | null
                   const success = isSuccess(v.sucesso)
+                  const valor = effectiveValue(getPayout(v))
                   return (
                     <tr key={v.id} className="transition-colors hover:bg-white/[0.02]">
                       <td className="px-4 py-3 text-sm text-[var(--text-3)]">
@@ -301,6 +322,11 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
                             : reason
                               ? (reason.motivo_normalizado ?? reason.motivo_original)
                               : (v.sucesso ?? '—')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">
+                        <span className={valor ? 'text-[var(--cyan)]' : 'text-[var(--text-3)]'}>
+                          {valor !== null ? formatBRL(valor) : '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">

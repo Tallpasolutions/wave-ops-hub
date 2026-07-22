@@ -1,31 +1,57 @@
 name: IQI Cron
 
-# Coleta do IQI 2x/dia (ADR-012). Alternativa gratuita ao Vercel Cron (que exigiria
-# plano Pro para 2 execucoes/dia). O GitHub Actions apenas dispara o endpoint
-# /api/cron/iqi; toda a logica roda no servidor Next.
+# Coleta do IQI 2x/dia (ADR-012), rodando DENTRO do runner do GitHub.
 #
-# GitHub Cron roda em UTC. Brasil = UTC-3 sem horario de verao:
+# Por que aqui e não na Vercel: a Unetvale bloqueia os IPs de datacenter da Vercel
+# (toda requisição dava timeout de 15s → cron 504, botão girando sem fim). O runner
+# do GitHub alcança a Unetvale em <1s, então o scraping roda aqui e grava direto no
+# Supabase com service role. Também é acionável pelo botão "Sincronizar" da app, que
+# dispara este workflow via workflow_dispatch.
+#
+# GitHub Cron roda em UTC. Brasil = UTC-3 sem horário de verão:
 #   11:00 UTC = 08:00 BRT  |  23:00 UTC = 20:00 BRT
-# Obs.: agendamentos do GitHub Actions so disparam a partir da branch default (main)
-# e podem atrasar alguns minutos sob carga — aceitavel para uma coleta 2x/dia.
+# Obs.: agendamentos só disparam a partir da branch default (main) e podem atrasar
+# alguns minutos sob carga — aceitável para uma coleta 2x/dia.
 
 on:
   schedule:
     - cron: '0 11,23 * * *'
   workflow_dispatch: {}
 
+# Evita coletas concorrentes (agendada + botão ao mesmo tempo).
+concurrency:
+  group: iqi-collect
+  cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparar coleta do IQI
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node 22: o @supabase/supabase-js precisa de WebSocket nativo (ausente no
+          # Node 20 do runner, onde o createClient quebra).
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Coletar IQI da Unetvale e gravar no Supabase
         env:
-          IQI_URL: https://wave.tallpa.com.br/api/cron/iqi
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          code=$(curl -sS --max-time 120 -o /tmp/iqi.json -w "%{http_code}" \
-            -H "Authorization: Bearer ${CRON_SECRET}" "${IQI_URL}")
-          echo "HTTP ${code}"
-          cat /tmp/iqi.json || true
-          echo
-          test "${code}" = "200"
+          UNETVALE_USER: ${{ secrets.UNETVALE_USER }}
+          UNETVALE_PASSWORD: ${{ secrets.UNETVALE_PASSWORD }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # A flag --conditions=react-server neutraliza o guard `import 'server-only'`
+        # do coletor, espelhando o ambiente de servidor do Next.
+        run: node --conditions=react-server --import tsx scripts/collect-iqi.ts

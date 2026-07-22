@@ -37,39 +37,52 @@ export function NotificationBell({ notifications, userId }: Props) {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
-    const channel = supabase
-      .channel(`notif:${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const n = payload.new as {
-            id: string
-            title: string
-            body: string | null
-            link: string | null
-            read_at: string | null
-            created_at: string
-          }
-          setLive((prev) =>
-            prev.some((x) => x.id === n.id)
-              ? prev
-              : [
-                  {
-                    id: n.id,
-                    title: n.title,
-                    body: n.body,
-                    link: n.link,
-                    readAt: n.read_at,
-                    createdAt: n.created_at,
-                  },
-                  ...prev,
-                ],
-          )
-        },
-      )
-      .subscribe()
+    const channel = supabase.channel(`notif:${userId}`).on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+      (payload) => {
+        const n = payload.new as {
+          id: string
+          title: string
+          body: string | null
+          link: string | null
+          read_at: string | null
+          created_at: string
+        }
+        setLive((prev) =>
+          prev.some((x) => x.id === n.id)
+            ? prev
+            : [
+                {
+                  id: n.id,
+                  title: n.title,
+                  body: n.body,
+                  link: n.link,
+                  readAt: n.read_at,
+                  createdAt: n.created_at,
+                },
+                ...prev,
+              ],
+        )
+      },
+    )
+
+    // O Realtime precisa do token do usuário para a RLS de `notifications`
+    // (notif_own = `user_id = auth.uid()`). Sem `setAuth`, a conexão é anônima,
+    // `auth.uid()` é nulo e o Postgres não entrega os eventos — era por isso que a
+    // resposta da Wave não chegava ao técnico ao vivo. Setamos ANTES de assinar.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.access_token) supabase.realtime.setAuth(data.session.access_token)
+      channel.subscribe()
+    })
+
+    // Mantém o token atualizado em sessões longas (refresh), para não perder a entrega.
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) supabase.realtime.setAuth(session.access_token)
+    })
+
     return () => {
+      authSub.subscription.unsubscribe()
       supabase.removeChannel(channel)
     }
   }, [userId])

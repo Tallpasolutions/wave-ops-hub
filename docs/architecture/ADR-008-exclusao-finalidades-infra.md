@@ -102,3 +102,11 @@ grupo Cabeamento (o do futuro ADR de match-por-explicação).
 - ETL: `normalizer`/`ingestor` setam `fora_escopo` a partir da lista do tenant.
 - `recalculate-batch.ts`: pula `fora_escopo`.
 - Filtros de leitura nas superfícies que contabilizam (decisão 3).
+
+## Adendo (2026-07-22) — nome real "Infra Genérico"
+
+A lista original tinha `Genérico` e `Parcial` sem prefixo, mas o dado da Unetvale vem como
+**`Infra Genérico`** — como o match é exato (trim+lower), a OS passava pelo filtro (ex.: OS 560133
+apareceu como `no_rule_match` no fechamento). Migration `0028_finalidade_infra_generico.sql`
+adiciona `Infra Genérico` e `Infra Parcial` a `config.finalidades_infra` e remarca os dados
+existentes. Como o `ingestor` lê a lista do config, uploads futuros já saem marcados.

@@ -59,3 +59,17 @@ autenticado.
   (a contestação é sobre valores). Reavaliar se algum tenant exigir ocultar.
 - Evoluções futuras: contestação com anexo/foto; histórico de contestações resolvidas na tela do
   técnico; painel de contestações fora do fechamento.
+
+## Adendo (2026-07-22) — contestação contínua
+
+O técnico passou a poder contestar **a qualquer momento**, direto da lista `/visitas` (não só na
+janela de fechamento após "Solicitar aprovação"). Reaproveita a mesma action `contestarPayout` e
+as notificações; a atualização de `closing_technician_reviews` é no-op quando ainda não há revisão
+do período. A Wave vê/resolve em `/fechamento/[periodo]` — a linha de `monthly_closings` já existe
+porque o recálculo (`ensureMonthlyClosings`) a cria quando há payouts no período.
+
+Ajuste necessário: `contestado` entrou no conjunto **travado** do recálculo
+(`recalculate-batch.ts`), ao lado de `approved`/`paid`/`override_by`. Sem isso, um re-upload
+recalcularia o payout contestado e apagaria o status (a contestação em `payout_contestacoes`
+continuaria aberta, gerando inconsistência). Ao resolver, a Wave volta o payout para `pending`
+(destravado), que volta a reprocessar normalmente.

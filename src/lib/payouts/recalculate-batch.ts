@@ -216,13 +216,22 @@ async function processVisitPage(
 
   // Payouts que o recálculo NUNCA reprocessa — preserva status E valor:
   //  - approved/paid: fechados/pagos (invariante da Sprint 4);
+  //  - contestado: contestação aberta do técnico (ADR-013). Reprocessar resetaria para
+  //    pending_review e apagaria o sinal de contestação. Ao resolver, a Wave volta o payout
+  //    para 'pending' (destravado), então volta a reprocessar normalmente.
   //  - override_by preenchido: override/rejeição MANUAL do gestor. Reprocessar sobrescreveria o
   //    status (ex.: improdutiva rejeitada reprocessada pela LPU vira no_rule_match e trava o
   //    fechamento, apesar do valor_override manter R$0). Os fluxos de "desfazer"/reabertura
   //    limpam override_by ANTES de recalcular, então continuam reprocessando normalmente.
   const lockedVisitIds = new Set(
     (existingPayouts ?? [])
-      .filter((p) => p.status === "approved" || p.status === "paid" || p.override_by !== null)
+      .filter(
+        (p) =>
+          p.status === "approved" ||
+          p.status === "paid" ||
+          p.status === "contestado" ||
+          p.override_by !== null,
+      )
       .map((p) => p.visit_id),
   );
 

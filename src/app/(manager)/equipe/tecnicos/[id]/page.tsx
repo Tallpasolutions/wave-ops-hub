@@ -241,19 +241,32 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
           <p className="mt-1 text-2xl font-bold text-[var(--cyan)]">{formatBRL(totalPago)}</p>
           <p className="text-xs text-[var(--text-3)]">payouts pendentes/aprovados</p>
         </div>
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
-            Deixado na mesa
-          </p>
-          <p
-            className={`mt-1 text-2xl font-bold ${
-              totalDeixadoNaMesa > 0 ? 'text-[var(--red)]' : 'text-[var(--text-3)]'
-            }`}
+        {totalDeixadoNaMesa > 0 ? (
+          <Link
+            href={`/equipe/tecnicos/${id}/deixado-na-mesa?mes=${mesEfetivo}`}
+            className="group rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4 transition-colors hover:border-[var(--red)]/40 hover:bg-white/[0.02]"
           >
-            {formatBRL(totalDeixadoNaMesa)}
-          </p>
-          <p className="text-xs text-[var(--text-3)]">falhas atribuíveis ao técnico</p>
-        </div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+              Deixado na mesa
+            </p>
+            <p className="mt-1 text-2xl font-bold text-[var(--red)]">
+              {formatBRL(totalDeixadoNaMesa)}
+            </p>
+            <p className="text-xs text-[var(--text-3)] transition-colors group-hover:text-[var(--text-2)]">
+              ver OSs →
+            </p>
+          </Link>
+        ) : (
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+              Deixado na mesa
+            </p>
+            <p className="mt-1 text-2xl font-bold text-[var(--text-3)]">
+              {formatBRL(totalDeixadoNaMesa)}
+            </p>
+            <p className="text-xs text-[var(--text-3)]">falhas atribuíveis ao técnico</p>
+          </div>
+        )}
       </div>
 
       {/* Tabela de visitas */}

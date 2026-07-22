@@ -4,7 +4,7 @@ import {
 } from "@/lib/lpu/calculate-payout";
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
-import { normalizeExplicacao } from "@/lib/etl/explicacao";
+import { normalizeExplicacao, isHomologacao } from "@/lib/etl/explicacao";
 import { isDomingoOuFeriado, aplicarAcrescimo } from "./feriado";
 import type { DbPayoutStatus, PayoutUpsertData } from "./types";
 
@@ -20,6 +20,13 @@ export type ClassificationCtx = {
 export type FeriadoCtx = {
   feriados: Set<string>;
   pct: number;
+};
+
+// ADR-015: repasse de homologação indexado pelo valor da Unetvale em centavos
+// (arredondado, para evitar drift de float). Presença do contexto = feature ligada
+// para o tenant. `valores` mapeia centavos da receita Unetvale → repasse ao técnico.
+export type HomologacaoCtx = {
+  valores: Map<number, number>;
 };
 
 // Regra de improdutiva por receita da Unetvale (valores fixos por ora; troca exige deploy):
@@ -59,6 +66,7 @@ export function buildPayoutUpsert(
   tenantId: string,
   classification?: ClassificationCtx,
   feriado?: FeriadoCtx,
+  homologacao?: HomologacaoCtx,
   // Salvaguarda de função pura: se já existe decisão manual do gestor para esta visita, as
   // regras automáticas de improdutiva NÃO se aplicam. Na prática o recálculo em lote já protege
   // isso antes (pula payouts com override_by/approved/paid — ver recalculate-batch.ts), então
@@ -122,6 +130,30 @@ export function buildPayoutUpsert(
     valor != null && valor > 0 && aplicaAcrescimo
       ? aplicarAcrescimo(valor, feriado!.pct)
       : valor;
+
+  // ADR-015: homologação (explicacao_valor começa com "Homologa...") → repasse fixo
+  // por valor da Unetvale, NÃO pela regra de LPU da finalidade. Precede a LPU porque a
+  // finalidade ("Instalação - Fibra", "Mudança Endereço Fibra") também casa regras de
+  // instalação real. Valor não cadastrado → no_rule_match (surge na fila do gestor).
+  if (homologacao && isSucesso && isHomologacao(visit.explicacaoValor)) {
+    const cents =
+      visit.valorRecebidoUnetvale != null
+        ? Math.round(visit.valorRecebidoUnetvale * 100)
+        : null;
+    const valor = cents != null ? homologacao.valores.get(cents) : undefined;
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: comAcrescimo(valor ?? null),
+      valorDeixadoNaMesa: 0,
+      status: valor != null ? "pending_review" : "no_rule_match",
+      improdutivaAprovada: null,
+    };
+  }
 
   if (isGrupo && isSucesso) {
     const valor = classification!.map.get(normalizeExplicacao(visit.explicacaoValor));

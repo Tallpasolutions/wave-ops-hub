@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Tag, CheckCircle2, ScrollText, Cable } from 'lucide-react'
+import { Tag, CheckCircle2, ScrollText, Cable, BadgeCheck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +30,12 @@ const LINKS = [
     icon: Cable,
     title: 'Cabeamento',
     description: 'Classificação de cabeamento / segundo ponto por valor da explicação.',
+  },
+  {
+    href: '/homologacao',
+    icon: BadgeCheck,
+    title: 'Homologação',
+    description: 'Repasse de homologação por valor da Unetvale (base, dobrado e ponto adicional).',
   },
 ]
 

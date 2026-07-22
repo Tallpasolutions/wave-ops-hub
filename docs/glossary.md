@@ -117,6 +117,9 @@ A categoria de cada motivo é configurada pelo gestor Wave em uma tela específi
 ### Match engine
 Algoritmo que, dada uma visita, encontra a regra LPU aplicável. Avalia regras em ordem de prioridade (mais específicas primeiro). Se nenhuma regra bate, a visita fica como `payout_pendente_revisao`.
 
+### Homologação
+Atendimento identificado pela coluna Z (`explicacao_valor` começa com "Homologa..."), não pela finalidade — a mesma finalidade de instalação pode ser uma instalação real ou uma homologação. A Unetvale paga uma taxa fixa e o técnico recebe um **repasse fixo por valor da Unetvale** (base R$ 64,46 → R$ 35; dobrado R$ 128,92 → R$ 70; +1 ponto adicional R$ 142,23 → R$ 79). O gestor mantém o mapa em `/homologacao`. Precede a LPU no cálculo. Ver [ADR-015](./architecture/ADR-015-homologacao-repasse.md).
+
 ### Content hash
 Hash SHA-256 dos campos relevantes de uma visita. Usado para detectar mudanças entre uploads. Se uma visita já existe e o hash mudou, é considerada **alterada** e gera entrada de auditoria.
 

@@ -149,9 +149,11 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
     return (o as { nome_completo?: string } | null)?.nome_completo ?? '—'
   }
   const osByPayout = new Map<string, number>()
+  const valorByPayout = new Map<string, number>()
   for (const p of payouts) {
     const sv = p.service_visits as unknown as { os_num?: number } | null
     if (sv?.os_num != null) osByPayout.set(p.id, sv.os_num)
+    valorByPayout.set(p.id, getValorEfetivo(p))
   }
   const reviews = (reviewsRaw ?? []).map((r) => ({
     tecnico: nomeFrom((r as { technicians: unknown }).technicians),
@@ -162,6 +164,7 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
     tecnico: nomeFrom((c as { technicians: unknown }).technicians),
     motivo: (c as { motivo: string }).motivo,
     osNum: osByPayout.get((c as { payout_id: string }).payout_id) ?? null,
+    valor: valorByPayout.get((c as { payout_id: string }).payout_id) ?? 0,
   }))
 
   // Agrupa as contestações abertas por técnico (ambiente mais organizado no fechamento).
@@ -388,7 +391,7 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
                         </p>
                       )}
                       <p className="mt-1 text-[12px] text-[var(--text-2)]">{c.motivo}</p>
-                      <ResolverContestacaoForm contestacaoId={c.id} />
+                      <ResolverContestacaoForm contestacaoId={c.id} valorAtual={c.valor} />
                     </div>
                   ))}
                 </div>

@@ -78,12 +78,13 @@ export default async function AprovacoesPage() {
 
     supabase
       .from('payout_contestacoes')
-      .select('payout_id, status, motivo, resposta_gestor')
+      .select('payout_id, status, motivo, resposta_gestor, valor_anterior, valor_novo')
       .eq('tenant_id', user.tenantId)
       .eq('technician_id', user.technicianId)
       .eq('periodo', review.periodo),
   ])
 
+  const toNum = (v: unknown) => (v == null ? null : Number(v))
   const contestacaoByPayout = new Map(
     (contestacoesRaw ?? []).map((c) => [
       c.payout_id as string,
@@ -91,6 +92,8 @@ export default async function AprovacoesPage() {
         status: c.status as 'aberta' | 'resolvida',
         motivo: c.motivo as string,
         resposta: (c.resposta_gestor as string | null) ?? null,
+        valorAnterior: toNum(c.valor_anterior),
+        valorNovo: toNum(c.valor_novo),
       },
     ]),
   )

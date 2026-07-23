@@ -316,8 +316,11 @@ const resolverSchema = z.object({
   resposta: z.string().min(5, 'Descreva a resposta com pelo menos 5 caracteres'),
 })
 
-// Resolve uma contestação: registra a resposta, devolve o payout para 'pending' e
-// reabre a revisão do técnico (para ele conferir de novo). Notifica o técnico.
+const fmtPts = (n: number) => `${Math.round(n).toLocaleString('pt-BR')} pts`
+
+// Resolve uma contestação: registra a resposta, opcionalmente ajusta o valor do payout
+// (override), devolve o payout para 'pending' e reabre a revisão do técnico. Guarda o valor
+// efetivo antes/depois para o técnico ver a pontuação anterior → atual. Notifica o técnico.
 export async function resolverContestacao(
   contestacaoId: string,
   _prevState: { error: string | null },
@@ -340,6 +343,23 @@ export async function resolverContestacao(
   if (!c) return { error: 'Contestação não encontrada.' }
   if (c.status !== 'aberta') return { error: 'Contestação já resolvida.' }
 
+  // Valor efetivo ANTES (override ?? calculado).
+  const { data: payout } = await supabase
+    .from('payouts')
+    .select('valor_calculado, valor_override')
+    .eq('id', c.payout_id)
+    .single()
+  const valorAnterior =
+    payout?.valor_override != null ? Number(payout.valor_override) : Number(payout?.valor_calculado ?? 0)
+
+  // Novo valor (opcional). Vazio = mantém. Diferente = aplica override manual.
+  const rawNovo = formData.get('novoValor')
+  const novoStr = typeof rawNovo === 'string' ? rawNovo.trim().replace(',', '.') : ''
+  const novoNum = novoStr !== '' ? Number(novoStr) : NaN
+  const aplicarOverride =
+    !isNaN(novoNum) && novoNum >= 0 && Math.round(novoNum * 100) !== Math.round(valorAnterior * 100)
+  const valorNovo = aplicarOverride ? novoNum : valorAnterior
+
   const now = new Date().toISOString()
 
   await supabase
@@ -347,15 +367,28 @@ export async function resolverContestacao(
     .update({
       status: 'resolvida',
       resposta_gestor: parsed.data.resposta,
+      valor_anterior: valorAnterior,
+      valor_novo: valorNovo,
       resolved_by: user.id,
       resolved_at: now,
     })
     .eq('id', contestacaoId)
 
-  // Payout volta para 'pending' (o gestor pode ter ajustado o valor via override antes).
+  // Payout volta para 'pending'; se a Wave ajustou o valor, grava o override (override_by
+  // trava o payout no recálculo, preservando o ajuste manual).
   await supabase
     .from('payouts')
-    .update({ status: 'pending' })
+    .update(
+      aplicarOverride
+        ? {
+            status: 'pending',
+            valor_override: valorNovo,
+            override_by: user.id,
+            override_at: now,
+            override_motivo: `Ajuste na resolução de contestação: ${parsed.data.resposta}`,
+          }
+        : { status: 'pending' },
+    )
     .eq('id', c.payout_id)
     .eq('status', 'contestado')
 
@@ -367,10 +400,13 @@ export async function resolverContestacao(
     .eq('periodo', c.periodo)
     .eq('technician_id', c.technician_id)
 
+  const corpoValor = aplicarOverride
+    ? ` Pontuação: ${fmtPts(valorAnterior)} → ${fmtPts(valorNovo)}.`
+    : ''
   await notifyTechnician(user.tenantId!, c.technician_id, {
     type: 'contestacao_resolvida',
     title: 'Contestação respondida',
-    body: `Sua contestação de ${c.periodo} foi respondida. Confira novamente para aprovar.`,
+    body: `Sua contestação de ${c.periodo} foi respondida.${corpoValor} Confira novamente para aprovar.`,
     link: '/aprovacoes',
   })
 

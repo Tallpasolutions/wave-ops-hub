@@ -4,7 +4,7 @@ import {
 } from "@/lib/lpu/calculate-payout";
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
-import { normalizeExplicacao } from "@/lib/etl/explicacao";
+import { normalizeExplicacao, isHomologacao, parsePontosAdicionais } from "@/lib/etl/explicacao";
 import { isDomingoOuFeriado, aplicarAcrescimo } from "./feriado";
 import type { DbPayoutStatus, PayoutUpsertData } from "./types";
 
@@ -22,6 +22,13 @@ export type FeriadoCtx = {
   pct: number;
 };
 
+// ADR-015: repasse de homologação indexado pelo valor da Unetvale em centavos
+// (arredondado, para evitar drift de float). Presença do contexto = feature ligada
+// para o tenant. `valores` mapeia centavos da receita Unetvale → repasse ao técnico.
+export type HomologacaoCtx = {
+  valores: Map<number, number>;
+};
+
 // Regra de improdutiva por receita da Unetvale (valores fixos por ora; troca exige deploy):
 //   - Unetvale = R$ 15,98 → improdutiva padrão: Wave repassa R$ 15,00 fixos ao técnico e o
 //     payout já sai APROVADO, sem depender da classificação do motivo. Não entra na fila.
@@ -32,6 +39,15 @@ export type FeriadoCtx = {
 const UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598;
 const PAYOUT_IMPRODUTIVA_PADRAO = 15.0;
 
+// ADR-016: Unetvale = R$ 29,30 → não paga o técnico (tipicamente "Roteador agregado ‡ OS de
+// Suporte/Cabeamento"). Regra por valor da receita, independente da finalidade.
+const UNETVALE_NAO_PAGA_CENTAVOS = 2930;
+
+// ADR-016: cada "ponto(s) adicional(is)" da coluna Z soma um acréscimo fixo sobre o valor-base
+// do serviço. Uniforme para instalação/cabeamento/condomínio. Homologação tem tratamento próprio
+// (o repasse com ponto já vem do mapa de homologação — ADR-015).
+const PONTO_ADICIONAL_VALOR = 36;
+
 function isImprodutivaPadrao(valorRecebidoUnetvale: number | null): boolean {
   if (valorRecebidoUnetvale === null) return false;
   return Math.round(valorRecebidoUnetvale * 100) === UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS;
@@ -41,6 +57,24 @@ function isImprodutivaPadrao(valorRecebidoUnetvale: number | null): boolean {
 function isUnetvaleZero(valorRecebidoUnetvale: number | null): boolean {
   if (valorRecebidoUnetvale === null) return false;
   return Math.round(valorRecebidoUnetvale * 100) === 0;
+}
+
+function isUnetvaleNaoPaga(valorRecebidoUnetvale: number | null): boolean {
+  if (valorRecebidoUnetvale === null) return false;
+  return Math.round(valorRecebidoUnetvale * 100) === UNETVALE_NAO_PAGA_CENTAVOS;
+}
+
+// ADR-016: "Venda Produto Externo" — a finalidade da Unetvale é genérica; o serviço real (e o
+// valor) está na coluna Z. Retorna o valor-base do repasse, ou null se não reconhecido (→ fila).
+function resolveVendaProdutoExterno(explicacaoValor: string | null | undefined): number | null {
+  const raw = (explicacaoValor ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  // "Roteador agregado ‡/à OS ..." não é pago (também coberto por Unetvale 29,30/0).
+  if (raw.startsWith("roteador agregado")) return 0;
+  if (raw.startsWith("roteador")) return 30;
+  const key = normalizeExplicacao(explicacaoValor);
+  if (key === "Cabeamento agregado" || key === "Cabeamento") return 44;
+  return null;
 }
 
 // Mapeia o status de 4 valores do match engine para o status de 10 valores do DB.
@@ -59,6 +93,7 @@ export function buildPayoutUpsert(
   tenantId: string,
   classification?: ClassificationCtx,
   feriado?: FeriadoCtx,
+  homologacao?: HomologacaoCtx,
   // Salvaguarda de função pura: se já existe decisão manual do gestor para esta visita, as
   // regras automáticas de improdutiva NÃO se aplicam. Na prática o recálculo em lote já protege
   // isso antes (pula payouts com override_by/approved/paid — ver recalculate-batch.ts), então
@@ -123,6 +158,72 @@ export function buildPayoutUpsert(
       ? aplicarAcrescimo(valor, feriado!.pct)
       : valor;
 
+  // ADR-016: acréscimo por pontos adicionais (coluna Z). Homologação NÃO passa por aqui —
+  // retorna antes, com o repasse (inclusive ponto) vindo do próprio mapa (ADR-015).
+  const acrescimoPontos =
+    parsePontosAdicionais(visit.explicacaoValor) * PONTO_ADICIONAL_VALOR;
+  const comPontos = (base: number | null): number | null =>
+    base != null ? base + acrescimoPontos : null;
+
+  // ADR-016: Unetvale = R$ 29,30 → não paga o técnico (roteador agregado). Curto-circuito
+  // antes da LPU/classificação, para qualquer finalidade com sucesso.
+  if (isSucesso && isUnetvaleNaoPaga(visit.valorRecebidoUnetvale)) {
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: 0,
+      valorDeixadoNaMesa: 0,
+      status: "pending_review",
+      improdutivaAprovada: null,
+    };
+  }
+
+  // ADR-015: homologação (explicacao_valor começa com "Homologa...") → repasse fixo
+  // por valor da Unetvale, NÃO pela regra de LPU da finalidade. Precede a LPU porque a
+  // finalidade ("Instalação - Fibra", "Mudança Endereço Fibra") também casa regras de
+  // instalação real. Valor não cadastrado → no_rule_match (surge na fila do gestor).
+  if (homologacao && isSucesso && isHomologacao(visit.explicacaoValor)) {
+    const cents =
+      visit.valorRecebidoUnetvale != null
+        ? Math.round(visit.valorRecebidoUnetvale * 100)
+        : null;
+    const valor = cents != null ? homologacao.valores.get(cents) : undefined;
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: comAcrescimo(valor ?? null),
+      valorDeixadoNaMesa: 0,
+      status: valor != null ? "pending_review" : "no_rule_match",
+      improdutivaAprovada: null,
+    };
+  }
+
+  // ADR-016: "Venda Produto Externo" — o serviço real está na coluna Z (Roteador, Cabeamento
+  // agregado), não na finalidade. Precede a LPU (que pagaria R$ 0 para essa finalidade).
+  if (isSucesso && visit.finalidade?.trim() === "Venda Produto Externo") {
+    const base = resolveVendaProdutoExterno(visit.explicacaoValor);
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: comAcrescimo(comPontos(base)),
+      valorDeixadoNaMesa: 0,
+      status: base != null ? "pending_review" : "no_rule_match",
+      improdutivaAprovada: null,
+    };
+  }
+
   if (isGrupo && isSucesso) {
     const valor = classification!.map.get(normalizeExplicacao(visit.explicacaoValor));
     return {
@@ -132,7 +233,8 @@ export function buildPayoutUpsert(
       lpuId,
       lpuRuleId: null,
       reasonId: visit.reasonId,
-      valorCalculado: comAcrescimo(valor ?? null),
+      // ADR-016: valor-base da classificação + acréscimo por pontos adicionais.
+      valorCalculado: comAcrescimo(comPontos(valor ?? null)),
       valorDeixadoNaMesa: 0,
       status: valor != null ? "pending_review" : "no_rule_match",
       improdutivaAprovada: null,
@@ -156,7 +258,9 @@ export function buildPayoutUpsert(
     lpuId,
     lpuRuleId: result.ruleId,
     reasonId: visit.reasonId,
-    valorCalculado: comAcrescimo(result.valor),
+    // ADR-016: instalação/condomínio via LPU + acréscimo por pontos adicionais (só p/ sucesso;
+    // improdutiva não tem ponto na coluna Z, então acrescimoPontos = 0 de qualquer forma).
+    valorCalculado: comAcrescimo(isSucesso ? comPontos(result.valor) : result.valor),
     valorDeixadoNaMesa: deixadoNaMesa,
     status: mapStatus(result.status),
     improdutivaAprovada: null,

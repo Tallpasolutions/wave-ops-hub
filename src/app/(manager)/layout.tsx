@@ -92,7 +92,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
           <Suspense fallback={<div className="flex-1" />}>
             <GlobalPeriodSelector availablePeriods={availablePeriods} effectiveMes={effectiveMes} />
           </Suspense>
-          <NotificationBell notifications={notifications} />
+          <NotificationBell notifications={notifications} userId={user.id} />
         </>
       }
     >

@@ -172,3 +172,27 @@ ambiente/Vault do servidor.
 - Novo workflow `.github/workflows/iqi-cron.yml` e route handler `src/app/api/cron/iqi`
   (exceção de rota documentada).
 - Base para a tela gerencial de produtividade e para o IQI no app do técnico (ver plano de sprint).
+
+---
+
+## Atualização (2026-07-22): coleta movida para o runner do GitHub
+
+**Contexto:** em produção, a Unetvale passou a bloquear os IPs de datacenter da Vercel —
+**toda** requisição à Unetvale estourava o timeout (15s). O cron (`/api/cron/iqi`) dava 504
+e o botão "Sincronizar" (Server Action na Vercel) girava sem fim. Comprovado com teste de
+conectividade: runner do GitHub alcança `os.unetvale.com.br` em <1s; Vercel, 100% timeout.
+
+**Decisão:** o scraping deixa de rodar na Vercel e passa a rodar **no runner do GitHub Actions**,
+que grava direto no Supabase com service role.
+
+- Automático: `.github/workflows/iqi-cron.yml` agora faz checkout + `pnpm install` + roda
+  `node --conditions=react-server --import tsx scripts/collect-iqi.ts` (Node 22 — o supabase-js
+  exige WebSocket nativo). Mantém o agendamento 2x/dia.
+- Manual: o botão "Sincronizar" (Server Action `sincronizarIqi`) apenas **dispara** o workflow
+  via `workflow_dispatch` (API do GitHub). A coleta é assíncrona; a tela reflete no próximo load.
+- A route `src/app/api/cron/iqi` foi **removida** (não funciona na Vercel e ninguém mais a chama).
+
+**Envs novos:**
+- GitHub Secrets: `UNETVALE_USER`, `UNETVALE_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY` (antes só `CRON_SECRET`, agora não usado pelo workflow).
+- Vercel: `GITHUB_DISPATCH_TOKEN` (PAT fino com permissão *Actions: write* no repo) para o botão.

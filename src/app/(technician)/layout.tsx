@@ -80,7 +80,7 @@ export default async function TechnicianLayout({ children }: { children: React.R
         </div>
 
         <div className="flex items-center gap-2">
-          <NotificationBell notifications={notifications} />
+          <NotificationBell notifications={notifications} userId={user.id} />
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--cyan)]/20 text-xs font-bold text-[var(--cyan)]">
             {initials}
           </div>

@@ -1,30 +1,63 @@
 'use server'
-import { revalidatePath } from 'next/cache'
 import { requireRole } from '@/lib/auth'
-import { runIqiCollection } from '@/lib/iqi'
 
-// Sincronização manual do IQI (ADR-012). O agendamento 2x/dia é feito pelo Vercel Cron
-// em /api/cron/iqi; este botão força uma coleta fora do horário. A coleta em si roda
-// com service role dentro de runIqiCollection.
+// Repositório que hospeda o workflow de coleta do IQI (não é segredo).
+const GH_OWNER = 'Tallpasolutions'
+const GH_REPO = 'wave-ops-hub'
+const GH_WORKFLOW = 'iqi-cron.yml'
+const GH_REF = 'main'
+
+// Sincronização manual do IQI (ADR-012). O scraping NÃO pode rodar na Vercel — a
+// Unetvale bloqueia os IPs dela (todo request dava timeout). Por isso o botão apenas
+// DISPARA o workflow do GitHub Actions (que roda a coleta no runner, com egress que
+// alcança a Unetvale). A coleta é assíncrona; a tela reflete os dados no próximo load.
 export async function sincronizarIqi(): Promise<{
   ok: boolean
   mensagem: string
 }> {
   await requireRole(['tallpa_owner', 'tenant_owner', 'tenant_manager'])
 
-  try {
-    const r = await runIqiCollection()
-    revalidatePath('/produtividade')
-    const partes = [`${r.tecnicosProcessados} técnicos`, `${r.mesesGravados} meses`]
-    if (r.semCodigoUnetvale.length > 0) {
-      partes.push(`${r.semCodigoUnetvale.length} sem código Unetvale`)
+  const token = process.env.GITHUB_DISPATCH_TOKEN
+  if (!token) {
+    return {
+      ok: false,
+      mensagem: 'Sincronização não configurada: falta GITHUB_DISPATCH_TOKEN no servidor.',
     }
-    if (r.erros.length > 0) partes.push(`${r.erros.length} com erro`)
-    return { ok: r.erros.length === 0, mensagem: `Sincronizado: ${partes.join(' · ')}.` }
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ref: GH_REF }),
+      },
+    )
+
+    // A API responde 204 No Content quando o disparo é aceito.
+    if (res.status === 204) {
+      return {
+        ok: true,
+        mensagem:
+          'Sincronização iniciada. Os dados do IQI atualizam em cerca de 1 minuto — recarregue a página em instantes.',
+      }
+    }
+
+    const corpo = await res.text()
+    return {
+      ok: false,
+      mensagem: `Falha ao iniciar a sincronização (HTTP ${res.status}). ${corpo.slice(0, 200)}`,
+    }
   } catch (e) {
     return {
       ok: false,
-      mensagem: e instanceof Error ? e.message : 'Falha ao sincronizar o IQI.',
+      mensagem: e instanceof Error ? e.message : 'Falha ao acionar a sincronização.',
     }
   }
 }

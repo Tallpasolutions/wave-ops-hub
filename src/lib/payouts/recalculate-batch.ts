@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
-import { buildPayoutUpsert, type FeriadoCtx } from "./calculate";
+import { buildPayoutUpsert, type FeriadoCtx, type HomologacaoCtx } from "./calculate";
 import type { BatchRecalcResult, ChunkRecalcResult } from "./types";
 
 // Sem paginação explícita o PostgREST corta silenciosamente em 1000 linhas — visitas além
@@ -86,6 +86,9 @@ type RecalcContext = {
   finalidadesClassificar: Set<string>;
   // ADR-011: acréscimo de domingo/feriado (config do tenant). pct 0 / lista vazia = no-op.
   feriado: FeriadoCtx;
+  // ADR-015: repasse de homologação por valor da Unetvale. Ausente = feature desligada
+  // para o tenant (config.homologacao_por_explicacao != true) → comportamento anterior.
+  homologacao?: HomologacaoCtx;
 };
 
 async function loadRecalcContext(
@@ -170,6 +173,7 @@ async function loadRecalcContext(
     finalidades_classificar_explicacao?: unknown;
     feriados?: unknown;
     feriado_acrescimo_pct?: unknown;
+    homologacao_por_explicacao?: unknown;
   };
   const finalidadesClassificar = new Set(
     (Array.isArray(cfg.finalidades_classificar_explicacao)
@@ -186,7 +190,32 @@ async function loadRecalcContext(
     pct: typeof cfg.feriado_acrescimo_pct === "number" ? cfg.feriado_acrescimo_pct : 0,
   };
 
-  return { lpuId, rules, lpuByTecnico, reasons, classifications, finalidadesClassificar, feriado };
+  // ADR-015: repasse de homologação. Só carrega se a feature estiver ligada para o tenant.
+  let homologacao: HomologacaoCtx | undefined;
+  if (cfg.homologacao_por_explicacao === true) {
+    const { data: homoRaw } = await supabase
+      .from("homologacao_classifications")
+      .select("valor_unetvale, valor_repasse")
+      .eq("tenant_id", tenantId);
+    const valores = new Map<number, number>(
+      (homoRaw ?? []).map((h) => [
+        Math.round(Number(h.valor_unetvale) * 100),
+        Number(h.valor_repasse),
+      ]),
+    );
+    homologacao = { valores };
+  }
+
+  return {
+    lpuId,
+    rules,
+    lpuByTecnico,
+    reasons,
+    classifications,
+    finalidadesClassificar,
+    feriado,
+    homologacao,
+  };
 }
 
 type PageResult = {
@@ -257,6 +286,7 @@ async function processVisitPage(
       tenantId,
       { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
+      ctx.homologacao,
     );
   });
 

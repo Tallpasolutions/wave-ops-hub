@@ -2,12 +2,36 @@
 import { useActionState } from 'react'
 import { resolverContestacao } from '../../actions'
 
-export function ResolverContestacaoForm({ contestacaoId }: { contestacaoId: string }) {
+const fmtBRL = (n: number) =>
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+export function ResolverContestacaoForm({
+  contestacaoId,
+  valorAtual,
+}: {
+  contestacaoId: string
+  valorAtual: number
+}) {
   const action = resolverContestacao.bind(null, contestacaoId)
   const [state, formAction, pending] = useActionState(action, { error: null as string | null })
 
   return (
-    <form action={formAction} className="mt-2.5">
+    <form action={formAction} className="mt-2.5 space-y-2">
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-2.5 py-2">
+          <span className="text-[11px] text-[var(--text-3)]">Valor</span>
+          <span className="text-[11px] text-[var(--text-3)]">R$</span>
+          <input
+            name="novoValor"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={valorAtual.toFixed(2)}
+            className="w-20 bg-transparent text-[13px] text-[var(--text)] outline-none"
+          />
+        </label>
+        <span className="text-[11px] text-[var(--text-3)]">atual: {fmtBRL(valorAtual)}</span>
+      </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
           name="resposta"

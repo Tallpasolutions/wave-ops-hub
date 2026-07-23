@@ -7,7 +7,11 @@ export type Contestacao = {
   status: 'aberta' | 'resolvida'
   motivo: string
   resposta: string | null
+  valorAnterior: number | null
+  valorNovo: number | null
 }
+
+const fmtPts = (n: number) => `${Math.round(n).toLocaleString('pt-BR')} pts`
 
 // Contestação contínua (ADR-013 estendido): o técnico pode contestar uma OS a qualquer
 // momento, direto da lista de visitas — não só na janela de fechamento. Reaproveita a
@@ -59,6 +63,17 @@ export function ContestarOs({
             <span className="text-[var(--text-3)]">Resposta:</span> {contestacao.resposta}
           </p>
         )}
+        {contestacao.status === 'resolvida' &&
+          contestacao.valorAnterior != null &&
+          contestacao.valorNovo != null &&
+          Math.round(contestacao.valorAnterior) !== Math.round(contestacao.valorNovo) && (
+            <p className="mt-1 flex items-center gap-1.5 font-mono text-[12px] font-semibold text-[var(--text)]">
+              <span className="text-[var(--text-3)] line-through">
+                {fmtPts(contestacao.valorAnterior)}
+              </span>
+              →<span className="text-[var(--green)]">{fmtPts(contestacao.valorNovo)}</span>
+            </p>
+          )}
       </div>
     )
   }

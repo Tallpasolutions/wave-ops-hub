@@ -2,6 +2,7 @@ import {
   pgTable,
   uuid,
   text,
+  numeric,
   timestamp,
   index,
   uniqueIndex,
@@ -73,6 +74,10 @@ export const payoutContestacoes = pgTable(
       .default("aberta")
       .$type<"aberta" | "resolvida">(),
     respostaGestor: text("resposta_gestor"),
+    // ADR-013: valor efetivo do payout antes/depois da resolução (a Wave pode ajustar
+    // o valor daquela OS ao responder). Técnico vê a pontuação anterior → atual.
+    valorAnterior: numeric("valor_anterior", { precision: 10, scale: 2 }),
+    valorNovo: numeric("valor_novo", { precision: 10, scale: 2 }),
     resolvedBy: uuid("resolved_by").references(() => users.id),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

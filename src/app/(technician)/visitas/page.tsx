@@ -87,15 +87,18 @@ export default async function VisitasPage({ searchParams }: PageProps) {
   if (payoutIds.length > 0) {
     const { data: contestacoes } = await supabase
       .from('payout_contestacoes')
-      .select('payout_id, status, motivo, resposta_gestor')
+      .select('payout_id, status, motivo, resposta_gestor, valor_anterior, valor_novo')
       .eq('tenant_id', user.tenantId)
       .eq('technician_id', user.technicianId)
       .in('payout_id', payoutIds)
+    const toNum = (v: unknown) => (v == null ? null : Number(v))
     for (const c of contestacoes ?? []) {
       contestacaoByPayout.set(c.payout_id as string, {
         status: c.status as 'aberta' | 'resolvida',
         motivo: c.motivo as string,
         resposta: (c.resposta_gestor as string | null) ?? null,
+        valorAnterior: toNum(c.valor_anterior),
+        valorNovo: toNum(c.valor_novo),
       })
     }
   }

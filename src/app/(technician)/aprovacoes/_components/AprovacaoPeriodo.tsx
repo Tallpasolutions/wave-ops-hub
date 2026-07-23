@@ -9,11 +9,18 @@ export type PayoutItem = {
   data: string
   finalidade: string | null
   valor: number
-  contestacao: { status: 'aberta' | 'resolvida'; motivo: string; resposta: string | null } | null
+  contestacao: {
+    status: 'aberta' | 'resolvida'
+    motivo: string
+    resposta: string | null
+    valorAnterior: number | null
+    valorNovo: number | null
+  } | null
 }
 
 const fmtBRL = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtPts = (n: number) => `${Math.round(n).toLocaleString('pt-BR')} pts`
 const fmtData = (iso: string) =>
   new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
 
@@ -118,6 +125,18 @@ function ItemCard({ item, periodo }: { item: PayoutItem; periodo: string }) {
               <span className="text-[var(--text-3)]">Resposta:</span> {c.resposta}
             </p>
           )}
+          {c.status === 'resolvida' &&
+            c.valorAnterior != null &&
+            c.valorNovo != null &&
+            Math.round(c.valorAnterior) !== Math.round(c.valorNovo) && (
+              <p className="mt-1 flex items-center gap-1.5 font-mono text-[12px] font-semibold text-[var(--text)]">
+                <span className="text-[var(--text-3)] line-through">
+                  {fmtPts(c.valorAnterior)}
+                </span>
+                →
+                <span className="text-[var(--green)]">{fmtPts(c.valorNovo)}</span>
+              </p>
+            )}
         </div>
       ) : aberto ? (
         <form action={formAction} className="mt-3 space-y-2">

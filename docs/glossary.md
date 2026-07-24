@@ -70,7 +70,26 @@ Valor calculado a ser pago ao técnico por **uma visita específica**. Cada visi
 | `pending_classification` | Motivo da visita pendente classificação pelo gestor |
 | `conflict` | Múltiplas regras com mesma prioridade casaram |
 | `override` | Gestor alterou o valor manualmente (motivo obrigatório) |
-| `contestado` | (Fase 2) Técnico contestou o valor — não implementado no MVP |
+| `contestado` | Técnico contestou o valor — aguarda resolução da Wave. **Travado contra recálculo** |
+
+### Contestação
+Discordância do técnico sobre o valor de um payout. Aberta pelo próprio técnico, a qualquer momento,
+direto de `/visitas` ou durante a conferência do fechamento em `/aprovacoes` — só **uma aberta por
+payout**. Enquanto aberta: payout em `contestado` (travado contra recálculo) e o fechamento do
+período **não pode ser aprovado**. A Wave resolve com uma resposta e, opcionalmente, um novo valor
+(vira `override`); o técnico é notificado com a pontuação antes → depois e reconfere.
+Ver [ADR-013](./architecture/ADR-013-aprovacao-contestacao-tecnico.md).
+
+### Conferência do técnico
+Etapa entre "Solicitar aprovação" e a aprovação final da Wave: cada técnico aprova ou contesta seu
+período em `/aprovacoes`. O estado por técnico fica em `closing_technician_reviews`
+(`pendente` | `aprovado` | `contestado`). Revisão `pendente` **alerta** mas não bloqueia;
+contestação aberta **bloqueia** a aprovação do fechamento.
+
+### Pontos (`pts`)
+Unidade em que os valores aparecem no **painel do técnico** (ex.: "135 pts"). É o mesmo número do
+payout em reais, apresentado sem símbolo de moeda. Nas telas do gestor os mesmos valores aparecem
+sempre em R$.
 
 ### Fechamento mensal
 Consolidação dos payouts de um mês para aprovação e pagamento. Criado automaticamente pelo sistema ao calcular o primeiro payout de um período. Apenas `tenant_owner` ou `tenant_manager` podem aprovar.
@@ -122,6 +141,33 @@ Modificador na coluna Z (`explicacao_valor`), no formato `(+73 * N ponto(s) adic
 
 ### Homologação
 Atendimento identificado pela coluna Z (`explicacao_valor` começa com "Homologa..."), não pela finalidade — a mesma finalidade de instalação pode ser uma instalação real ou uma homologação. A Unetvale paga uma taxa fixa e o técnico recebe um **repasse fixo por valor da Unetvale** (base R$ 64,46 → R$ 35; dobrado R$ 128,92 → R$ 70; +1 ponto adicional R$ 142,23 → R$ 79). O gestor mantém o mapa em `/homologacao`. Precede a LPU no cálculo. Ver [ADR-015](./architecture/ADR-015-homologacao-repasse.md).
+
+### LPU por técnico
+Tabela alternativa de preços (ex.: "SEM AUXILIAR", com valores menores) que vale **apenas para os
+técnicos escolhidos pelo gestor**, em vez da LPU padrão do tenant. O vínculo fica em
+`technician_lpu` (migration 0023) e o motor resolve a LPU aplicável **por técnico** antes de casar
+as regras. Ver [ADR-014](./architecture/ADR-014-lpu-por-tecnico.md) e
+[`domain/06-lpu-por-tecnico.md`](./domain/06-lpu-por-tecnico.md).
+
+### IQI (Índice de Qualidade / reincidência)
+Indicador **da Unetvale**, não calculado por nós: percentual de contratos que voltaram a abrir OS
+(reincidência) por técnico e competência mensal. É raspado do sistema da Unetvale e persistido em
+`iqi_snapshots`, casando pelo `technicians.codigo_unetvale`. Sempre exibido como
+**as-of `synced_at`** (última sincronização), nunca como tempo real. O gestor vê a equipe em
+`/produtividade`; o técnico vê só o próprio em `/iqi`.
+Ver [ADR-012](./architecture/ADR-012-iqi-ingestao-scraping.md).
+
+### Fora de escopo (`fora_escopo`)
+Visita cuja finalidade é de **infraestrutura** (manutenção de rede, troca de poste, massiva etc.):
+não é serviço de campo remunerado pela LPU do técnico. É marcada na ingestão a partir de
+`tenants.config.finalidades_infra` e **não gera payout** nem entra nos indicadores operacionais.
+Ver [ADR-008](./architecture/ADR-008-exclusao-finalidades-infra.md).
+
+### Notificação
+Aviso in-app na sineta, por usuário (`notifications`, RLS `notif_own`). Entregue **em tempo real**
+via Supabase Realtime. Notificações que cruzam usuários (técnico ↔ gestores) são escritas pelo
+service role em `src/lib/notifications/notify.ts` — nunca inserir em `notifications` direto.
+Ver [ADR-017](./architecture/ADR-017-notificacoes-realtime.md).
 
 ### Content hash
 Hash SHA-256 dos campos relevantes de uma visita. Usado para detectar mudanças entre uploads. Se uma visita já existe e o hash mudou, é considerada **alterada** e gera entrada de auditoria.

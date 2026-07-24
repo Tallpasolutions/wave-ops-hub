@@ -48,3 +48,22 @@ A planilha deve estar no formato `.xlsx` (Excel) com as seguintes colunas obriga
 ## Idempotência
 
 O sistema detecta automaticamente arquivos idênticos pelo conteúdo. Se você tentar enviar o mesmo arquivo duas vezes, ele será reconhecido como duplicata e não criará registros duplicados.
+
+A deduplicação também vale **linha a linha**: reenviar uma planilha com linhas já ingeridas não duplica nada — essas linhas são contadas como **ignoradas**, e apenas as novas ou alteradas são gravadas.
+
+## Reprocessar × Corrigir status
+
+Na página do upload há duas ações parecidas, com efeitos bem diferentes:
+
+- **Reprocessar** — roda a ingestão de novo a partir do arquivo, atualizando dados e payouts. É o que você quer na maioria dos casos.
+- **Corrigir status** — só aparece em uploads travados em "pendente"/"processando" e apenas acerta o status e os contadores. **Não reprocessa a planilha nem recalcula payouts.**
+
+Há também **Recalcular payouts**, que reaplica as regras sobre as visitas já ingeridas — use depois de classificar motivos, ajustar a LPU ou cadastrar valores de homologação/cabeamento.
+
+## Visitas fora do escopo
+
+Visitas de finalidades de **infraestrutura** (manutenção de rede, troca de poste, massiva, etc.) são marcadas como fora do escopo na ingestão: **não geram pagamento ao técnico** e não entram nos indicadores operacionais. Elas aparecem no upload como processadas, mas não no fechamento — é o comportamento esperado.
+
+## Se um valor parecer errado
+
+Valores monetários vêm da planilha como texto formatado e já causaram erro de escala em produção (julho/2026). Se um total parecer muito acima ou abaixo do esperado, compare uma OS específica com a planilha antes de aprovar o fechamento — e reporte ao suporte, porque a correção pode exigir reenviar a planilha do período.

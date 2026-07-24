@@ -2,6 +2,18 @@
 
 Este documento descreve os padrões de configuração para finalidades com threshold de valor (ex.: "Venda de produto externo" e "Troca de equipamento"), onde o payout depende do valor recebido pela Unetvale.
 
+> **Atualização (2026-07-22) — "Venda Produto Externo" não passa mais por aqui.**
+> A partir do [ADR-016](../architecture/ADR-016-ajustes-coluna-z.md), visitas com sucesso cuja
+> finalidade é exatamente `Venda Produto Externo` são resolvidas **antes** do motor de LPU: o
+> serviço real (roteador, cabeamento agregado) está na coluna Z (`explicacao_valor`), não na
+> finalidade, e o valor vem de lá. Padrão não reconhecido → `no_rule_match`, para o gestor avaliar.
+> Regras de LPU criadas para essa finalidade **não são consultadas** nesse caminho.
+>
+> O padrão de threshold descrito abaixo **continua válido** para as demais finalidades (ex.:
+> "Troca de equipamento"). Antes de configurar um threshold, confirme na
+> [ordem de precedência](./03-payout.md#ordem-de-precedência-do-cálculo) que a finalidade
+> realmente chega ao motor de LPU.
+
 ---
 
 ## Padrão: threshold com duas regras em cascata

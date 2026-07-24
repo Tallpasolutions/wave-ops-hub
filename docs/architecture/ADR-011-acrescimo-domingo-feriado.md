@@ -1,6 +1,6 @@
 # ADR-011 — Acréscimo de 15% em domingos e feriados no payout
 
-**Status:** Proposto (aguardando validação Gemini — CLAUDE.md §11)
+**Status:** Aceito (implementado e em produção; ver "Estado da implementação" no fim)
 **Data:** 2026-07-04
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** Roadmap Sprint 16. A LPU da Wave tem a regra "Execução de serviços aos domingos e
@@ -88,3 +88,24 @@ gestor e semeada por migration/SQL.
 
 **DoD:** payout de execução com sucesso em domingo/feriado = valor × 1,15, verificado em produção;
 improdutivas inalteradas.
+
+---
+
+## Estado da implementação (revisado em 2026-07-24)
+
+**Implementado e em produção.** O helper `src/lib/payouts/feriado.ts` e o multiplicador em
+`buildPayoutUpsert` estão ativos; a migration 0016 semeou `feriado_acrescimo_pct = 15` e criou
+`config.feriados` (lista vazia, preservando o que já existisse).
+
+O acréscimo incide sobre o valor **já com** o ponto adicional da coluna Z
+([ADR-016](./ADR-016-ajustes-coluna-z.md)) e vale para os caminhos de LPU, classificação de
+cabeamento (ADR-009), homologação (ADR-015) e Venda Produto Externo — nunca para improdutiva.
+
+**Pendência operacional (não é código):** a migration deixou `config.feriados` vazia e não houve
+migration posterior semeando datas. Enquanto a lista de feriados (SC/Unetvale) não for cadastrada,
+apenas domingos recebem o acréscimo — comportamento seguro por desenho: o sistema não inventa
+feriado. Conferir o estado real com:
+
+```sql
+SELECT config -> 'feriados' FROM tenants WHERE slug = 'wave';
+```

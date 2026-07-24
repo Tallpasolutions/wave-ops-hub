@@ -1,6 +1,6 @@
 # ADR-012 — Ingestão do Indicador IQI a partir do sistema Unetvale
 
-**Status:** Proposto
+**Status:** Aceito (implementado e em produção — coleta agendada no runner do GitHub Actions)
 **Data:** 2026-07-19
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** Demanda do gestor (19/07) — trazer o IQI (índice de reincidência da operadora)

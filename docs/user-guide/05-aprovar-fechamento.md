@@ -26,6 +26,27 @@ Quando estiver satisfeito com os dados:
 2. O status muda para **Aguardando Aprovação**
 3. O responsável pela aprovação (proprietário ou administrador Tallpa) será notificado
 
+## 2.1. Conferência dos técnicos
+
+Ao solicitar a aprovação, **cada técnico é notificado** e passa a ver as OSs do período no app para conferir. Na página do fechamento você acompanha o status de cada um:
+
+- **Aprovado** — o técnico confirmou a pontuação do período.
+- **Pendente** — ainda não respondeu. Gera alerta, mas **não impede** a aprovação.
+- **Contestado** — discorda de uma ou mais OSs. **Impede** a aprovação até ser resolvido.
+
+### Resolver uma contestação
+
+As contestações abertas aparecem na página do fechamento, **agrupadas por técnico**. Em cada uma:
+
+1. Leia o motivo informado pelo técnico e confira a OS.
+2. Escreva a resposta (obrigatória).
+3. **Opcionalmente, informe a nova pontuação.** Deixe em branco para manter o valor atual.
+4. Confirme.
+
+O que acontece: se você informou um valor diferente, ele é aplicado como **ajuste manual** naquela OS — fica registrado com seu nome, data e a resposta como justificativa, e não é desfeito por um novo upload da planilha. O técnico é notificado com a pontuação **antes → depois** e confere o período novamente.
+
+> Um técnico também pode contestar uma OS **fora** da janela de fechamento, direto da lista de visitas dele. A contestação aparece aqui do mesmo jeito, e o período só pode ser aprovado depois de resolvida.
+
 ## 3. Aprovar o fechamento
 
 Disponível para **Proprietário** (`tenant_owner`) e **Admin Tallpa** (`tallpa_owner`):

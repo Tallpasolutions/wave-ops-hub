@@ -18,10 +18,20 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-008](./ADR-008-exclusao-finalidades-infra.md) | Exclusão de finalidades de infraestrutura | Aceito |
 | [ADR-009](./ADR-009-cabeamento-classificacao.md) | Payout de Cabeamento/Condomínio por classificação do gestor | Aceito |
 | [ADR-010](./ADR-010-dashboard-drilldown.md) | Drill-down interativo do dashboard por filtros combináveis na URL | Aceito |
-| [ADR-011](./ADR-011-acrescimo-domingo-feriado.md) | Acréscimo de 15% em domingos e feriados no payout | Proposto |
-| [ADR-012](./ADR-012-iqi-ingestao-scraping.md) | Ingestão do Indicador IQI via scraping do Unetvale | Proposto |
+| [ADR-011](./ADR-011-acrescimo-domingo-feriado.md) | Acréscimo de 15% em domingos e feriados no payout | Aceito |
+| [ADR-012](./ADR-012-iqi-ingestao-scraping.md) | Ingestão do Indicador IQI via scraping do Unetvale | Aceito |
 | [ADR-013](./ADR-013-aprovacao-contestacao-tecnico.md) | Aprovação/contestação de payouts pelo técnico | Aceito |
 | [ADR-014](./ADR-014-lpu-por-tecnico.md) | LPU por técnico (tabela alternativa) | Aceito |
+| [ADR-015](./ADR-015-homologacao-repasse.md) | Repasse de Homologação por valor da Unetvale | Aceito |
+| [ADR-016](./ADR-016-ajustes-coluna-z.md) | Ajustes de payout pela coluna Z (29,30, pontos adicionais, Venda Produto Externo) | Aceito |
+| [ADR-017](./ADR-017-notificacoes-realtime.md) | Notificações cross-user e entrega em tempo real (Supabase Realtime) | Aceito |
+
+### Onde cada ADR toca o cálculo de payout
+
+A ordem de precedência efetiva no `buildPayoutUpsert` está em
+[`docs/domain/03-payout.md`](../domain/03-payout.md#ordem-de-precedência-do-cálculo) — consulte-a
+antes de mexer em qualquer regra financeira: ADR-009, 011, 014, 015 e 016 se combinam nessa mesma
+função, e a ordem entre eles é a decisão, não um detalhe de implementação.
 
 ## Template para novos ADRs
 

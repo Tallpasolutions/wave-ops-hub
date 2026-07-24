@@ -23,6 +23,8 @@
 | 12 | Dados Confiáveis | 3–4 sessões | Encoding ETL, vínculo de técnicos, cobertura LPU, guard rails de aprovação | ✅ Concluída (2026-07-04, verificada em produção) |
 | 13 | UX e Consistência | 3 sessões | Período inteligente, números reconciliados, busca+paginação, rejeição em lote | ✅ Concluída (2026-07-04) — Fases A–D verificadas em produção |
 | 14 | Acabamento | 1–2 sessões | Último acesso, cosméticos S1–S6, QA de regressão final | ✅ Concluída (2026-07-04) — A/B/C verificadas em prod; QA de regressão do relatório 02/07 refeito sem regressões. **Ciclo de estabilização pós-QA (11→14) encerrado** |
+| 15 | IQI e Produtividade | 3 sessões | Coleta do IQI da Unetvale, tela gerencial de produtividade, IQI no app do técnico | ✅ Concluída (2026-07-22) — coleta migrada para o runner do GitHub (Vercel bloqueada pela Unetvale) |
+| 16 | Precisão do payout e ciclo do técnico | 4 sessões | Homologação, coluna Z, LPU por técnico, conferência/contestação do técnico, notificações em tempo real | ✅ Concluída (2026-07-23) — PRs #11–#33 em produção |
 
 **Sprints 11–14 nascem do [Relatório de QA em produção de 02/07/2026](../qa/2026-07-02-relatorio-qa-producao.md).**
 A execução de qualquer sprint segue as [Regras de Execução Anti-Alucinação](./regras-de-execucao.md) — documento vinculante.
@@ -225,7 +227,20 @@ a 13 depende dos dados saneados; a 14 fecha com reteste integral do relatório d
 
 ---
 
-## Roadmap pós-estabilização (Sprints 15+, a repriorizar após a 14)
+## Sprints 15–16 — Ciclo de julho (IQI + fechamento correto)
+
+| Sprint | Arquivo | Resumo |
+|---|---|---|
+| 15 | [`16-sprint-15-iqi-e-produtividade.md`](./16-sprint-15-iqi-e-produtividade.md) | Coleta do IQI da Unetvale ([ADR-012](../architecture/ADR-012-iqi-ingestao-scraping.md)), tela gerencial `/produtividade`, `/iqi` no app do técnico. A coleta roda no **runner do GitHub Actions** — a Unetvale bloqueia os IPs da Vercel |
+| 16 | [`17-sprint-16-precisao-payout-e-ciclo-tecnico.md`](./17-sprint-16-precisao-payout-e-ciclo-tecnico.md) | **Precisão do valor:** homologação ([ADR-015](../architecture/ADR-015-homologacao-repasse.md)), coluna Z/pontos adicionais ([ADR-016](../architecture/ADR-016-ajustes-coluna-z.md)), LPU por técnico ([ADR-014](../architecture/ADR-014-lpu-por-tecnico.md)), "Infra Genérico" fora do escopo. **Ciclo do técnico:** conferência e contestação ([ADR-013](../architecture/ADR-013-aprovacao-contestacao-tecnico.md)) + notificações em tempo real ([ADR-017](../architecture/ADR-017-notificacoes-realtime.md)) |
+
+Com a Sprint 16, os temas que estavam reservados como "Sprint 18 — Contestação Técnico" e
+"Sprint 19 — Notificações" (in-app) foram **entregues**. Notificação por WhatsApp/push segue fora
+do escopo.
+
+---
+
+## Roadmap pós-estabilização (Sprints 17+)
 
 **Prioritárias (nascidas de achados recentes):**
 
@@ -235,21 +250,30 @@ a 13 depende dos dados saneados; a 14 fecha com reteste integral do relatório d
 | ~~B~~ | ~~**Dashboard & Interatividade**~~ | ✅ **Concluída e verificada em prod (04/07)** — D1 cards não estouram (grid 1→4 col + valor responsivo); D2 copy dos cards; D3 **drill-down interativo** (ADR-010): clicar em finalidade/cidade/técnico/tipo filtra o painel, filtros combináveis AND, estado na URL. Verificado: Suporte Fibra + Brusque filtra tudo reconciliando (194 OSs / R$ 18.317,60), chips removem, período preservado |
 | ~~C~~ | ~~**ETL: parse de valores com vírgula de milhar**~~ | ✅ **Concluída (04/07)** — `parseBrNumber` (`src/lib/etl/number.ts`): "4.688,83" não zera mais, "1.000"→1000. Ligado no schema `Valor`. Visitas já ingeridas e zeradas precisam de re-upload para corrigir |
 
-**Herdadas do planejamento anterior à Sprint 10:**
+**Temas herdados — situação em 24/07/2026:**
 
-| Sprint | Tema | Itens |
-|---|---|---|
-| 15 | LPU Phase 2 + Texto | Campo `explicacaoValor` no ETL → pontos, cordoalha, homologação |
-| 16 | Feriados + Políticas | ✅ **+15% domingo/feriado implementado (04/07, ADR-011)** — multiplicador pós-cálculo (só execução com sucesso; motor LPU intacto). Domingo automático; feriados via `tenants.config.feriados` (migration 0016). **Falta:** gestor fornecer a lista de feriados (SC/Unetvale) para semear |
-| 17 | Wave Onboarding completo | Usuários reais, rotina mensal de planilha + fechamento assistido |
-| 18 | Contestação Técnico | Portal técnico: contestar payout + workflow de aprovação |
-| 19 | Notificações | WhatsApp/push payout aprovado, improdutiva classificada |
+| Tema herdado | Situação |
+|---|---|
+| LPU Phase 2 + Texto (coluna Z → pontos, homologação) | ✅ **Entregue na Sprint 16** — ADR-015 (homologação) e ADR-016 (pontos adicionais, 29,30, Venda Produto Externo). Cordoalha não apareceu como caso real até agora |
+| Feriados + Políticas | ⚠️ **Código pronto desde 04/07** (ADR-011: +15% em domingo/feriado, `tenants.config.feriados`, migration 0016). **Falta apenas o gestor fornecer a lista de feriados** (SC/Unetvale). Até lá, só domingos recebem o acréscimo |
+| Wave Onboarding completo | ⏳ **Em aberto** — usuários reais e rotina mensal de planilha + fechamento assistido. É o candidato natural a próxima sprint, agora que o valor do payout está correto e o técnico confere |
+| Contestação Técnico | ✅ **Entregue na Sprint 16** — ADR-013, incluindo contestação contínua e ajuste de valor na resolução |
+| Notificações | ✅ **In-app entregue na Sprint 16** — ADR-017 (tempo real via Supabase Realtime). **WhatsApp/push seguem fora do escopo** |
+
+**Candidatos a Sprint 17 (a priorizar com o gestor):**
+
+1. **Onboarding e rotina mensal da Wave** — fechar o ciclo operacional completo de um mês com os
+   usuários reais, do upload ao pagamento, com a conferência dos técnicos rodando de verdade.
+2. **Ajuda in-app atualizada** — `/ajuda` não cobre Produtividade/IQI, Homologação, Cabeamento nem
+   a conferência/contestação do técnico (ver [tech-debt 016](../tech-debt.md)).
+3. **Lista de feriados** — item operacional, destrava o ADR-011 por completo.
 
 ---
 
 ## Fora deste roadmap (fase 2 — pós-MVP)
 
-- Contestação de payouts pelos técnicos
+> "Contestação de payouts pelos técnicos" saiu desta lista: foi entregue na Sprint 16 (ADR-013).
+
 - Domínio customizado por tenant (`portal.wavetelecom.com.br`)
 - Customização de cores por tenant
 - MFA/2FA

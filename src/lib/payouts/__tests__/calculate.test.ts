@@ -450,16 +450,18 @@ describe("buildPayoutUpsert — acréscimo de domingo/feriado (ADR-011)", () => 
   const feriado = { feriados: new Set<string>(), pct: 15 };
   const ruleFixo80 = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 80 } });
 
-  it("sucesso em domingo → valor × 1,15", () => {
+  it("sucesso em domingo → valor × 1,15 e acrescimoDomFeriado = 12", () => {
     const visit = makeVisit({ sucesso: "Sim", dataExecucao: "2026-06-07" });
     const r = buildPayoutUpsert(visit, [ruleFixo80], [], LPU_ID, TENANT_ID, undefined, feriado);
     expect(r.valorCalculado).toBeCloseTo(92, 2); // 80 × 1,15
+    expect(r.acrescimoDomFeriado).toBeCloseTo(12, 2); // 92 − 80; base = calculado − acréscimo
   });
 
-  it("sucesso em dia útil → sem acréscimo", () => {
+  it("sucesso em dia útil → sem acréscimo (acrescimoDomFeriado null)", () => {
     const visit = makeVisit({ sucesso: "Sim", dataExecucao: "2026-06-08" }); // segunda
     const r = buildPayoutUpsert(visit, [ruleFixo80], [], LPU_ID, TENANT_ID, undefined, feriado);
     expect(r.valorCalculado).toBe(80);
+    expect(r.acrescimoDomFeriado).toBeNull();
   });
 
   it("Cabeamento classificado em domingo → valor × 1,15", () => {
@@ -495,6 +497,7 @@ describe("buildPayoutUpsert — acréscimo de domingo/feriado (ADR-011)", () => 
     const visit = makeVisit({ finalidade: "Retirada", sucesso: "Sim", dataExecucao: "2026-06-07" });
     const r = buildPayoutUpsert(visit, [ruleRetirada], [], LPU_ID, TENANT_ID, undefined, feriado);
     expect(r.valorCalculado).toBe(20);
+    expect(r.acrescimoDomFeriado).toBeNull();
   });
 
   it("Retirada Condomínio (cabeamento) em domingo → SEM acréscimo", () => {

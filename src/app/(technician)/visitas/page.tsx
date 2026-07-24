@@ -33,6 +33,7 @@ type Payout = {
   valor_calculado: number | null
   valor_override: number | null
   valor_deixado_na_mesa: number | null
+  acrescimo_dom_feriado: number | null
   status: string | null
 }
 
@@ -75,7 +76,7 @@ export default async function VisitasPage({ searchParams }: PageProps) {
   if (visitIds.length > 0) {
     const { data } = await supabase
       .from('payouts')
-      .select('id, visit_id, valor_calculado, valor_override, valor_deixado_na_mesa, status')
+      .select('id, visit_id, valor_calculado, valor_override, valor_deixado_na_mesa, acrescimo_dom_feriado, status')
       .in('visit_id', visitIds)
     payouts = (data ?? []) as Payout[]
   }
@@ -131,6 +132,12 @@ export default async function VisitasPage({ searchParams }: PageProps) {
             const valorPayout =
               payout?.valor_override ?? payout?.valor_calculado ?? null
             const deixadoNaMesa = payout?.valor_deixado_na_mesa ?? 0
+            // ADR-011: acréscimo de domingo/feriado embutido no valor calculado. Só sinaliza
+            // quando não há override (o override substitui o valor calculado).
+            const acrescimoDomFeriado =
+              payout?.valor_override == null && payout?.acrescimo_dom_feriado != null
+                ? Number(payout.acrescimo_dom_feriado)
+                : 0
 
             // Cor da borda
             let borderColor = 'border-[var(--line)]'
@@ -184,6 +191,11 @@ export default async function VisitasPage({ searchParams }: PageProps) {
                       >
                         {fmtPts(valorPayout)}
                       </span>
+                    )}
+                    {acrescimoDomFeriado > 0 && (
+                      <p className="mt-0.5 font-mono text-[10px] text-[var(--cyan)]">
+                        inclui +{fmtPts(acrescimoDomFeriado)} domingo/feriado
+                      </p>
                     )}
                     {deixadoNaMesa > 0 && (
                       <p className="mt-0.5 font-mono text-[10px] text-[var(--red)]">

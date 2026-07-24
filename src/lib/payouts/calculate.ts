@@ -130,6 +130,7 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: 0,
       status: "approved",
       improdutivaAprovada: true,
+      acrescimoDomFeriado: null,
     };
   }
 
@@ -150,6 +151,7 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: deixadoNaMesa,
       status: "pending_review",
       improdutivaAprovada: false,
+      acrescimoDomFeriado: null,
     };
   }
 
@@ -165,6 +167,13 @@ export function buildPayoutUpsert(
     valor != null && valor > 0 && aplicaAcrescimo
       ? aplicarAcrescimo(valor, feriado!.pct)
       : valor;
+  // ADR-011: valor em R$ que o acréscimo somou (null quando não incide), a partir do MESMO
+  // valor-base passado a `comAcrescimo`. Persistido para a tela exibir a quebra base → +pct%.
+  // Arredondado a 2 casas para casar com numeric(10,2) e reconciliar (base = calculado − acréscimo).
+  const acrescimoDe = (base: number | null): number | null =>
+    base != null && base > 0 && aplicaAcrescimo
+      ? Math.round((aplicarAcrescimo(base, feriado!.pct) - base) * 100) / 100
+      : null;
 
   // ADR-016: acréscimo por pontos adicionais (coluna Z). Homologação NÃO passa por aqui —
   // retorna antes, com o repasse (inclusive ponto) vindo do próprio mapa (ADR-015).
@@ -187,6 +196,7 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: 0,
       status: "pending_review",
       improdutivaAprovada: null,
+      acrescimoDomFeriado: null,
     };
   }
 
@@ -211,6 +221,7 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: 0,
       status: valor != null ? "pending_review" : "no_rule_match",
       improdutivaAprovada: null,
+      acrescimoDomFeriado: acrescimoDe(valor ?? null),
     };
   }
 
@@ -229,6 +240,7 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: 0,
       status: base != null ? "pending_review" : "no_rule_match",
       improdutivaAprovada: null,
+      acrescimoDomFeriado: acrescimoDe(comPontos(base)),
     };
   }
 
@@ -246,6 +258,7 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: 0,
       status: valor != null ? "pending_review" : "no_rule_match",
       improdutivaAprovada: null,
+      acrescimoDomFeriado: acrescimoDe(comPontos(valor ?? null)),
     };
   }
 
@@ -272,5 +285,6 @@ export function buildPayoutUpsert(
     valorDeixadoNaMesa: deixadoNaMesa,
     status: mapStatus(result.status),
     improdutivaAprovada: null,
+    acrescimoDomFeriado: acrescimoDe(isSucesso ? comPontos(result.valor) : result.valor),
   };
 }

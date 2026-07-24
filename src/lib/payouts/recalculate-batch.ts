@@ -303,6 +303,8 @@ async function processVisitPage(
       status: u.status,
       improdutiva_aprovada:
         u.improdutivaAprovada ?? existingAprovadaByVisit.get(u.visitId) ?? null,
+      // ADR-011: reflete sempre o cálculo fresco (payouts travados nem chegam aqui).
+      acrescimo_dom_feriado: u.acrescimoDomFeriado,
     })),
     { onConflict: "visit_id" },
   );

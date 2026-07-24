@@ -17,6 +17,9 @@ export type PayoutUpsertData = {
   // true → improdutiva padrão auto-aprovada (Unetvale 15,98 → 15,00 fixos); null → sem decisão
   // automática, preserva a decisão manual existente no upsert.
   improdutivaAprovada: boolean | null;
+  // ADR-011: valor em R$ efetivamente somado pelo acréscimo de domingo/feriado (null quando não
+  // incide). Persistido para a tela mostrar "base → +pct% → total" sem depender da config atual.
+  acrescimoDomFeriado: number | null;
 };
 
 export type BatchRecalcResult = {

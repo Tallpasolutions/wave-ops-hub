@@ -9,6 +9,7 @@ export type PayoutItem = {
   data: string
   finalidade: string | null
   valor: number
+  acrescimoDomFeriado: number | null
   contestacao: {
     status: 'aberta' | 'resolvida'
     motivo: string
@@ -91,7 +92,14 @@ function ItemCard({ item, periodo }: { item: PayoutItem; periodo: string }) {
             {item.finalidade ?? 'Sem finalidade'} · {fmtData(item.data)}
           </p>
         </div>
-        <p className="font-mono text-[14px] font-bold text-[var(--text)]">{fmtBRL(item.valor)}</p>
+        <div className="text-right">
+          <p className="font-mono text-[14px] font-bold text-[var(--text)]">{fmtBRL(item.valor)}</p>
+          {item.acrescimoDomFeriado != null && item.acrescimoDomFeriado > 0 && (
+            <p className="mt-0.5 font-mono text-[10px] text-[var(--cyan)]">
+              inclui +{fmtBRL(item.acrescimoDomFeriado)} domingo/feriado
+            </p>
+          )}
+        </div>
       </div>
 
       {c ? (

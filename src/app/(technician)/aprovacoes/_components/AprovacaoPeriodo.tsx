@@ -19,8 +19,7 @@ export type PayoutItem = {
   } | null
 }
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+// App do técnico exibe valores em pontos (pts), não em R$ — mesma convenção da home e de /visitas.
 const fmtPts = (n: number) => `${Math.round(n).toLocaleString('pt-BR')} pts`
 const fmtData = (iso: string) =>
   new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
@@ -56,7 +55,7 @@ export function AprovacaoPeriodo({
         <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--text-3)]">
           Total do período
         </p>
-        <p className="mt-1 font-display text-2xl font-bold text-[var(--text)]">{fmtBRL(total)}</p>
+        <p className="mt-1 font-display text-2xl font-bold text-[var(--text)]">{fmtPts(total)}</p>
       </div>
 
       <div className="mb-4 space-y-2.5">
@@ -93,10 +92,10 @@ function ItemCard({ item, periodo }: { item: PayoutItem; periodo: string }) {
           </p>
         </div>
         <div className="text-right">
-          <p className="font-mono text-[14px] font-bold text-[var(--text)]">{fmtBRL(item.valor)}</p>
+          <p className="font-mono text-[14px] font-bold text-[var(--text)]">{fmtPts(item.valor)}</p>
           {item.acrescimoDomFeriado != null && item.acrescimoDomFeriado > 0 && (
             <p className="mt-0.5 font-mono text-[10px] text-[var(--cyan)]">
-              inclui +{fmtBRL(item.acrescimoDomFeriado)} domingo/feriado
+              inclui +{fmtPts(item.acrescimoDomFeriado)} domingo/feriado
             </p>
           )}
         </div>

@@ -51,6 +51,8 @@ export const payouts = pgTable(
     }),
     improdutivaAprovada: boolean("improdutiva_aprovada"),
     valorCalculado: numeric("valor_calculado", { precision: 10, scale: 2 }),
+    // ADR-011: valor em R$ somado pelo acréscimo de domingo/feriado (null = não incidiu).
+    acrescimoDomFeriado: numeric("acrescimo_dom_feriado", { precision: 10, scale: 2 }),
     valorDeixadoNaMesa: numeric("valor_deixado_na_mesa", {
       precision: 10,
       scale: 2,

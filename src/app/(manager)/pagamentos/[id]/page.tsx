@@ -65,7 +65,7 @@ export default async function PayoutDetailPage({ params }: Props) {
       .from('payouts')
       .select(
         `id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
-         override_motivo, override_at, approved_at, paid_at,
+         override_motivo, override_at, approved_at, paid_at, acrescimo_dom_feriado,
          service_visits(os_num, data_execucao, finalidade, sucesso, cidade, condominio, tecnico_raw),
          technicians(nome_completo),
          lpu_rules(description, conditions, payout),
@@ -106,6 +106,13 @@ export default async function PayoutDetailPage({ params }: Props) {
   const valorOverride = payout.valor_override !== null ? Number(payout.valor_override) : null
   const valorEfetivo = valorOverride ?? valorCalculado
   const deixadoNaMesa = Number(payout.valor_deixado_na_mesa ?? 0)
+  // ADR-011: acréscimo de domingo/feriado somado ao valor calculado. base = calculado − acréscimo.
+  const acrescimoDomFeriado =
+    payout.acrescimo_dom_feriado !== null ? Number(payout.acrescimo_dom_feriado) : null
+  const temAcrescimo = acrescimoDomFeriado !== null && acrescimoDomFeriado > 0 && valorCalculado !== null
+  const valorBase = temAcrescimo ? valorCalculado! - acrescimoDomFeriado! : null
+  const pctAcrescimo =
+    temAcrescimo && valorBase! > 0 ? Math.round((acrescimoDomFeriado! / valorBase!) * 100) : null
 
   const canOverride = !LOCKED_STATUSES.includes(payout.status)
 
@@ -171,6 +178,15 @@ export default async function PayoutDetailPage({ params }: Props) {
           <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
             Financeiro
           </p>
+          {temAcrescimo && (
+            <>
+              <InfoRow label="Valor base" value={formatBRL(valorBase)} />
+              <InfoRow
+                label={`Acréscimo domingo/feriado${pctAcrescimo !== null ? ` (+${pctAcrescimo}%)` : ''}`}
+                value={<span className="text-[var(--cyan)]">+{formatBRL(acrescimoDomFeriado)}</span>}
+              />
+            </>
+          )}
           <InfoRow label="Valor calculado" value={formatBRL(valorCalculado)} />
           {valorOverride !== null && (
             <InfoRow

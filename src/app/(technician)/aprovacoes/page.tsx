@@ -69,7 +69,7 @@ export default async function AprovacoesPage() {
     supabase
       .from('payouts')
       .select(
-        'id, status, valor_calculado, valor_override, service_visits!inner(os_num, data_execucao, finalidade)',
+        'id, status, valor_calculado, valor_override, acrescimo_dom_feriado, service_visits!inner(os_num, data_execucao, finalidade)',
       )
       .eq('tenant_id', user.tenantId)
       .eq('technician_id', user.technicianId)
@@ -110,6 +110,12 @@ export default async function AprovacoesPage() {
       data: sv.data_execucao,
       finalidade: sv.finalidade,
       valor: p.valor_override !== null ? num(p.valor_override) : num(p.valor_calculado),
+      // ADR-011: acréscimo de domingo/feriado embutido no valor calculado. Só sinaliza quando
+      // não há override (o override substitui o valor calculado).
+      acrescimoDomFeriado:
+        p.valor_override !== null || p.acrescimo_dom_feriado == null
+          ? null
+          : num(p.acrescimo_dom_feriado),
       contestacao: contestacaoByPayout.get(p.id as string) ?? null,
     }
   })

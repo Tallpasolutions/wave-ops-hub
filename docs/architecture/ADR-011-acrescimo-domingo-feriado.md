@@ -88,3 +88,24 @@ gestor e semeada por migration/SQL.
 
 **DoD:** payout de execução com sucesso em domingo/feriado = valor × 1,15, verificado em produção;
 improdutivas inalteradas.
+
+---
+
+## Adendo (2026-07-24) — retirada não recebe o acréscimo
+
+**Decisão do gestor:** o +15% de domingo/feriado **não** se aplica a OSs de **retirada**.
+
+Escopo confirmado: **toda** retirada — cobre a finalidade `Retirada` (que paga pela LPU) e
+`Retirada Condomínio` (que paga pela classificação de cabeamento, ADR-009). O critério é o prefixo
+da finalidade normalizada (`trim().toLowerCase().startsWith("retirada")`), então futuras variantes
+("Retirada ...") já entram na exceção.
+
+**Implementação:** a exclusão entra no **mesmo portão** que já decide o acréscimo
+(`aplicaAcrescimo` em `buildPayoutUpsert`), que gateia o helper `comAcrescimo`. Como `comAcrescimo`
+é aplicado em **todos** os caminhos de sucesso (LPU, cabeamento, homologação, Venda Produto
+Externo), basta `!isRetirada` no portão para a exceção valer em todos eles — sem tocar no motor de
+LPU nem nas saídas antecipadas. Nenhuma migration: é regra de código, não de dado.
+
+**Verificação:** cobertura em `calculate.test.ts` (retirada LPU e Retirada Condomínio em domingo →
+sem acréscimo; retirada em dia útil → valor normal). Em produção, recalcular um período com
+retirada em domingo/feriado e confirmar que o valor **não** foi multiplicado.

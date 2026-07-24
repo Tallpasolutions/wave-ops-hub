@@ -106,6 +106,9 @@ export function buildPayoutUpsert(
   const finalidadeKey = visit.finalidade?.trim().toLowerCase();
   const isGrupo = !!finalidadeKey && !!classification?.finalidades.has(finalidadeKey);
   const isSucesso = visit.sucesso.trim().toLowerCase().startsWith("sim");
+  // ADR-011: retirada não recebe o acréscimo de domingo/feriado. Cobre "Retirada" (LPU) e
+  // "Retirada Condomínio" (grupo de cabeamento, ADR-009) via prefixo normalizado.
+  const isRetirada = !!finalidadeKey && finalidadeKey.startsWith("retirada");
 
   // Improdutiva padrão (Unetvale = R$ 15,98): repassa R$ 15,00 fixos e já sai APROVADA,
   // independente da classificação do motivo. Exige técnico mapeado — sem técnico não há a
@@ -150,9 +153,14 @@ export function buildPayoutUpsert(
     };
   }
 
-  // ADR-011: +pct% sobre execução com sucesso em domingo/feriado (não vale p/ improdutiva).
+  // ADR-011: +pct% sobre execução com sucesso em domingo/feriado (não vale p/ improdutiva
+  // nem para retirada). Como este portão gateia `comAcrescimo`, a exclusão de retirada vale
+  // para todos os caminhos (LPU, cabeamento, homologação, Venda Produto Externo).
   const aplicaAcrescimo =
-    isSucesso && !!feriado && isDomingoOuFeriado(visit.dataExecucao, feriado.feriados);
+    isSucesso &&
+    !isRetirada &&
+    !!feriado &&
+    isDomingoOuFeriado(visit.dataExecucao, feriado.feriados);
   const comAcrescimo = (valor: number | null): number | null =>
     valor != null && valor > 0 && aplicaAcrescimo
       ? aplicarAcrescimo(valor, feriado!.pct)

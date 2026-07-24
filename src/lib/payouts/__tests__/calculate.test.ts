@@ -483,6 +483,40 @@ describe("buildPayoutUpsert — acréscimo de domingo/feriado (ADR-011)", () => 
     const r = buildPayoutUpsert(visit, [makeRule()], [reason], LPU_ID, TENANT_ID, undefined, feriado);
     expect(r.valorCalculado).toBe(30);
   });
+
+  // Retirada não recebe o acréscimo de domingo/feriado (decisão do gestor, 24/07).
+  const ruleRetirada = makeRule({
+    conditions: { finalidade: ["Retirada"] },
+    payout: { type: "fixed", value: 20 },
+    prioridade: 100,
+  });
+
+  it("Retirada (LPU) em domingo → SEM acréscimo", () => {
+    const visit = makeVisit({ finalidade: "Retirada", sucesso: "Sim", dataExecucao: "2026-06-07" });
+    const r = buildPayoutUpsert(visit, [ruleRetirada], [], LPU_ID, TENANT_ID, undefined, feriado);
+    expect(r.valorCalculado).toBe(20);
+  });
+
+  it("Retirada Condomínio (cabeamento) em domingo → SEM acréscimo", () => {
+    const classification = {
+      finalidades: new Set(["retirada condomínio"]),
+      map: new Map([["Retirada", 60]]),
+    };
+    const visit = makeVisit({
+      finalidade: "Retirada Condomínio",
+      sucesso: "Sim",
+      dataExecucao: "2026-06-07",
+      explicacaoValor: "Retirada",
+    });
+    const r = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, classification, feriado);
+    expect(r.valorCalculado).toBe(60);
+  });
+
+  it("Retirada em dia útil → valor normal (controle)", () => {
+    const visit = makeVisit({ finalidade: "Retirada", sucesso: "Sim", dataExecucao: "2026-06-08" });
+    const r = buildPayoutUpsert(visit, [ruleRetirada], [], LPU_ID, TENANT_ID, undefined, feriado);
+    expect(r.valorCalculado).toBe(20);
+  });
 });
 
 // ADR-016: ajustes por coluna Z — Unetvale 29,30, pontos adicionais e Venda Produto Externo.

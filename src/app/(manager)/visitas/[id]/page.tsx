@@ -92,7 +92,7 @@ export default async function VisitDetailPage({ params }: Props) {
          technicians(id, nome_completo),
          reasons(motivo_original, motivo_normalizado, categoria),
          payouts(id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
-                 override_motivo, lpu_rules(description, conditions, payout))`,
+                 override_motivo, acrescimo_dom_feriado, lpu_rules(description, conditions, payout))`,
       )
       .eq('id', id)
       .eq('tenant_id', user.tenantId!)
@@ -120,6 +120,7 @@ export default async function VisitDetailPage({ params }: Props) {
     valor_override: string | null
     valor_deixado_na_mesa: string | null
     override_motivo: string | null
+    acrescimo_dom_feriado: string | null
     lpu_rules: { description: string | null; conditions: unknown; payout: unknown } | null
   } | null
 
@@ -127,6 +128,14 @@ export default async function VisitDetailPage({ params }: Props) {
   const valorOverride = payout?.valor_override !== null ? Number(payout?.valor_override) : null
   const valorEfetivo = valorOverride ?? valorCalculado
   const deixadoNaMesa = payout ? Number(payout.valor_deixado_na_mesa ?? 0) : 0
+  // ADR-011: acréscimo de domingo/feriado embutido no valor calculado. base = calculado − acréscimo.
+  const acrescimoDomFeriado =
+    payout?.acrescimo_dom_feriado != null ? Number(payout.acrescimo_dom_feriado) : null
+  const temAcrescimo =
+    acrescimoDomFeriado !== null && acrescimoDomFeriado > 0 && valorCalculado !== null
+  const valorBase = temAcrescimo ? valorCalculado! - acrescimoDomFeriado! : null
+  const pctAcrescimo =
+    temAcrescimo && valorBase! > 0 ? Math.round((acrescimoDomFeriado! / valorBase!) * 100) : null
   const canOverride = payout && !LOCKED_STATUSES.includes(payout.status)
 
   const auditEntries = (auditRaw ?? []) as Array<{
@@ -235,6 +244,15 @@ export default async function VisitDetailPage({ params }: Props) {
                   </Link>
                 }
               />
+              {temAcrescimo && (
+                <>
+                  <InfoRow label="Valor base" value={formatBRL(valorBase)} />
+                  <InfoRow
+                    label={`Acréscimo domingo/feriado${pctAcrescimo !== null ? ` (+${pctAcrescimo}%)` : ''}`}
+                    value={<span className="text-[var(--cyan)]">+{formatBRL(acrescimoDomFeriado)}</span>}
+                  />
+                </>
+              )}
               <InfoRow label="Valor calculado" value={formatBRL(valorCalculado)} />
               {valorOverride !== null && (
                 <InfoRow

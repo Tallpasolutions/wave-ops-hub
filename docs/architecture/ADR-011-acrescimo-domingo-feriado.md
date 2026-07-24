@@ -1,6 +1,6 @@
 # ADR-011 — Acréscimo de 15% em domingos e feriados no payout
 
-**Status:** Aceito (implementado e em produção; ver "Estado da implementação" no fim)
+**Status:** Aceito (código em produção; ativação de config pendente — ver "Estado da implementação" no fim)
 **Data:** 2026-07-04
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** Roadmap Sprint 16. A LPU da Wave tem a regra "Execução de serviços aos domingos e
@@ -93,19 +93,62 @@ improdutivas inalteradas.
 
 ## Estado da implementação (revisado em 2026-07-24)
 
-**Implementado e em produção.** O helper `src/lib/payouts/feriado.ts` e o multiplicador em
-`buildPayoutUpsert` estão ativos; a migration 0016 semeou `feriado_acrescimo_pct = 15` e criou
-`config.feriados` (lista vazia, preservando o que já existisse).
+**Código em produção; config NÃO aplicada — a regra está inerte.** O helper
+`src/lib/payouts/feriado.ts` e o multiplicador em `buildPayoutUpsert` estão deployados e
+corretos, e o `recalculate-batch` carrega a config do tenant e a passa ao cálculo. Porém a
+**migration 0016 nunca foi executada em produção**: a query abaixo retornou `null` nos três
+campos em 24/07/2026.
+
+```sql
+SELECT
+  config -> 'feriado_acrescimo_pct' AS pct,
+  jsonb_typeof(config -> 'feriado_acrescimo_pct') AS tipo_pct,
+  config -> 'feriados' AS feriados
+FROM tenants WHERE slug = 'wave';
+-- retornou: null | null | null
+```
+
+Consequência: como `feriado_acrescimo_pct` não é número, o código faz o `pct` cair para **0**
+(`recalculate-batch.ts`), e `valor × (1 + 0/100) = valor` — **nenhuma OS recebe o acréscimo,
+nem em domingo**. Domingo não depende da lista de feriados (é detectado pela data), mas depende
+do percentual estar gravado.
+
+**Para ativar (ordem importa):**
+
+1. Subir a exceção da retirada (adendo abaixo) — senão retirada em domingo paga +15% indevido.
+2. Gravar o percentual (o que a 0016 faz):
+   ```sql
+   UPDATE tenants
+   SET config = jsonb_set(config, '{feriado_acrescimo_pct}', '15'::jsonb, true)
+   WHERE slug = 'wave';
+   ```
+3. Recalcular pendentes em `/pagamentos` — só então os payouts de domingo pegam o +15%.
 
 O acréscimo incide sobre o valor **já com** o ponto adicional da coluna Z
 ([ADR-016](./ADR-016-ajustes-coluna-z.md)) e vale para os caminhos de LPU, classificação de
-cabeamento (ADR-009), homologação (ADR-015) e Venda Produto Externo — nunca para improdutiva.
+cabeamento (ADR-009), homologação (ADR-015) e Venda Produto Externo — nunca para improdutiva
+nem para retirada.
 
-**Pendência operacional (não é código):** a migration deixou `config.feriados` vazia e não houve
-migration posterior semeando datas. Enquanto a lista de feriados (SC/Unetvale) não for cadastrada,
-apenas domingos recebem o acréscimo — comportamento seguro por desenho: o sistema não inventa
-feriado. Conferir o estado real com:
+**Feriados:** `config.feriados` continua a semear numa migration futura (datas nacionais + SC +
+Unetvale, a fornecer pelo gestor). Até lá, apenas domingos recebem — o sistema não inventa feriado.
 
-```sql
-SELECT config -> 'feriados' FROM tenants WHERE slug = 'wave';
-```
+---
+
+## Adendo (2026-07-24) — retirada não recebe o acréscimo
+
+**Decisão do gestor:** o +15% de domingo/feriado **não** se aplica a OSs de **retirada**.
+
+Escopo confirmado: **toda** retirada — cobre a finalidade `Retirada` (que paga pela LPU) e
+`Retirada Condomínio` (que paga pela classificação de cabeamento, ADR-009). O critério é o prefixo
+da finalidade normalizada (`trim().toLowerCase().startsWith("retirada")`), então futuras variantes
+("Retirada ...") já entram na exceção.
+
+**Implementação:** a exclusão entra no **mesmo portão** que já decide o acréscimo
+(`aplicaAcrescimo` em `buildPayoutUpsert`), que gateia o helper `comAcrescimo`. Como `comAcrescimo`
+é aplicado em **todos** os caminhos de sucesso (LPU, cabeamento, homologação, Venda Produto
+Externo), basta `!isRetirada` no portão para a exceção valer em todos eles — sem tocar no motor de
+LPU nem nas saídas antecipadas. Nenhuma migration: é regra de código, não de dado.
+
+**Verificação:** cobertura em `calculate.test.ts` (retirada LPU e Retirada Condomínio em domingo →
+sem acréscimo; retirada em dia útil → valor normal). Em produção, recalcular um período com
+retirada em domingo/feriado e confirmar que o valor **não** foi multiplicado.

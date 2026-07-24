@@ -158,7 +158,7 @@ Claude **nunca** faz push direto em `main` enquanto o projeto estiver em produç
 
 ❌ **Não fazer parsing de planilha fora de `src/lib/etl/`.** Mesma regra: lógica isolada, wrapper Server Action que apenas orquestra.
 
-❌ **Não criar páginas/rotas fora da estrutura de grupos definida** em `src/app/`. Os grupos são `(public)`, `(admin)`, `(manager)`, `(technician)`. Nada fora disso.
+❌ **Não criar páginas/rotas fora da estrutura de grupos definida** em `src/app/`. Os grupos são `(public)`, `(admin)`, `(manager)`, `(technician)` — mais `(dev)`, que existe só para as telas de diagnóstico locais e não recebe funcionalidade de produto. Nada fora disso.
 
 ❌ **Não reinventar primitivos.** Antes de criar um Button, Input, Card, Modal, etc — verifique `src/components/ui/`.
 
@@ -202,6 +202,16 @@ export async function minhaAction(id: string): Promise<void> {
 ```
 Também: `redirect` deve ser importado estaticamente no topo do arquivo (`import { redirect } from 'next/navigation'`), nunca dentro da função.
 
+❌ **Não alterar a ordem de precedência de `buildPayoutUpsert` sem ADR.** A função tem saídas antecipadas (improdutiva por receita → 29,30 → homologação → Venda Produto Externo → cabeamento → LPU) e a ordem **é** a decisão de domínio: homologação precede a LPU porque a finalidade da Unetvale ("Instalação - Fibra") casaria instalação real e pagaria 3x o correto. A ordem está documentada em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md#ordem-de-precedência-do-cálculo) — leia antes de inserir qualquer regra nova.
+
+❌ **Não destravar payouts no recálculo.** `recalculate-batch.ts` pula `approved`, `paid`, `contestado` e qualquer payout com `override_by`. Reprocessar um `contestado` apaga o status enquanto a contestação segue aberta em `payout_contestacoes` — inconsistência silenciosa. Ver [ADR-013](./docs/architecture/ADR-013-aprovacao-contestacao-tecnico.md).
+
+❌ **Não inserir em `notifications` direto.** Notificações que cruzam usuários (técnico ↔ gestores) passam por `src/lib/notifications/notify.ts` (service role, `server-only`), que resolve `users.id` a partir de `technician_id` — são entidades diferentes, e confundi-las faz a notificação sumir sem erro. Ver [ADR-017](./docs/architecture/ADR-017-notificacoes-realtime.md).
+
+❌ **Não assinar canal Realtime sem autenticar a conexão.** Chame `supabase.realtime.setAuth(access_token)` **antes** do `subscribe()` e reaplique em `onAuthStateChange`. Sem isso a conexão é anônima, `auth.uid()` é nulo, a RLS não casa e o Postgres **não entrega os eventos** — sem nenhum erro visível.
+
+❌ **Não mover a coleta do IQI para a Vercel.** A Unetvale bloqueia os IPs de datacenter da Vercel — 100% timeout. A coleta roda no runner do GitHub Actions (`scripts/collect-iqi.ts` + `.github/workflows/iqi-cron.yml`); a Server Action apenas dispara o workflow. Ver [ADR-012](./docs/architecture/ADR-012-iqi-ingestao-scraping.md).
+
 ---
 
 ## 6. Sempre faça
@@ -239,6 +249,11 @@ Também: `redirect` deve ser importado estaticamente no topo do arquivo (`import
 | **Improdutiva** | Visita executada sem sucesso (motivo varia) |
 | **Match engine** | Algoritmo que encontra a regra LPU aplicável a uma visita |
 | **Fechamento** | Consolidação mensal dos payouts pra aprovação e pagamento |
+| **Contestação** | Técnico discorda da pontuação de uma OS; trava o payout e bloqueia a aprovação do fechamento até a Wave resolver |
+| **Conferência** | Etapa em que cada técnico aprova ou contesta o próprio período, entre "Solicitar aprovação" e a aprovação da Wave |
+| **Coluna Z** | `explicacao_valor` da planilha — descreve o serviço real quando a finalidade é ambígua (homologação, pontos adicionais, cabeamento) |
+| **IQI** | Índice de reincidência **calculado pela Unetvale**, raspado e persistido em `iqi_snapshots`; sempre "as-of" a última sincronização |
+| **Pontos (`pts`)** | Como os valores de payout aparecem no painel do técnico (mesmo número, sem símbolo de moeda) |
 
 ---
 
@@ -248,7 +263,12 @@ Também: `redirect` deve ser importado estaticamente no topo do arquivo (`import
 Uma OS pode ter **N visitas**. Cada linha da planilha = uma visita. Chave natural da visita: `(tenant_id, os_num, data_execucao, tecnico_id)`. Detalhes em [`docs/domain/01-os-e-visitas.md`](./docs/domain/01-os-e-visitas.md).
 
 ### Cálculo de payout
-Apenas o técnico da última visita com sucesso recebe o valor de serviço. Improdutivas pagam conforme política do motivo. "Deixado na mesa" só conta motivos categorizados como `falha_tecnico`. Detalhes em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md).
+Apenas o técnico da última visita com sucesso recebe o valor de serviço. Improdutivas pagam conforme política do motivo. "Deixado na mesa" só conta motivos categorizados como `falha_tecnico`.
+
+**A LPU não é o único caminho.** `buildPayoutUpsert` decide por saídas antecipadas — improdutiva por receita da Unetvale, R$ 29,30, homologação (ADR-015), Venda Produto Externo e cabeamento (ADR-009) precedem o motor de LPU; depois incidem pontos adicionais (ADR-016) e o acréscimo de domingo/feriado (ADR-011). A LPU aplicável ainda é resolvida por técnico (ADR-014). A ordem completa está em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md#ordem-de-precedência-do-cálculo) — **leia antes de tocar em qualquer regra financeira**.
+
+### Conferência e contestação do técnico
+Entre "Solicitar aprovação" e a aprovação da Wave, cada técnico aprova ou contesta seu período. Contestação aberta trava o payout (`contestado`) e bloqueia a aprovação do fechamento. Detalhes em [`ADR-013`](./docs/architecture/ADR-013-aprovacao-contestacao-tecnico.md).
 
 ### Multi-tenant
 Resolução por subdomínio em middleware. Toda tabela tem `tenant_id`. RLS por tenant. Detalhes em [`docs/architecture/ADR-002-multi-tenant.md`](./docs/architecture/ADR-002-multi-tenant.md).

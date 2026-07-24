@@ -73,3 +73,28 @@ Ajuste necessário: `contestado` entrou no conjunto **travado** do recálculo
 recalcularia o payout contestado e apagaria o status (a contestação em `payout_contestacoes`
 continuaria aberta, gerando inconsistência). Ao resolver, a Wave volta o payout para `pending`
 (destravado), que volta a reprocessar normalmente.
+
+## Adendo (2026-07-23) — a Wave ajusta o valor ao resolver; o técnico vê antes → depois
+
+Resolver a contestação só com um texto de resposta não fechava o ciclo: quando a Wave concordava
+com o técnico, ainda era preciso ir a `/pagamentos/[id]/override` corrigir o valor à mão, em outra
+tela, sem ligação com a contestação.
+
+**Decisão:** o formulário de resolução (`/fechamento/[periodo]`) ganha um campo opcional de novo
+valor, e a contestação passa a guardar o par antes/depois (`valor_anterior`, `valor_novo` —
+migration 0029; `NULL` nas contestações anteriores a esta mudança).
+
+- **Valor "antes"** = valor **efetivo** no momento da resolução (`valor_override ?? valor_calculado`),
+  não o calculado bruto — é o que o técnico via.
+- **Campo vazio, ou valor igual ao atual** → mantém o valor; grava `valor_anterior = valor_novo`.
+- **Valor diferente** → aplica **override manual** (`valor_override`, `override_by`, `override_at`,
+  `override_motivo` com a resposta), o que também **trava** o payout no recálculo — o ajuste
+  combinado com o técnico não é desfeito por um re-upload posterior.
+- Em ambos os casos o payout volta a `pending`, a revisão do técnico volta a `pendente` (ele
+  confere de novo) e a notificação carrega o delta: "Pontuação: X → Y".
+- O técnico vê a seta antes → depois em `/aprovacoes` e em `/visitas`, **em pontos** (`pts`),
+  seguindo a convenção do painel do técnico. A seta só aparece quando os valores diferem
+  (comparados arredondados).
+
+**Consequência:** ajuste de valor por contestação é sempre um `override`, com autor, hora e motivo
+— a trilha de auditoria do payout e a contestação contam a mesma história.

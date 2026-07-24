@@ -111,10 +111,30 @@ Domínio: `<slug>.tallpa.com.br` (ex: `wave.tallpa.com.br`)
 - Lista de usuários do tenant
 - Cadastro de novos usuários
 
+#### `/produtividade` — Produtividade e IQI (Sprint 15)
+- IQI por técnico e da equipe (índice de reincidência da Unetvale), com tendência mensal
+- Métricas internas de produtividade do período
+- Filtro por técnico · botão "Sincronizar" (dispara a coleta) · data da última sincronização
+
+#### `/regras` — Hub de regras
+Agrupa as telas que definem quanto se paga:
+- `/motivos` — política de motivos de improdutiva
+- `/improdutivas` — fila de aprovação/rejeição das improdutivas
+- `/lpu` — Lista de Preços Unitários
+- `/cabeamento` — classificação de cabeamento/segundo ponto por padrão da coluna Z (ADR-009)
+- `/homologacao` — mapa de repasse de homologação por valor da Unetvale (ADR-015)
+
+#### `/equipe/tecnicos/[id]/deixado-na-mesa` — Drill-down do "deixado na mesa"
+- Lista as visitas que compõem o valor no perfil do técnico, com motivo de cada uma
+
 #### `/configuracoes` — Configurações do tenant
 - Logo, cor primária (futuro)
 - Toggle: "Mostrar valor 'deixado na mesa' no painel do técnico" (boolean)
 - Outras flags de feature
+
+> **Navegação:** a sidebar agrupa as telas em hubs — **Usuários** (`/usuarios` → equipe e
+> técnicos), **Regras** (`/regras`) e **Financeiro** (`/financeiro` → pagamentos, visão geral e
+> fechamento). As rotas individuais acima continuam válidas.
 
 ### Permissões
 - ✅ Tudo dentro do seu tenant
@@ -182,10 +202,30 @@ Domínio: `<slug>.tallpa.com.br` — interface dedicada e mobile-first.
 
 \* "Deixado na mesa" só aparece se `tenant.config.show_money_on_technician_panel = true`. Se desabilitado, mostra apenas quantidade ("52 OSs poderiam ter rendido pagamento").
 
+> **Nota (Sprint 16):** os valores aparecem para o técnico em **pontos** (`pts`) — mesmo número do
+> payout, sem símbolo de moeda. O painel também mostra o banner **"OSs para conferir"** quando a
+> Wave solicita a conferência do período.
+
 #### `/visitas` — Minhas visitas
 - Lista de todas as visitas do mês (e meses anteriores)
 - Cada visita: data, OS, finalidade, sucesso, motivo (se aplicável), payout
 - Filtros por status
+- **Contestar uma OS a qualquer momento** (ADR-013): motivo obrigatório, uma contestação aberta
+  por OS; quando a Wave responde, mostra a resposta e a pontuação antes → depois
+
+#### `/aprovacoes` — Conferência do fechamento (ADR-013)
+- Aparece quando a Wave solicita a conferência do período
+- O técnico **aprova** o período ou **contesta** OSs específicas
+- Valores são exibidos aqui mesmo com `show_money_on_technician_panel = false` — a contestação é
+  sobre valores
+
+#### `/iqi` — Meu IQI (Sprint 15)
+- Tendência do próprio IQI (índice de reincidência da Unetvale) e métricas de produtividade
+- Exibe a data da última sincronização — o dado é "as-of", não tempo real
+- RLS garante que o técnico só lê os próprios snapshots
+
+#### `/minha-equipe` — apenas para técnicos com papel de supervisor
+- Visão da equipe supervisionada
 
 #### `/historico` — Histórico mensal
 - Comparativo dos últimos 6 meses
@@ -200,6 +240,8 @@ Domínio: `<slug>.tallpa.com.br` — interface dedicada e mobile-first.
 
 ### Permissões
 - ✅ Ver suas próprias visitas, payouts, fechamentos
+- ✅ **Aprovar ou contestar** a própria pontuação (ADR-013)
+- ✅ Ver o próprio IQI
 - ✅ Editar dados de perfil próprios
 - ❌ Tudo o mais
 - ❌ **Não vê dados de outros técnicos** (RLS bloqueia)
@@ -216,7 +258,10 @@ Domínio: `<slug>.tallpa.com.br` — interface dedicada e mobile-first.
 | "Deixado na mesa" | ✅ se ativado |
 | Sua taxa de sucesso | ✅ |
 | Ranking entre técnicos | ✅ (anônimo: "1º lugar de 8") |
+| Próprio IQI (reincidência Unetvale) | ✅ |
+| Contestar a própria pontuação | ✅ |
 | Visitas de outros técnicos | ❌ |
+| IQI de outros técnicos | ❌ |
 | Valor recebido da Unetvale | ❌ |
 | Margem da Wave | ❌ |
 | Configurações da LPU | ❌ |

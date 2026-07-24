@@ -142,6 +142,25 @@ case-insensitive — nunca `=== 'Sim'` (CLAUDE.md §6).
 de encoding, todo código que compara strings de visita (finalidade, motivo, resultado) deve
 normalizar antes de comparar — os dados em produção contêm mojibake ("InstalaÁ„o - Fibra - PF").
 
+**R6.6 — Números vindos de planilha também são suspeitos.** O parser lê o xlsx com `raw: false`,
+então **todo valor chega como string em locale que não controlamos**. Use sempre `parseBrNumber`
+(`src/lib/etl/number.ts`), nunca `Number()` direto.
+*Caso real (14/07): valores inflados ×100 em produção — "24100.10" (US) virava 2410010 porque o
+ponto era tratado como separador de milhar. Exigiu re-upload do período; não há backfill possível.*
+
+**R6.7 — Regra financeira nova exige ler a ordem de precedência antes.**
+`buildPayoutUpsert` decide por saídas antecipadas; inserir uma condição no lugar errado muda
+silenciosamente o valor de famílias inteiras de OS. Fonte de verdade:
+[`docs/domain/03-payout.md`](../domain/03-payout.md#ordem-de-precedência-do-cálculo).
+*Caso real (22/07): homologações pagando como instalação real (3x o correto) porque a finalidade
+da Unetvale é a mesma — só a coluna Z distingue.*
+
+**R6.8 — Ausência de erro não é prova de entrega.** Dois modos de falha silenciosa já
+custaram sessões neste projeto: PostgREST devolvendo vazio em coluna com nome errado, e o
+Supabase Realtime **não entregando eventos** quando a conexão não é autenticada
+(`realtime.setAuth` antes do `subscribe`) — a RLS simplesmente não casa, sem erro.
+Ao integrar qualquer canal novo, prove a entrega com um evento real, não com "não deu erro".
+
 ---
 
 ## Checklist rápido (colar no início de cada sessão de sprint)

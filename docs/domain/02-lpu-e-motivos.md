@@ -198,6 +198,17 @@ Após classificação manual, sistema oferece "Recalcular payouts afetados".
 
 ## Cálculo final de payout por visita
 
+> **Este pseudocódigo descreve apenas o caminho da LPU** (`calculatePayout`, o motor de regras).
+> Ele **não é** o cálculo completo do payout: várias famílias de serviço são resolvidas **antes**
+> de chegar aqui — improdutiva por receita da Unetvale, R$ 29,30, homologação, Venda Produto
+> Externo e cabeamento — e, depois, incidem pontos adicionais e o acréscimo de domingo/feriado.
+> A visão completa está em
+> [`03-payout.md` → Ordem de precedência](./03-payout.md#ordem-de-precedência-do-cálculo).
+>
+> Além disso, **qual LPU** entra aqui depende do técnico: quem estiver vinculado a uma tabela
+> alternativa (ex.: "SEM AUXILIAR") casa as regras dela —
+> [ADR-014](../architecture/ADR-014-lpu-por-tecnico.md).
+
 Pseudocódigo:
 
 ```python

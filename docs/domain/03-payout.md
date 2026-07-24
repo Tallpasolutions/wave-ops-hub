@@ -88,7 +88,7 @@ Lateral a qualquer estado (exceto approved/paid):
 | `pending_classification` | Motivo não classificado ainda | Gestor classifica em /motivos → recálculo automático |
 | `conflict` | Múltiplas regras com mesma prioridade casaram | Gestor ajusta prioridades em /lpu → recálculo |
 | `override` | Gestor alterou valor manualmente | Segue fluxo normal para aprovação |
-| `contestado` | (Fase 2) Técnico contestou | Gestor revisa — não implementado no MVP |
+| `contestado` | Técnico contestou o valor (ADR-013) | Wave resolve em `/fechamento/[periodo]` → volta para `pending` |
 
 ### Override manual
 
@@ -100,6 +100,43 @@ Gestor pode editar o valor de um payout antes da aprovação. Ao fazer isso:
 - `valor_calculado` é preservado para auditoria
 
 O valor **efetivo** sempre é: `COALESCE(valor_override, valor_calculado)`.
+
+---
+
+## Ordem de precedência do cálculo
+
+`buildPayoutUpsert` (`src/lib/payouts/calculate.ts`) é uma função pura com **saídas antecipadas**:
+a primeira condição que casa decide o payout. A ordem abaixo é a decisão de domínio — não um
+detalhe de implementação. Mudá-la muda o valor pago.
+
+| # | Condição | Resultado | Origem |
+|---|---|---|---|
+| 0 | Payout travado (`approved`/`paid`/`contestado`/`override_by`) | **Não recalcula** (nem chega aqui) | Invariante Sprint 4 + ADR-013 |
+| 1 | Sem sucesso **e** Unetvale = R$ 15,98 **e** técnico mapeado | R$ 15,00, já `approved`, fora da fila | Improdutiva padrão |
+| 2 | Sem sucesso **e** Unetvale = R$ 0,00 | R$ 0,00, fora da fila, preserva "deixado na mesa" | Improdutiva sem reembolso |
+| 3 | Com sucesso **e** Unetvale = R$ 29,30 | R$ 0,00 (roteador agregado — não paga) | [ADR-016](../architecture/ADR-016-ajustes-coluna-z.md) |
+| 4 | Com sucesso **e** coluna Z começa com "Homologa…" | Repasse fixo pelo mapa de homologação; valor não cadastrado → `no_rule_match` | [ADR-015](../architecture/ADR-015-homologacao-repasse.md) |
+| 5 | Com sucesso **e** finalidade = "Venda Produto Externo" | Valor-base pela coluna Z; não reconhecido → `no_rule_match` | ADR-016 |
+| 6 | Com sucesso **e** finalidade do grupo Cabeamento/Condomínio | Valor da **classificação do gestor** (`/cabeamento`); sem classificação → `no_rule_match` | [ADR-009](../architecture/ADR-009-cabeamento-classificacao.md) |
+| 7 | Demais casos | **Motor de LPU** (match engine) + política do motivo | [ADR-004](../architecture/ADR-004-lpu-rule-engine.md) |
+
+Sobre o valor-base resolvido acima incidem, nesta ordem, dois modificadores:
+
+1. **Ponto adicional** (coluna Z, `(+73 * N ponto(s) adicional(is))`): `+R$ 36 por ponto`, aplicado
+   nos caminhos 5, 6 e 7. **Homologação (4) não passa por aqui** — o repasse com ponto já vem do
+   próprio mapa. Improdutiva não tem ponto na coluna Z. — ADR-016
+2. **Acréscimo de domingo/feriado**: `× 1,15` sobre base + ponto, **apenas em execução com
+   sucesso**, nos caminhos 4, 5, 6 e 7. Improdutiva nunca recebe. —
+   [ADR-011](../architecture/ADR-011-acrescimo-domingo-feriado.md)
+
+E, transversalmente, a **LPU aplicável é resolvida por técnico**: um técnico vinculado a uma LPU
+alternativa (ex.: "SEM AUXILIAR") casa as regras daquela tabela, não da padrão —
+[ADR-014](../architecture/ADR-014-lpu-por-tecnico.md).
+
+> **Por que homologação, coluna Z e cabeamento precedem a LPU:** a finalidade da Unetvale não
+> descreve o serviço real nesses casos. Uma homologação chega com finalidade "Instalação - Fibra"
+> e casaria a regra de instalação real, pagando 120/135 em vez do repasse de 35. O que distingue
+> está na coluna Z (`explicacao_valor`), por isso ela é consultada **antes** do motor de LPU.
 
 ---
 
@@ -138,6 +175,9 @@ A função `recalculatePendingPayouts` (`src/lib/payouts/recalculate-batch.ts`):
 
 **Invariante crítica:** Recálculo NUNCA reprocessa payouts travados — preserva **status E valor**:
 - `status IN ('approved', 'paid')`: fechados/pagos, travados para preservar histórico financeiro.
+- `status = 'contestado'`: contestação aberta do técnico (ADR-013). Reprocessar apagaria o status
+  enquanto a contestação continuaria aberta em `payout_contestacoes` — inconsistência. Ao resolver,
+  a Wave devolve o payout para `pending` (destravado) e ele volta a reprocessar normalmente.
 - `override_by` preenchido: **override/rejeição manual do gestor**. Reprocessar sobrescreveria o status — ex.: uma improdutiva rejeitada, ao ser reprocessada pela LPU, viraria `no_rule_match` e **travaria o fechamento**, mesmo com `valor_override` mantendo R$ 0. Os fluxos de **desfazer** e **reabertura** limpam `override_by` ANTES de recalcular, então continuam reprocessando normalmente.
 
 Para forçar recálculo de aprovado, gestor precisa primeiro **reabrir o fechamento** (ação auditada com motivo obrigatório de 20 chars).
@@ -184,6 +224,8 @@ CREATE TABLE monthly_closings (
    aberto (recebendo visitas/payouts)
           ↓
    aguardando_aprovacao (gestor clicou "Solicitar fechamento")
+          │   ← conferência dos técnicos (ADR-013): cada técnico aprova ou contesta
+          │     seu período em /aprovacoes; contestação aberta BLOQUEIA o passo seguinte
           ↓
    aprovado (gestor aprovou)
           ↓
@@ -191,6 +233,23 @@ CREATE TABLE monthly_closings (
 ```
 
 **reaberto** é um estado especial: gestor pode reabrir um fechamento aprovado se descobriu erro. Ação auditada com motivo obrigatório.
+
+### Conferência do técnico (ADR-013)
+
+`aguardando_aprovacao` significa "aguardando conferência dos técnicos". O estado por técnico fica
+em `closing_technician_reviews` (`pendente` | `aprovado` | `contestado`), criado/resetado no
+"Solicitar aprovação", que também notifica cada técnico.
+
+- O técnico **aprova** o período ou **contesta** OSs específicas com motivo. Contestar também é
+  possível fora da janela de fechamento, direto de `/visitas` (contestação contínua) — nesse caso
+  a revisão do período ainda não existe e a atualização é no-op.
+- Cada contestação aberta põe o payout em `contestado` (travado) e aparece agrupada por técnico em
+  `/fechamento/[periodo]`.
+- A Wave **resolve** com uma resposta e, opcionalmente, um novo valor: o payout volta a `pending`
+  (com `override` se houve ajuste), a revisão do técnico volta a `pendente` e ele reconfere,
+  vendo a pontuação antes → depois.
+- **Aprovar pagamento fica bloqueado enquanto houver contestação aberta** no período. Revisões
+  `pendente` (técnico que não respondeu) geram alerta visual, mas não travam.
 
 ### Quando virar "aguardando_aprovacao"
 

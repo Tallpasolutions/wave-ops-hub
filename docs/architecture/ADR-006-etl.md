@@ -419,6 +419,33 @@ Quando a Unetvale paga a Wave por um serviço mas o técnico **não** recebe (ex
 
 ---
 
+## Adendos (2026-07-14 — parse de valor monetário sensível a locale)
+
+### Bug de produção: valores inflados ×100
+
+O parser lê o xlsx com `raw: false` (`src/lib/etl/parser.ts`), então **todo valor chega como
+string já formatada pelo SheetJS — que formata em locale US**: vírgula = milhar, ponto = decimal.
+A versão anterior de `parseBrNumber` assumia pt-BR e tratava todo ponto como separador de milhar,
+removendo-o: `"24100.10"` virava **2410010** — cem vezes o valor real, silenciosamente.
+
+**Decisão:** `src/lib/etl/number.ts` passa a **detectar o separador decimal pelo último símbolo**
+presente na string:
+
+- BR `"24.100,10"` → a vírgula vem por último → decimal = `,` → `24100.10`
+- US `"24,100.10"` → o ponto vem por último → decimal = `.` → `24100.10`
+- Só ponto: desambigua por contagem de dígitos (exatamente 3 após o ponto = milhar), preservando
+  `"1.000"` → `1000` do comportamento pt-BR.
+
+**Consequência operacional:** a correção vale na ingestão. **Visitas ingeridas antes da correção
+mantêm o valor errado no banco** — exigem re-upload da planilha do período (julho/2026 foi o mês
+afetado). Não há migration de backfill: o valor correto só existe na planilha de origem.
+
+**Lição para o futuro:** com `raw: false`, nenhum número da planilha é número — todos são strings
+em locale que não controlamos. Qualquer campo numérico novo passa por `parseBrNumber`, nunca por
+`Number()` direto.
+
+---
+
 ## Considerados e rejeitados
 
 ### Edge Function como gatilho automático no upload do Storage

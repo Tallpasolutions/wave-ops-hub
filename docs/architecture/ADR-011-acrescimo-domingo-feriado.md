@@ -1,6 +1,6 @@
 # ADR-011 — Acréscimo de 15% em domingos e feriados no payout
 
-**Status:** Proposto (aguardando validação Gemini — CLAUDE.md §11)
+**Status:** Aceito (código em produção; ativação de config pendente — ver "Estado da implementação" no fim)
 **Data:** 2026-07-04
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** Roadmap Sprint 16. A LPU da Wave tem a regra "Execução de serviços aos domingos e
@@ -88,6 +88,49 @@ gestor e semeada por migration/SQL.
 
 **DoD:** payout de execução com sucesso em domingo/feriado = valor × 1,15, verificado em produção;
 improdutivas inalteradas.
+
+---
+
+## Estado da implementação (revisado em 2026-07-24)
+
+**Código em produção; config NÃO aplicada — a regra está inerte.** O helper
+`src/lib/payouts/feriado.ts` e o multiplicador em `buildPayoutUpsert` estão deployados e
+corretos, e o `recalculate-batch` carrega a config do tenant e a passa ao cálculo. Porém a
+**migration 0016 nunca foi executada em produção**: a query abaixo retornou `null` nos três
+campos em 24/07/2026.
+
+```sql
+SELECT
+  config -> 'feriado_acrescimo_pct' AS pct,
+  jsonb_typeof(config -> 'feriado_acrescimo_pct') AS tipo_pct,
+  config -> 'feriados' AS feriados
+FROM tenants WHERE slug = 'wave';
+-- retornou: null | null | null
+```
+
+Consequência: como `feriado_acrescimo_pct` não é número, o código faz o `pct` cair para **0**
+(`recalculate-batch.ts`), e `valor × (1 + 0/100) = valor` — **nenhuma OS recebe o acréscimo,
+nem em domingo**. Domingo não depende da lista de feriados (é detectado pela data), mas depende
+do percentual estar gravado.
+
+**Para ativar (ordem importa):**
+
+1. Subir a exceção da retirada (adendo abaixo) — senão retirada em domingo paga +15% indevido.
+2. Gravar o percentual (o que a 0016 faz):
+   ```sql
+   UPDATE tenants
+   SET config = jsonb_set(config, '{feriado_acrescimo_pct}', '15'::jsonb, true)
+   WHERE slug = 'wave';
+   ```
+3. Recalcular pendentes em `/pagamentos` — só então os payouts de domingo pegam o +15%.
+
+O acréscimo incide sobre o valor **já com** o ponto adicional da coluna Z
+([ADR-016](./ADR-016-ajustes-coluna-z.md)) e vale para os caminhos de LPU, classificação de
+cabeamento (ADR-009), homologação (ADR-015) e Venda Produto Externo — nunca para improdutiva
+nem para retirada.
+
+**Feriados:** `config.feriados` continua a semear numa migration futura (datas nacionais + SC +
+Unetvale, a fornecer pelo gestor). Até lá, apenas domingos recebem — o sistema não inventa feriado.
 
 ---
 

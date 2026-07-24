@@ -133,6 +133,54 @@
 **Esforço estimado:** Resolvido (XS).
 **Quando idealmente resolver:** Já resolvido em Sprint 6, Etapa 4.
 
+### 016 — Dashboard do gestor busca visitas do mês sem paginação (corte de 1000 do PostgREST)
+**Identificado em:** 2026-07-03 · **reconfirmado em 2026-07-24** (segue em aberto)
+**Onde:** `src/app/(manager)/dashboard/page.tsx` — query de `service_visits` do período, sem `range()`
+**Por quê:** ficou para a paginação da Sprint 13, que cobriu `/oss`, `/pagamentos` e financeiro
+(via `fetchAllPages` em `src/lib/supabase/fetch-all.ts`), mas **não** o dashboard.
+**Impacto se não resolver:** o PostgREST corta em 1000 linhas **em silêncio** — sem erro. Em um mês
+com mais de 1000 visitas, todos os painéis do dashboard (KPIs, gráficos, ranking, distribuição
+geográfica) passam a mostrar números menores que a realidade, e o gestor não tem como perceber.
+Junho tinha ~602 visitas; o volume só cresce, então isso vira bug de dado silencioso, não "se".
+**Esforço estimado:** XS — trocar a query por `fetchAllPages`, como já feito nas outras telas.
+**Quando idealmente resolver:** próxima sprint. É o item de maior risco/menor esforço da lista.
+
+### 017 — Ajuda in-app (`/ajuda`) não cobre as telas das Sprints 15–16
+**Identificado em:** Sprint 16 (revisão documental de 24/07)
+**Onde:** `src/app/(manager)/ajuda/*` — seis guias (primeiros passos, upload, LPU, motivos,
+fechamento, portal do técnico) + FAQ, escritos à mão em TSX
+**Por quê:** as telas novas entraram sob pressão do fechamento de julho; a ajuda ficou para depois.
+Faltam: Produtividade/IQI, Homologação, Cabeamento, e a conferência/contestação do técnico —
+esta última é a mais sensível, porque é fluxo **novo para o técnico**, que não tem canal de ajuda.
+**Nota:** o conteúdo de `/ajuda` **duplica** `docs/user-guide/` em TSX (não é gerado do markdown).
+Os dois precisam ser atualizados juntos, ou a duplicação vira divergência.
+**Impacto se não resolver:** técnico e gestor descobrem os fluxos novos por tentativa e erro, e o
+suporte volta para o gestor via WhatsApp.
+**Esforço estimado:** S (copy) — M se for eliminar a duplicação renderizando o markdown.
+**Quando idealmente resolver:** junto do onboarding da Wave (candidato a Sprint 17).
+
+### 018 — Valores financeiros fixos no código (exigem deploy para mudar)
+**Identificado em:** Sprint 16
+**Onde:** `src/lib/payouts/calculate.ts` — `PAYOUT_IMPRODUTIVA_PADRAO = 15,00`,
+`UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598`, `UNETVALE_NAO_PAGA_CENTAVOS = 2930`,
+`PONTO_ADICIONAL_VALOR = 36`
+**Por quê:** vieram de decisões pontuais (ADR-016 e a regra de improdutiva) validadas contra a
+planilha da Wave. Tornar configurável por tenant custaria UI + migration + ADR, sem demanda ainda.
+**Impacto se não resolver:** qualquer reajuste da Unetvale (ou um segundo tenant com outros
+valores) vira mudança de código + deploy, em vez de configuração. Com um tenant só, é aceitável.
+**Esforço estimado:** M — mover para `tenants.config` com fallback nas constantes atuais.
+**Quando idealmente resolver:** quando a Unetvale reajustar, ou no onboarding do segundo tenant.
+
+### 019 — `tallpa_owner` recebe notificações de todos os tenants
+**Identificado em:** Sprint 16 (ADR-017)
+**Onde:** `src/lib/notifications/notify.ts` — `notifyManagers`
+**Por quê:** o operador Tallpa acompanha a operação junto com a Wave e precisava ver as
+contestações; a consulta por tenant nunca o incluía (ele não tem `tenant_id`).
+**Impacto se não resolver:** com um tenant é o comportamento desejado. Com Scooby como segundo
+tenant, a sineta do Tallpa vira ruído — notificação de todos os tenants misturada.
+**Esforço estimado:** S — filtro por tenant de interesse, ou agrupamento por tenant na sineta.
+**Quando idealmente resolver:** antes do segundo tenant entrar.
+
 ### Template
 
 ```
@@ -151,17 +199,20 @@
 
 _(mover para cá quando resolvido, com link pro PR/commit)_
 
-## 2026-07-03 — Query mensal do dashboard sem paginação (corte de 1000 do PostgREST)
-
-`src/app/(manager)/dashboard/page.tsx` busca as visitas do mês sem `range()`/paginação —
-o PostgREST corta em 1000 linhas em silêncio. Junho tem ~602 visitas, mas meses maiores
-vão estourar. Corrigir com `fetchAllPages` (`src/lib/supabase/fetch-all.ts`), como já
-feito em financeiro/fechamento. Encaixa na paginação da Sprint 13.
+> **Correção de registro (24/07/2026):** o item "Query mensal do dashboard sem paginação" estava
+> listado abaixo como resolvido, mas **não foi corrigido** — a query continua sem `range()`.
+> Foi promovido para **[016](#016--dashboard-do-gestor-busca-visitas-do-mês-sem-paginação-corte-de-1000-do-postgrest)**,
+> em "Itens em aberto".
 
 ## 2026-07-04 — Feedback de QA do gestor (Sprint 13): dashboard e interatividade
 
 Anotado a partir do teste do usuário em produção, pós-Sprint 13. Candidatos a uma
 **Sprint de Dashboard & Interatividade** (ver 00-roadmap.md).
+
+**Situação (24/07/2026): D1, D2 e D3 foram entregues e verificados em produção em 04/07** — a
+"frente B" do roadmap (cards responsivos, copy revisada e drill-down interativo via
+[ADR-010](./architecture/ADR-010-dashboard-drilldown.md)). D4 também. O bloco fica aqui como
+histórico do feedback.
 
 ### D1 — Números estourando a largura do card (dashboard)
 Com 7 cards na faixa de KPIs (`grid xl:grid-cols-7`), valores grandes (ex.: "R$ 59.408,36")

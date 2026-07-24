@@ -1,14 +1,15 @@
-# Sprint (proposta) — IQI e Gestão de Produtividade
+# Sprint 15 — IQI e Gestão de Produtividade
 
 **Origem:** Demanda do gestor 19/07/2026 — trazer o IQI da Unetvale para o sistema, numa visão
 gerencial de produtividade de equipes, e também no app do técnico (visão individual).
-**Status:** Proposta · pendente de validação (Gemini) e de posicionamento no roadmap
-**Depende de:** [ADR-012](../architecture/ADR-012-iqi-ingestao-scraping.md)
+**Status:** ✅ **Concluída (2026-07-22)** — Fases A, B e C entregues e em produção. Ver
+"Estado final" no fim do documento.
+**Depende de:** [ADR-012](../architecture/ADR-012-iqi-ingestao-scraping.md) — hoje **Aceito**
 **Regras de execução:** [`regras-de-execucao.md`](./regras-de-execucao.md)
 
-> **Nota de numeração:** o roadmap já reserva "Sprint 15" (LPU Phase 2) e 16–19 para outros
-> temas. Esta é uma demanda **nova**, ainda sem slot. O número final da sprint fica a critério
-> do gestor ao posicionar no roadmap.
+> **Nota de numeração (resolvida em 24/07):** esta demanda nasceu sem slot no roadmap. Ficou como
+> **Sprint 15**; os temas antes reservados para 15–19 foram repriorizados no
+> [roadmap](./00-roadmap.md#roadmap-pós-estabilização).
 
 ---
 
@@ -99,3 +100,35 @@ da última sincronização; nenhum dado de outro técnico é acessível.
 - Tela gerencial de produtividade no ar (IQI + métricas internas), com filtros.
 - App do técnico exibindo IQI + produtividade individual, respeitando RLS.
 - Migration numerada aplicada; testes do parser passando; ADR-012 movido para "Aceito".
+
+---
+
+## Estado final (2026-07-22) — DoD fechado
+
+Todas as fases foram implementadas, mergeadas e estão em produção. ADR-012 está **Aceito**.
+
+| Fase | Entrega | Onde |
+|---|---|---|
+| A | Coletor + persistência (`iqi_snapshots`, RLS por tenant/técnico) | `src/lib/iqi/`, migration `0020_iqi_snapshots.sql` |
+| A | Seed de `technicians.codigo_unetvale` + correção do prefixo | migrations `0021`, `0024` |
+| A | Agendamento 2x/dia (08:00 e 20:00 BRT) | `.github/workflows/iqi-cron.yml` |
+| B | Tela gerencial `/produtividade` (tendência de IQI, tabela por técnico, botão Sincronizar, filtro por técnico) | `src/app/(manager)/produtividade/` |
+| C | `/iqi` no app do técnico (só o próprio, com `synced_at`) | `src/app/(technician)/iqi/` |
+| — | Análise pura + testes (`buildIqiTrend`, `iqiByTecnico`, `teamIqi`, `iqiLevel`/`iqiTone`) | `src/lib/iqi/analytics.ts`, `tone.ts`, `__tests__/` |
+
+### Desvios do plano original (e por quê)
+
+1. **A coleta não roda mais na Vercel.** A Unetvale bloqueia os IPs de datacenter da Vercel:
+   100% das requisições estouravam o timeout, o cron dava 504 e o botão "Sincronizar" girava sem
+   fim. A coleta passou a rodar **no runner do GitHub Actions** (`scripts/collect-iqi.ts`,
+   gravando com service role) e o botão apenas **dispara** o workflow via `workflow_dispatch` —
+   a sincronização é assíncrona e a tela reflete no load seguinte. A route `/api/cron/iqi` foi
+   removida. Detalhes e envs novos (`GITHUB_DISPATCH_TOKEN`) no adendo do ADR-012.
+2. **Timeout por requisição e coleta paralela** foram necessários antes disso: uma única
+   requisição pendurada travava a sincronização inteira.
+3. **Filtro por técnico** em `/produtividade` entrou como ajuste de uso já na mesma sprint.
+
+### Fora do escopo (mantido)
+
+- Cálculo interno do IQI / conciliação híbrida (opção A rejeitada no ADR-012).
+- Notificações/alertas de IQI ruim.

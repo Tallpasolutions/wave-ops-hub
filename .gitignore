@@ -52,3 +52,14 @@ drizzle/
 # Local artifacts
 *.local
 .cache/
+
+# TWA / APK (Bubblewrap) — keystore e senhas NUNCA no git; só o twa-manifest.json é versionado
+twa/*.keystore
+twa/*.jks
+twa/android.keystore
+twa/*.apk
+twa/*.aab
+twa/app/
+twa/*.keystore.pw
+twa/store_icon.png
+twa/assetlinks.json

@@ -48,6 +48,7 @@
     "recharts": "^2.0.0",
     "server-only": "^0.0.1",
     "tailwind-merge": "latest",
+    "web-push": "^3.6.7",
     "xlsx": "latest",
     "zod": "^3.25.76"
   },
@@ -56,6 +57,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/web-push": "^3.6.4",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitejs/plugin-react": "latest",

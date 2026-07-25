@@ -6,7 +6,7 @@
 //   - assets estáticos versionados (_next/static, /icons, /brands): cache-first;
 //   - todo o resto (Supabase, Server Actions, POST): passa direto, sem cache.
 
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const SHELL_CACHE = `wave-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `wave-assets-${CACHE_VERSION}`
 
@@ -76,4 +76,43 @@ self.addEventListener('fetch', (event) => {
       }),
     )
   }
+})
+
+// --- Web Push (ADR-018): entrega com o app fechado. ---
+
+// Payload esperado: { title, body?, link? } (JSON). Fallback defensivo caso venha vazio.
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { title: 'Wave Ops', body: event.data ? event.data.text() : '' }
+  }
+  const title = data.title || 'Wave Ops'
+  const options = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { link: data.link || '/' },
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// Ao clicar: foca uma aba já aberta do app (navegando para o link) ou abre uma nova.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const link = (event.notification.data && event.notification.data.link) || '/'
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if ('focus' in client) {
+            client.navigate(link)
+            return client.focus()
+          }
+        }
+        return self.clients.openWindow(link)
+      }),
+  )
 })

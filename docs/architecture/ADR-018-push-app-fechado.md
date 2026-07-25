@@ -1,6 +1,6 @@
 # ADR-018 — Notificação push com o app fechado (Web Push + VAPID)
 
-**Status:** Proposto
+**Status:** Aceito
 **Data:** 2026-07-24
 **Decisores:** Jhoni Cleyton (Tallpa)
 **Origem:** A PWA do técnico (Fase 1, branch `chore/pwa-tecnico`) tornou a área do técnico

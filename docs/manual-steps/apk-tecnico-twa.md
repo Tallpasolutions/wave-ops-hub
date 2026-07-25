@@ -21,7 +21,7 @@ O resultado das duas é o mesmo: um `.apk` assinado + o `assetlinks.json` para p
 
 | Campo | Valor |
 |---|---|
-| `packageId` (applicationId) | `br.com.tallpa.waveops` |
+| `packageId` (applicationId) | `br.com.tallpa.wave.twa` |
 | Host | `wave.tallpa.com.br` |
 | Nome / launcher | `Wave Ops` |
 | Cores (tema/fundo) | `#050814` |
@@ -40,7 +40,7 @@ O resultado das duas é o mesmo: um `.apk` assinado + o `assetlinks.json` para p
 2. PWABuilder valida a PWA (manifest, service worker, ícones — já devem passar).
 3. Clique em **Package for stores → Android**.
 4. Em opções do Android:
-   - **Package ID:** `br.com.tallpa.waveops`
+   - **Package ID:** `br.com.tallpa.wave.twa`
    - **App name:** `Wave Ops`
    - Mantenha **"Include source code"** marcado (útil para rebuilds).
    - Deixe o PWABuilder **gerar uma nova signing key** e **guarde o `.keystore` e as

@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "br.com.tallpa.waveops",
+      "package_name": "br.com.tallpa.wave.twa",
       "sha256_cert_fingerprints": [
         "CF:32:99:A3:0A:F5:69:3C:91:89:29:97:C9:11:2B:65:AC:F0:79:2B:A8:4F:8C:55:DA:CA:09:71:49:E4:4A:A7"
       ]

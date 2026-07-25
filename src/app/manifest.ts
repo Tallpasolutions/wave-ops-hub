@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 // Manifest da PWA do técnico. Servido em /manifest.webmanifest.
 // Cores vêm dos tokens da identidade visual (docs/visual-identity/tokens.md):
-// --bg #050814 (fundo/splash), gradiente cyan→blue na marca.
-// Ícones são placeholders da marca Wave — trocar quando a logo oficial chegar
-// (ver public/brands/wave/README.md).
+// --bg #050814 (fundo/splash).
+// Ícones derivados do logo oficial Wave Co. (onda + "WAVE CO." sobre branco),
+// extraídos de public/brands/wave/logo-source.jpeg.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Wave Ops Hub',

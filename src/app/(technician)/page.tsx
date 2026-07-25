@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
+import { EnablePushCard } from './_components/EnablePushCard'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
@@ -184,6 +185,9 @@ export default async function TechnicianHomePage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-6">
+      {/* Ativação de Web Push (ADR-018) — só aparece se suportado e permissão pendente */}
+      <EnablePushCard />
+
       {/* Banner de conferência de fechamento (Sprint 18) */}
       {pendingReview && (
         <Link

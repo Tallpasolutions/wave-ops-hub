@@ -13,6 +13,7 @@ export * from "./lpu-rules";
 export * from "./monthly-closings";
 export * from "./payouts";
 export * from "./notifications";
+export * from "./push-subscriptions";
 export * from "./supervisor-technicians";
 export * from "./cabeamento-classifications";
 export * from "./homologacao-classifications";

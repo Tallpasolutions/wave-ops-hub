@@ -116,7 +116,10 @@ export function NotificationBell({ notifications, userId }: Props) {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-40 w-80 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg-1)] shadow-xl">
+          {/* Mobile: fixo à viewport (a sineta não fica na borda da tela, então
+              ancorar por right-0 jogava o painel para fora à esquerda). sm+: volta
+              a ancorar na sineta. */}
+          <div className="fixed left-3 right-3 top-16 z-40 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg-1)] shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-80">
             <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
               <span className="font-display text-[13px] font-semibold text-[var(--text)]">
                 Notificações

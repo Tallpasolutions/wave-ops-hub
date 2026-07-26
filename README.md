@@ -154,19 +154,16 @@ wave-ops-hub/
 
 ## Status atual
 
-🟡 **Sprint 6 em andamento** — Polish, ajustes de UX, testes E2E e preparação para deploy em produção.
+🟢 **Em produção** desde 2026-06-05 (`wave.tallpa.com.br`). Última entrega: **Sprint 17 — App do
+técnico** (PWA instalável + APK Android por sideload + notificação push com o app fechado).
 
-| Sprint | Status | Entrega |
-|--------|--------|---------|
-| 0 — Setup | ✅ Concluída | Stack, identidade visual, schema |
-| 1 — Auth + Multi-tenant | ✅ Concluída | Login, roles, subdomain routing, RLS |
-| 2 — ETL | ✅ Concluída | Upload de planilha, ingestor, deduplicação, auditoria |
-| 3 — LPU + Motivos | ✅ Concluída | Motor de regras, simulação de LPU |
-| 4 — Payouts | ✅ Concluída | Cálculo automático, override, fechamento, exports |
-| 5 — Portais | ✅ Concluída | Dashboard manager, portal técnico, financeiro, skeletons |
-| 6 — Polish | 🟡 Em andamento | Testes E2E, Lighthouse, deploy `wave.tallpa.com.br` |
+Marcos principais já entregues:
 
-Veja o roadmap completo em [`docs/sprints/00-roadmap.md`](./docs/sprints/00-roadmap.md).
+- **Sprints 0–5** — stack, auth multi-tenant, ETL de planilha, motor de LPU, payouts/fechamento, os três portais.
+- **Sprints 6–16** — estabilização, dados confiáveis, IQI + produtividade, precisão do payout e ciclo de conferência/contestação do técnico, notificações in-app em tempo real.
+- **Sprint 17** — [App do técnico](./docs/sprints/18-sprint-17-app-tecnico.md): PWA (`manifest.ts` + `public/sw.js`), Web Push/VAPID ([ADR-018](./docs/architecture/ADR-018-push-app-fechado.md), `src/lib/push/`) e APK via TWA ([runbook](./docs/manual-steps/apk-tecnico-twa.md)).
+
+Veja o roadmap completo e o histórico sprint a sprint em [`docs/sprints/`](./docs/sprints/).
 
 ---
 

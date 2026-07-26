@@ -76,3 +76,9 @@ onde a unidade de trabalho da Wave é o técnico, não a OS solta.
   **e** ter o token setado no client. Documentado aqui para não se repetir o diagnóstico.
 - Adicionar `tallpa_owner` significa que o operador Tallpa recebe notificação de **todos** os
   tenants. Com um tenant é o desejado; com vários, revisar (possível filtro por tenant favorito).
+
+## Ver também
+
+A entrega ao vivo aqui só funciona com o app **aberto** (WebSocket ativo). A notificação com o app
+**fechado** (Web Push) é o [ADR-018](./ADR-018-push-app-fechado.md), que sai do mesmo `notify.ts`
+logo após o insert — este ADR segue sendo o ponto único de escrita de notificação.

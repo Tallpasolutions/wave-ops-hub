@@ -165,9 +165,25 @@ Ver [ADR-008](./architecture/ADR-008-exclusao-finalidades-infra.md).
 
 ### Notificação
 Aviso in-app na sineta, por usuário (`notifications`, RLS `notif_own`). Entregue **em tempo real**
-via Supabase Realtime. Notificações que cruzam usuários (técnico ↔ gestores) são escritas pelo
-service role em `src/lib/notifications/notify.ts` — nunca inserir em `notifications` direto.
-Ver [ADR-017](./architecture/ADR-017-notificacoes-realtime.md).
+via Supabase Realtime (com o app aberto) e por **Web Push** (com o app fechado). Notificações que
+cruzam usuários (técnico ↔ gestores) são escritas pelo service role em
+`src/lib/notifications/notify.ts` — nunca inserir em `notifications` direto. O push sai do mesmo
+`notify.ts`, logo após o insert. Ver [ADR-017](./architecture/ADR-017-notificacoes-realtime.md)
+(realtime) e [ADR-018](./architecture/ADR-018-push-app-fechado.md) (push).
+
+### App do técnico (PWA / TWA)
+A área do técnico é uma **PWA** instalável (manifest em `src/app/manifest.ts`, service worker em
+`public/sw.js`, ícones em `public/icons/`) e também é distribuída como **APK Android** por sideload,
+empacotada como **TWA** (Trusted Web Activity) — uma casca que abre `wave.tallpa.com.br` em tela
+cheia. Não é app nativo: é o mesmo Next.js no ar. O `packageId` do APK é `br.com.tallpa.wave.twa`
+e o vínculo app↔domínio é o `assetlinks.json` em `public/.well-known/`. Runbook do build em
+[`docs/manual-steps/apk-tecnico-twa.md`](./manual-steps/apk-tecnico-twa.md).
+
+### Web Push / VAPID
+Canal de notificação do navegador que entrega mesmo com o app fechado, pelo push service do Chrome
+para o service worker. Assinatura por dispositivo em `push_subscriptions` (RLS `push_own`); envio
+server-side em `src/lib/push/send.ts` com chaves **VAPID** (não usa Firebase/FCM). Ver
+[ADR-018](./architecture/ADR-018-push-app-fechado.md).
 
 ### Content hash
 Hash SHA-256 dos campos relevantes de uma visita. Usado para detectar mudanças entre uploads. Se uma visita já existe e o hash mudou, é considerada **alterada** e gera entrada de auditoria.

@@ -258,7 +258,8 @@ do escopo.
 | Feriados + Políticas | ⚠️ **Código pronto desde 04/07** (ADR-011: +15% em domingo/feriado, `tenants.config.feriados`, migration 0016). **Falta apenas o gestor fornecer a lista de feriados** (SC/Unetvale). Até lá, só domingos recebem o acréscimo |
 | Wave Onboarding completo | ⏳ **Em aberto** — usuários reais e rotina mensal de planilha + fechamento assistido. É o candidato natural a próxima sprint, agora que o valor do payout está correto e o técnico confere |
 | Contestação Técnico | ✅ **Entregue na Sprint 16** — ADR-013, incluindo contestação contínua e ajuste de valor na resolução |
-| Notificações | ✅ **In-app entregue na Sprint 16** — ADR-017 (tempo real via Supabase Realtime). **WhatsApp/push seguem fora do escopo** |
+| Notificações | ✅ **In-app + push entregues** — ADR-017 (tempo real via Supabase Realtime, Sprint 16) e ADR-018 (Web Push com app fechado, Sprint 17). **WhatsApp segue fora do escopo** |
+| App do técnico | ✅ **Entregue na Sprint 17** — PWA instalável + APK Android (TWA/sideload). Ver [Sprint 17](./18-sprint-17-app-tecnico.md). Não é app nativo: é a mesma PWA empacotada |
 
 **Candidatos a Sprint 17 (a priorizar com o gestor):**
 
@@ -278,10 +279,10 @@ do escopo.
 - Customização de cores por tenant
 - MFA/2FA
 - Integração PIX para pagamento direto
-- Mobile app nativo (técnicos)
+- ~~Mobile app nativo (técnicos)~~ → ✅ **entregue como PWA + APK/TWA na Sprint 17** (não nativo, mas cobre o caso)
 - API pública para integração
 - Reclame Aqui API (avaliado separadamente)
-- Notificações push / WhatsApp
+- ~~Notificações push~~ → ✅ **entregue na Sprint 17** (Web Push, ADR-018). **WhatsApp** segue fora
 - Bot Telegram para gestão básica
 - IA para sugerir LPU baseado em histórico
 - Multi-cliente para Tallpa (Scooby como segundo tenant)

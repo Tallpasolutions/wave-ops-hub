@@ -6,6 +6,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { lpuFromEmbed, tabelaAlternativaLabel, tabelaPrecoDetalhe } from '@/lib/lpu/tabela-preco'
+import { formatConditions, formatPayout } from '@/lib/lpu/format'
+import type { PayoutNarrowed } from '@/lib/lpu/types'
 
 export const metadata: Metadata = { title: 'Detalhe do Pagamento' }
 import { Button } from '@/components/ui/button'
@@ -240,18 +242,27 @@ export default async function PayoutDetailPage({ params }: Props) {
             {rule.description && (
               <p className="mb-3 text-sm text-[var(--text)]">{rule.description}</p>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <p className="mb-1 text-xs text-[var(--text-3)]">Condições</p>
-                <pre className="rounded bg-white/5 p-2 text-xs text-[var(--text-2)]">
-                  {JSON.stringify(rule.conditions, null, 2)}
-                </pre>
+                <p className="mb-2 text-xs text-[var(--text-3)]">
+                  A regra se aplica quando
+                </p>
+                <dl className="space-y-1">
+                  {formatConditions(
+                    rule.conditions as Parameters<typeof formatConditions>[0],
+                  ).map((c) => (
+                    <div key={c.campo} className="flex gap-2 text-sm">
+                      <dt className="text-[var(--text-3)]">{c.campo}:</dt>
+                      <dd className="text-[var(--text-2)]">{c.valor}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
               <div>
-                <p className="mb-1 text-xs text-[var(--text-3)]">Payout</p>
-                <pre className="rounded bg-white/5 p-2 text-xs text-[var(--text-2)]">
-                  {JSON.stringify(rule.payout, null, 2)}
-                </pre>
+                <p className="mb-2 text-xs text-[var(--text-3)]">Como o valor é calculado</p>
+                <p className="text-sm text-[var(--text-2)]">
+                  {formatPayout(rule.payout as PayoutNarrowed)}
+                </p>
               </div>
             </div>
           </div>

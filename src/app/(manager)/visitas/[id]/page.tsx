@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { lpuFromEmbed, tabelaPrecoDetalhe } from '@/lib/lpu/tabela-preco'
+import { formatPayout } from '@/lib/lpu/format'
+import type { PayoutNarrowed } from '@/lib/lpu/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -293,9 +295,9 @@ export default async function VisitDetailPage({ params }: Props) {
                   {payout.lpu_rules.description && (
                     <p className="mb-2 text-sm text-[var(--text-2)]">{payout.lpu_rules.description}</p>
                   )}
-                  <pre className="rounded bg-white/5 p-2 text-xs text-[var(--text-2)] overflow-auto">
-                    {JSON.stringify(payout.lpu_rules.payout, null, 2)}
-                  </pre>
+                  <p className="text-sm text-[var(--text-2)]">
+                    {formatPayout(payout.lpu_rules.payout as PayoutNarrowed)}
+                  </p>
                 </div>
               )}
             </>

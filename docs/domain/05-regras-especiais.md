@@ -102,7 +102,7 @@ bug não voltar pela porta da venda atrelada.
 - **O piso de R$ 40 é deliberado:** preserva o comportamento das 19 visitas externas *com* troca
   de drop cuja receita veio R$ 0,00. Esse é um caso separado, ainda não decidido.
 
-Script: [`supabase/2026-07-lpu-suporte-externo-sem-troca-drop.sql`](../../supabase/2026-07-lpu-suporte-externo-sem-troca-drop.sql).
+Migration: [`supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql`](../../supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql).
 Testes de regressão em `src/lib/lpu/__tests__/match-engine.test.ts`.
 
 > **Por que não condicionar por "houve troca de drop"?** Seria mais fiel ao domínio, mas exigiria

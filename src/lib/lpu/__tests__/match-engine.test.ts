@@ -111,7 +111,7 @@ describe("findApplicableRule", () => {
 // troca de drop — receita da Unetvale ~R$ 206 / ~R$ 232. O suporte simples ("Suporte | 50 * 1.1",
 // receita R$ 64,46) chegava a casá-las quando a planilha trazia tipo Externo + meio preenchido,
 // pagando 4x o devido com margem negativa. O threshold por `valorRecebidoUnetvale` (prioridade
-// 500 > 400) separa os dois casos — ver supabase/2026-07-lpu-suporte-externo-sem-troca-drop.sql
+// 500 > 400) separa os dois casos — ver a migration 0032_lpu_suporte_externo_sem_troca_drop.sql
 // e docs/domain/05-regras-especiais.md.
 describe("threshold de receita: suporte externo com x sem troca de drop", () => {
   const SUPORTE_EXTERNO_AEREO = {

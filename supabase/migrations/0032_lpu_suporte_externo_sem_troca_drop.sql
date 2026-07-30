@@ -1,4 +1,5 @@
--- Suporte externo SEM troca de drop → paga como suporte simples (R$ 30 / R$ 45)
+-- =============================================================================
+-- 0032 — Suporte externo SEM troca de drop paga como suporte simples (R$ 30 / R$ 45)
 --
 -- PROBLEMA (validado em produção, 30/07/2026):
 --   As regras "Suporte Fibra Aéreo Externo" (R$ 120) e "Suporte Fibra Subterrâneo Externo"
@@ -31,7 +32,13 @@
 --   R$ 45 com venda). As duas regras `agregada = true` são preventivas — hoje nenhuma visita
 --   casa esse cenário; existem para que o mesmo bug não volte pela porta da venda atrelada.
 --
--- Executar no SQL Editor. Idempotente. Depois: "Recalcular pendentes" em /pagamentos.
+-- Não altera schema: só insere regras em `lpu_rules`. Como a LPU é editável pelo gestor na
+-- UI, as regras aqui são o ESTADO INICIAL — edições posteriores pela tela prevalecem e esta
+-- migration não as desfaz (a guarda de idempotência checa a existência da regra, não o valor).
+--
+-- FORMA DE EXECUÇÃO: SQL Editor do Supabase. Idempotente (reexecutável sem duplicar).
+-- Depois de aplicar: "Recalcular pendentes" em /pagamentos.
+-- =============================================================================
 
 DO $$
 DECLARE

@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LpuRuleNarrowed, ReasonForPayout } from "@/lib/lpu/types";
 import type { SimVisit } from "@/lib/lpu/simulator";
-import { buildPayoutUpsert, type FeriadoCtx, type HomologacaoCtx } from "./calculate";
+import {
+  buildPayoutUpsert,
+  type FeriadoCtx,
+  type HomologacaoCtx,
+  type LpuValores,
+} from "./calculate";
 import type { BatchRecalcResult, ChunkRecalcResult } from "./types";
 
 // Sem paginação explícita o PostgREST corta silenciosamente em 1000 linhas — visitas além
@@ -76,9 +81,22 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
 type RecalcContext = {
   lpuId: string | null;
   rules: LpuRuleNarrowed[];
+  // ADR-019: valores próprios da LPU padrão (ponto adicional, improdutiva, % de feriado).
+  // Campos nulos = valores históricos, que é o caso da LPU padrão hoje.
+  lpuValores: LpuValores;
   // ADR-014: LPU por técnico. technicianId → { lpuId, rules } quando o técnico tem
   // uma LPU atribuída (technicians.lpu_id). Ausente = usa a LPU padrão acima.
-  lpuByTecnico: Map<string, { lpuId: string; rules: LpuRuleNarrowed[] }>;
+  // ADR-019: carrega junto os valores e as classificações próprias daquela LPU.
+  lpuByTecnico: Map<
+    string,
+    {
+      lpuId: string;
+      rules: LpuRuleNarrowed[];
+      valores: LpuValores;
+      classifications: Map<string, number>;
+      homologacao?: HomologacaoCtx;
+    }
+  >;
   reasons: ReasonForPayout[];
   // ADR-009: classificação de Cabeamento/Condomínio (explicacao_key → valor) + grupo de
   // finalidades (normalizado trim+lower). Mapa vazio/set vazio → comportamento igual ao anterior.
@@ -91,18 +109,33 @@ type RecalcContext = {
   homologacao?: HomologacaoCtx;
 };
 
+// ADR-019: numeric do Postgres chega como string pelo PostgREST. `null` é significativo
+// (= "usa o valor histórico"), então não pode virar 0.
+function toLpuValores(row: Record<string, unknown> | null | undefined): LpuValores {
+  const num = (v: unknown): number | null => (v == null ? null : Number(v));
+  return {
+    pontoAdicional: num(row?.ponto_adicional_valor),
+    improdutiva: num(row?.improdutiva_valor),
+    feriadoPct: num(row?.feriado_acrescimo_pct),
+  };
+}
+
 async function loadRecalcContext(
   tenantId: string,
   supabase: SupabaseClient,
 ): Promise<RecalcContext> {
+  // ADR-019: `maybeSingle` em vez de `single` — se um dia houver duas LPUs marcadas ativas
+  // (o trigger trg_single_active_lpu impede, mas dado corrompido não avisa), `single` derruba
+  // o recálculo inteiro com erro. Aqui a ausência vira "sem LPU padrão", que o motor trata.
   const { data: lpuData } = await supabase
     .from("lpus")
-    .select("id")
+    .select("id, ponto_adicional_valor, improdutiva_valor, feriado_acrescimo_pct")
     .eq("tenant_id", tenantId)
     .eq("ativa", true)
-    .single();
+    .maybeSingle();
 
   const lpuId = lpuData?.id ?? null;
+  const lpuValores = toLpuValores(lpuData);
   let rules: LpuRuleNarrowed[] = [];
 
   if (lpuId) {
@@ -116,7 +149,9 @@ async function loadRecalcContext(
 
   // ADR-014: LPUs atribuídas a técnicos específicos (technicians.lpu_id). Carrega as
   // regras de cada LPU alternativa uma vez e mapeia technicianId → { lpuId, rules }.
-  const lpuByTecnico = new Map<string, { lpuId: string; rules: LpuRuleNarrowed[] }>();
+  // ADR-019: junto com as regras vêm os valores escalares e as classificações próprias
+  // daquela tabela — é o que torna a LPU alternativa auto-contida.
+  const lpuByTecnico: RecalcContext["lpuByTecnico"] = new Map();
   const { data: assignedTechs } = await supabase
     .from("technicians")
     .select("id, lpu_id")
@@ -126,6 +161,9 @@ async function loadRecalcContext(
     ...new Set((assignedTechs ?? []).map((t) => t.lpu_id as string)),
   ];
   const rulesByLpu = new Map<string, LpuRuleNarrowed[]>();
+  const valoresByLpu = new Map<string, LpuValores>();
+  const classByLpu = new Map<string, Map<string, number>>();
+  const homoByLpu = new Map<string, HomologacaoCtx | undefined>();
   for (const altLpuId of altLpuIds) {
     const { data: altRules } = await supabase
       .from("lpu_rules")
@@ -133,12 +171,51 @@ async function loadRecalcContext(
       .eq("lpu_id", altLpuId)
       .eq("ativa", true);
     rulesByLpu.set(altLpuId, (altRules ?? []) as LpuRuleNarrowed[]);
+
+    const { data: altLpu } = await supabase
+      .from("lpus")
+      .select("ponto_adicional_valor, improdutiva_valor, feriado_acrescimo_pct")
+      .eq("id", altLpuId)
+      .maybeSingle();
+    valoresByLpu.set(altLpuId, toLpuValores(altLpu));
+
+    // Classificações de cabeamento próprias da LPU (ADR-009 + 0035). Sem nenhuma cadastrada,
+    // a LPU herda as do tenant — não zera o pagamento de cabeamento por omissão.
+    const { data: altClass } = await supabase
+      .from("cabeamento_classifications")
+      .select("explicacao_key, valor")
+      .eq("lpu_id", altLpuId);
+    if (altClass && altClass.length > 0) {
+      classByLpu.set(
+        altLpuId,
+        new Map(altClass.map((c) => [c.explicacao_key as string, Number(c.valor)])),
+      );
+    }
+
+    // Repasses de homologação próprios da LPU (ADR-015 + 0035), mesma regra de herança.
+    const { data: altHomo } = await supabase
+      .from("homologacao_classifications")
+      .select("valor_unetvale, valor_repasse")
+      .eq("lpu_id", altLpuId);
+    if (altHomo && altHomo.length > 0) {
+      homoByLpu.set(altLpuId, {
+        valores: new Map(
+          altHomo.map((h) => [
+            Math.round(Number(h.valor_unetvale) * 100),
+            Number(h.valor_repasse),
+          ]),
+        ),
+      });
+    }
   }
   for (const t of assignedTechs ?? []) {
     const altLpuId = t.lpu_id as string;
     lpuByTecnico.set(t.id as string, {
       lpuId: altLpuId,
       rules: rulesByLpu.get(altLpuId) ?? [],
+      valores: valoresByLpu.get(altLpuId) ?? {},
+      classifications: classByLpu.get(altLpuId) ?? new Map(),
+      homologacao: homoByLpu.get(altLpuId),
     });
   }
 
@@ -209,6 +286,7 @@ async function loadRecalcContext(
   return {
     lpuId,
     rules,
+    lpuValores,
     lpuByTecnico,
     reasons,
     classifications,
@@ -278,15 +356,25 @@ async function processVisitPage(
   const upserts = toProcess.map((v) => {
     // ADR-014: usa a LPU atribuída ao técnico, se houver; senão a padrão do tenant.
     const assigned = v.tecnico_id ? ctx.lpuByTecnico.get(v.tecnico_id) : undefined;
+    // ADR-019: a LPU alternativa substitui classificações e repasses SÓ quando declara os
+    // seus; sem nada cadastrado, herda os do tenant. O conjunto de finalidades classificadas
+    // é do tenant nos dois casos — define QUAIS finalidades saem do motor de LPU, não quanto
+    // pagam.
+    const classifications =
+      assigned && assigned.classifications.size > 0
+        ? assigned.classifications
+        : ctx.classifications;
     return buildPayoutUpsert(
       rowToSimVisit(v),
       assigned?.rules ?? ctx.rules,
       ctx.reasons,
       assigned?.lpuId ?? ctx.lpuId,
       tenantId,
-      { map: ctx.classifications, finalidades: ctx.finalidadesClassificar },
+      { map: classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
-      ctx.homologacao,
+      assigned?.homologacao ?? ctx.homologacao,
+      false,
+      assigned?.valores ?? ctx.lpuValores,
     );
   });
 

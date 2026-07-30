@@ -628,3 +628,114 @@ describe("buildPayoutUpsert — ADR-016 (coluna Z)", () => {
     expect(r.valorCalculado).toBeNull();
   });
 });
+
+// ADR-019: a LPU alternativa ("SEM AUXILIAR") tem valores próprios de ponto adicional,
+// improdutiva e acréscimo de feriado. A decisão do usuário (30/07/2026) foi explícita: a
+// tabela em uso hoje NÃO muda em nada. Estes testes cobrem os dois lados — os primeiros
+// existem para falhar se alguém alterar o comportamento da tabela padrão por acidente.
+describe("valores por LPU (ADR-019)", () => {
+  const REAJ_PONTO = "Cabeamento (+73 * 1 ponto(s) adicional(is))";
+
+  describe("sem valores declarados: comportamento idêntico ao histórico", () => {
+    it("ponto adicional continua somando R$ 36", () => {
+      const visit = makeVisit({
+        finalidade: "Instalação - Fibra - PF",
+        sucesso: "Sim",
+        explicacaoValor: REAJ_PONTO,
+      });
+      const rule = makeRule({
+        conditions: { sucesso: "Sim" },
+        payout: { type: "fixed", value: 100 },
+      });
+      const semValores = buildPayoutUpsert(visit, [rule], [], LPU_ID, TENANT_ID);
+      const comObjetoVazio = buildPayoutUpsert(
+        visit, [rule], [], LPU_ID, TENANT_ID, undefined, undefined, undefined, false, {},
+      );
+      expect(semValores.valorCalculado).toBe(136);
+      expect(comObjetoVazio.valorCalculado).toBe(136);
+    });
+
+    it("improdutiva padrão continua repassando R$ 15", () => {
+      const visit = makeVisit({ sucesso: "Não", valorRecebidoUnetvale: 15.98 });
+      const r = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID);
+      expect(r.valorCalculado).toBe(15);
+      expect(r.status).toBe("approved");
+    });
+
+    it("acréscimo de domingo continua usando o percentual do tenant", () => {
+      const visit = makeVisit({ sucesso: "Sim", dataExecucao: "2026-06-07" }); // domingo
+      const rule = makeRule({ payout: { type: "fixed", value: 100 } });
+      const r = buildPayoutUpsert(
+        visit, [rule], [], LPU_ID, TENANT_ID, undefined,
+        { feriados: new Set(), pct: 15 },
+      );
+      // toBeCloseTo: `aplicarAcrescimo` multiplica sem arredondar (100 * 1.15 dá
+      // 114.99999999999999 em float). O numeric(10,2) do banco resolve na gravação, e
+      // `acrescimoDomFeriado` já é arredondado no código — por isso só o total precisa disso.
+      expect(r.valorCalculado).toBeCloseTo(115, 2);
+      expect(r.acrescimoDomFeriado).toBe(15);
+    });
+  });
+
+  describe("com valores da LPU alternativa", () => {
+    it("ponto adicional passa a somar o valor da LPU (R$ 30)", () => {
+      const visit = makeVisit({
+        finalidade: "Instalação - Fibra - PF",
+        sucesso: "Sim",
+        explicacaoValor: REAJ_PONTO,
+      });
+      const rule = makeRule({ payout: { type: "fixed", value: 100 } });
+      const r = buildPayoutUpsert(
+        visit, [rule], [], LPU_ID, TENANT_ID, undefined, undefined, undefined, false,
+        { pontoAdicional: 30 },
+      );
+      expect(r.valorCalculado).toBe(130);
+    });
+
+    it("improdutiva passa a repassar o valor da LPU (R$ 10)", () => {
+      const visit = makeVisit({ sucesso: "Não", valorRecebidoUnetvale: 15.98 });
+      const r = buildPayoutUpsert(
+        visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, undefined, false,
+        { improdutiva: 10 },
+      );
+      expect(r.valorCalculado).toBe(10);
+      expect(r.status).toBe("approved");
+    });
+
+    it("acréscimo de domingo usa o percentual da LPU (10%), não o do tenant (15%)", () => {
+      const visit = makeVisit({ sucesso: "Sim", dataExecucao: "2026-06-07" });
+      const rule = makeRule({ payout: { type: "fixed", value: 100 } });
+      const r = buildPayoutUpsert(
+        visit, [rule], [], LPU_ID, TENANT_ID, undefined,
+        { feriados: new Set(), pct: 15 },
+        undefined, false,
+        { feriadoPct: 10 },
+      );
+      expect(r.valorCalculado).toBeCloseTo(110, 2);
+      expect(r.acrescimoDomFeriado).toBe(10);
+    });
+
+    it("valor zero declarado é respeitado (não cai no histórico)", () => {
+      const visit = makeVisit({
+        finalidade: "Instalação - Fibra - PF",
+        sucesso: "Sim",
+        explicacaoValor: REAJ_PONTO,
+      });
+      const rule = makeRule({ payout: { type: "fixed", value: 100 } });
+      const r = buildPayoutUpsert(
+        visit, [rule], [], LPU_ID, TENANT_ID, undefined, undefined, undefined, false,
+        { pontoAdicional: 0 },
+      );
+      expect(r.valorCalculado).toBe(100);
+    });
+
+    it("campo nulo cai no histórico mesmo com outros declarados", () => {
+      const visit = makeVisit({ sucesso: "Não", valorRecebidoUnetvale: 15.98 });
+      const r = buildPayoutUpsert(
+        visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, undefined, false,
+        { pontoAdicional: 30, improdutiva: null },
+      );
+      expect(r.valorCalculado).toBe(15);
+    });
+  });
+});

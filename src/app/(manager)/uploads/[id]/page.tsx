@@ -115,6 +115,21 @@ export default async function UploadDetailPage({
       ? [u.error_log]
       : []
 
+  // O log é gravado pelo ETL como IngestError ({ row, field?, message }), mas a falha geral
+  // do upload grava só { message }. Normaliza para a lista da tela em vez de despejar o JSON:
+  // linha e motivo é o que o gestor precisa para corrigir a planilha.
+  const errosLegiveis = errorEntries.map((entry) => {
+    const e = (entry ?? {}) as { row?: unknown; field?: unknown; message?: unknown }
+    return {
+      linha: typeof e.row === 'number' ? e.row : null,
+      campo: typeof e.field === 'string' ? e.field : null,
+      mensagem:
+        typeof e.message === 'string' && e.message.trim() !== ''
+          ? e.message
+          : 'Erro sem descrição registrada.',
+    }
+  })
+
   // Visitas sem técnico vinculado neste upload
   const { data: unmatchedRows } = await supabase
     .from('service_visits')
@@ -253,13 +268,31 @@ export default async function UploadDetailPage({
         </div>
       )}
 
-      {errorEntries.length > 0 && (
+      {errosLegiveis.length > 0 && (
         <div className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Log de erros</h2>
-          <div className="rounded-xl border border-[rgba(255,84,112,0.2)] bg-[var(--bg-1)] p-4">
-            <pre className="overflow-x-auto text-xs text-[var(--red)]">
-              {JSON.stringify(errorEntries, null, 2)}
-            </pre>
+          <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">
+            {errosLegiveis.length === 1
+              ? '1 linha com erro'
+              : `${errosLegiveis.length} linhas com erro`}
+          </h2>
+          <div className="overflow-hidden rounded-xl border border-[rgba(255,84,112,0.2)] bg-[var(--bg-1)]">
+            <ul className="divide-y divide-[var(--line)]">
+              {errosLegiveis.map((e, i) => (
+                <li key={i} className="flex gap-3 px-4 py-2.5 text-sm">
+                  {e.linha !== null && (
+                    <span className="shrink-0 font-mono text-[var(--text-3)]">
+                      Linha {e.linha}
+                    </span>
+                  )}
+                  <span className="text-[var(--red)]">
+                    {e.campo && (
+                      <span className="text-[var(--text-3)]">{e.campo}: </span>
+                    )}
+                    {e.mensagem}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}

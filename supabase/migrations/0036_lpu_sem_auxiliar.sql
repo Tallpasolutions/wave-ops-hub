@@ -1,193 +1,146 @@
 -- =============================================================================
 -- 0036 — LPU "SEM AUXILIAR" (ADR-014 + ADR-019)
 --
--- Tabela de preços da Wave para serviço executado SEM técnico auxiliar. Fonte:
--- docs/domain/anexos/lpu-sem-auxiliar-2026-07.xlsx (recebida em 30/07/2026).
+-- Fonte dos valores: docs/domain/anexos/lpu-sem-auxiliar-2026-07.xlsx (Wave, 30/07/2026).
+-- O mapeamento linha a linha e as decisões estão no ADR-019 e na Sprint 18 — aqui só o SQL.
 --
--- Nasce INATIVA de propósito: `lpus.ativa = true` significa "tabela padrão do tenant", não
--- "em uso". O trigger trg_single_active_lpu só admite uma ativa, e a alternativa é aplicada
--- pelos técnicos que a tiverem atribuída em `technicians.lpu_id` (ADR-014) — o motor resolve
--- por visita. Criar esta LPU NÃO muda nenhum pagamento: nada acontece até o gestor atribuí-la
--- a um técnico em /equipe/tecnicos/[id].
+-- A LPU nasce INATIVA: `ativa = true` significa "tabela padrão do tenant", não "em uso". A
+-- alternativa é aplicada aos técnicos que a tiverem em `technicians.lpu_id` (ADR-014). Criar
+-- esta LPU não muda nenhum pagamento até o gestor atribuí-la a alguém em /equipe/tecnicos/[id].
+-- A tabela em uso hoje não é tocada em nenhum ponto.
 --
--- A tabela em uso hoje não é tocada por esta migration em nenhum ponto.
+-- SEM bloco DO $$ de propósito: o SQL Editor do Supabase truncou a versão anterior no meio de
+-- um comentário e ainda tentou tratar as variáveis do DECLARE como tabelas ("ALTER TABLE
+-- v_tenant_id ENABLE ROW LEVEL SECURITY"). Cada statement abaixo é independente e resolve a
+-- LPU por (tenant, nome), então rodar statement a statement funciona.
 --
--- FORMA DE EXECUÇÃO: SQL Editor. Idempotente (recria as regras da LPU do zero a cada execução,
--- sem tocar em nenhuma outra LPU). Depende da 0035 (colunas de valores por LPU).
+-- Idempotente: recria as regras e as classificações desta LPU do zero. Depende da 0035.
 -- =============================================================================
 
-DO $$
-DECLARE
-  v_tenant_id UUID;
-  v_lpu_id    UUID;
-  inst_fin    JSONB := '["Instalação - Fibra - PF", "Instalação - Fibra - PJ", "Mudança Endereço Fibra"]';
-  sup_fin     JSONB := '["Suporte Fibra", "Suporte", "Suporte Condomínio", "Troca de Equipamentos", "Troca de Equipamentos de Local"]';
-BEGIN
-  SELECT id INTO v_tenant_id FROM tenants
-  WHERE slug = 'wave' OR dominio_custom ILIKE '%wave%' LIMIT 1;
+-- 1. A LPU (só cria se ainda não existir)
+INSERT INTO lpus (tenant_id, nome, vigencia_inicio, ativa)
+SELECT t.id, 'LPU Wave — SEM AUXILIAR', '2026-08-01', false
+FROM tenants t
+WHERE (t.slug = 'wave' OR t.dominio_custom ILIKE '%wave%')
+  AND NOT EXISTS (
+    SELECT 1 FROM lpus l WHERE l.tenant_id = t.id AND l.nome = 'LPU Wave — SEM AUXILIAR'
+  );
 
-  IF v_tenant_id IS NULL THEN
-    RAISE EXCEPTION 'Tenant Wave não encontrado.';
-  END IF;
+-- 2. Valores próprios da tabela (ADR-019). Ponto R$ 30 e improdutiva R$ 10 vêm da planilha;
+--    feriado 10% é a linha da tabela (o nome do serviço diz 15% — decisão do usuário 30/07).
+UPDATE lpus
+SET ponto_adicional_valor = 30, improdutiva_valor = 10, feriado_acrescimo_pct = 10
+WHERE nome = 'LPU Wave — SEM AUXILIAR';
 
-  -- ── A LPU ────────────────────────────────────────────────────────────────────────────
-  -- Valores próprios (ADR-019, migration 0035). A tabela padrão deixa os três NULL e por
-  -- isso segue com R$ 36 / R$ 15 / 15%.
-  --   ponto adicional R$ 30 — a planilha confirma por dois caminhos: instalação 100 → 130
-  --     com ponto, e suporte interno 30 → 60 com ponto.
-  --   improdutiva     R$ 10 — linha "Visita improdutiva".
-  --   feriado         10%   — a planilha diz "15%" no nome do serviço e "10%" no valor; o
-  --     usuário decidiu (30/07) que vale o que está declarado na linha da tabela nova.
-  SELECT id INTO v_lpu_id FROM lpus
-  WHERE tenant_id = v_tenant_id AND nome = 'LPU Wave — SEM AUXILIAR';
+-- 3. Regras: recriadas do zero a cada execução
+DELETE FROM lpu_rules
+WHERE lpu_id IN (SELECT id FROM lpus WHERE nome = 'LPU Wave — SEM AUXILIAR');
 
-  IF v_lpu_id IS NULL THEN
-    INSERT INTO lpus (tenant_id, nome, vigencia_inicio, ativa,
-                      ponto_adicional_valor, improdutiva_valor, feriado_acrescimo_pct)
-    VALUES (v_tenant_id, 'LPU Wave — SEM AUXILIAR', '2026-08-01', false, 30, 10, 10)
-    RETURNING id INTO v_lpu_id;
-    RAISE NOTICE 'LPU SEM AUXILIAR criada (inativa): %', v_lpu_id;
-  ELSE
-    UPDATE lpus
-    SET ponto_adicional_valor = 30, improdutiva_valor = 10, feriado_acrescimo_pct = 10
-    WHERE id = v_lpu_id;
-    RAISE NOTICE 'LPU SEM AUXILIAR já existia (%) — valores reaplicados.', v_lpu_id;
-  END IF;
+INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade)
+SELECT l.id, x.cond, x.pay, x.descr, x.prio
+FROM lpus l
+CROSS JOIN (VALUES
+  -- Garantia não paga (prioridade 900, acima de tudo). Cobre as 7 linhas com "-" da planilha.
+  ('{"finalidade":["Instalação - Fibra - PF","Instalação - Fibra - PJ","Mudança Endereço Fibra"],"garantia":true}'::jsonb,
+   '{"type":"fixed","value":0}'::jsonb, 'Instalação em garantia (não paga)', 900),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"garantia":true}'::jsonb,
+   '{"type":"fixed","value":0}'::jsonb, 'Suporte em garantia (não paga)', 900),
 
-  -- Recria as regras do zero: idempotência sem depender de casar condições JSONB uma a uma.
-  DELETE FROM lpu_rules WHERE lpu_id = v_lpu_id;
+  -- Suporte externo SEM troca de drop (500). Mesma trava da 0032 na tabela padrão.
+  -- INFERÊNCIA (a planilha não distingue): valor do suporte simples da própria tabela, R$ 30.
+  -- Remover estas 4 se a Wave quiser pagar R$ 100 em qualquer suporte externo.
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Aéreo","agregada":false,"valorRecebidoUnetvale":{"min":40,"max":150}}'::jsonb,
+   '{"type":"fixed","value":30}'::jsonb, 'Suporte Aéreo Externo sem troca de drop', 500),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Subterrâneo","agregada":false,"valorRecebidoUnetvale":{"min":40,"max":150}}'::jsonb,
+   '{"type":"fixed","value":30}'::jsonb, 'Suporte Subterrâneo Externo sem troca de drop', 500),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Aéreo","agregada":true,"valorRecebidoUnetvale":{"min":40,"max":150}}'::jsonb,
+   '{"type":"fixed","value":30}'::jsonb, 'Suporte Aéreo Externo sem troca de drop + venda atrelada', 500),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Subterrâneo","agregada":true,"valorRecebidoUnetvale":{"min":40,"max":150}}'::jsonb,
+   '{"type":"fixed","value":30}'::jsonb, 'Suporte Subterrâneo Externo sem troca de drop + venda atrelada', 500),
 
-  -- ── Garantia não paga (prioridade 900, acima de tudo) ────────────────────────────────
-  -- Sete linhas da planilha marcam "-" para serviço em garantia (instalação aérea/subterrânea
-  -- com garantia, condomínio DG-AP menos garantia, suporte aéreo/subterrâneo/retenção/interno
-  -- com garantia). Uma regra por família cobre todas: `garantia` é condição do motor.
-  -- Prioridade explícita porque a automática (nº de condições × 100) perderia das regras de
-  -- serviço, que têm mais condições.
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade) VALUES
-    (v_lpu_id, jsonb_build_object('finalidade', inst_fin, 'garantia', true),
-     '{"type":"fixed","value":0}', 'Instalação em garantia (não paga)', 900),
-    (v_lpu_id, jsonb_build_object('finalidade', sup_fin, 'garantia', true),
-     '{"type":"fixed","value":0}', 'Suporte em garantia (não paga)', 900);
+  -- Suporte externo com troca de drop (400) — planilha: 100 em todas as variações
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Aéreo","agregada":false}'::jsonb,
+   '{"type":"fixed","value":100}'::jsonb, 'Suporte de Fibra aérea', 400),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Subterrâneo","agregada":false}'::jsonb,
+   '{"type":"fixed","value":100}'::jsonb, 'Suporte de Fibra subterrânea', 400),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Aéreo","agregada":true}'::jsonb,
+   '{"type":"fixed","value":100}'::jsonb, 'Suporte de Fibra aérea + venda atrelada', 400),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Externo","subterraneaAereo":"Subterrâneo","agregada":true}'::jsonb,
+   '{"type":"fixed","value":100}'::jsonb, 'Suporte de Fibra subterrânea + venda atrelada', 400),
 
-  -- ── Suporte externo SEM troca de drop (prioridade 500) ───────────────────────────────
-  -- Mesma trava da migration 0032 na tabela padrão, pelo mesmo motivo: as regras de suporte
-  -- externo valem para o serviço COM troca de drop (receita Unetvale ~R$ 206/~R$ 232). Sem
-  -- este corte, um suporte simples (receita R$ 64,46) casaria a regra de R$ 100.
-  -- ⚠️ INFERÊNCIA: a planilha não distingue os dois casos. Adotado o valor do suporte simples
-  -- da própria tabela (R$ 30, linha "Suporte Fibra Interno"). Remover estas 4 regras se a
-  -- Wave quiser pagar R$ 100 em qualquer suporte externo.
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade)
-  SELECT v_lpu_id,
-         jsonb_build_object('finalidade', sup_fin, 'tipoAtendimento', 'Externo',
-                            'subterraneaAereo', m.meio, 'agregada', m.agregada,
-                            'valorRecebidoUnetvale', jsonb_build_object('min', 40, 'max', 150)),
-         '{"type":"fixed","value":30}', m.descricao, 500
-  FROM (VALUES
-    ('Aéreo',       false, 'Suporte Aéreo Externo sem troca de drop'),
-    ('Subterrâneo', false, 'Suporte Subterrâneo Externo sem troca de drop'),
-    ('Aéreo',       true,  'Suporte Aéreo Externo sem troca de drop + venda atrelada'),
-    ('Subterrâneo', true,  'Suporte Subterrâneo Externo sem troca de drop + venda atrelada')
-  ) AS m(meio, agregada, descricao);
+  -- Instalação em condomínio (400 / 200)
+  ('{"finalidade":["Instalação - Fibra - PF","Instalação - Fibra - PJ","Mudança Endereço Fibra"],"condominio":true,"subterraneaAereo":"Aéreo","tipoAtendimento":"Externo"}'::jsonb,
+   '{"type":"fixed","value":150}'::jsonb, 'Instalação Condomínio externo aéreo + do DG até o AP', 400),
+  ('{"finalidade":["Instalação - Fibra - PF","Instalação - Fibra - PJ","Mudança Endereço Fibra"],"condominio":true,"subterraneaAereo":"Subterrâneo","tipoAtendimento":"Externo"}'::jsonb,
+   '{"type":"fixed","value":70}'::jsonb, 'Instalação Condomínio externo subterrâneo + do DG até o AP', 400),
+  ('{"finalidade":["Instalação - Fibra - PF","Instalação - Fibra - PJ","Mudança Endereço Fibra"],"condominio":true}'::jsonb,
+   '{"type":"fixed","value":60}'::jsonb, 'Instalação Condomínio do DG até o AP', 200),
 
-  -- ── Suporte externo (prioridade 400) ─────────────────────────────────────────────────
-  -- Planilha: aérea 100 · subterrânea 100 · ambas "mais venda atrelada" também 100.
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade)
-  SELECT v_lpu_id,
-         jsonb_build_object('finalidade', sup_fin, 'tipoAtendimento', 'Externo',
-                            'subterraneaAereo', m.meio, 'agregada', m.agregada),
-         '{"type":"fixed","value":100}', m.descricao, 400
-  FROM (VALUES
-    ('Aéreo',       false, 'Suporte de Fibra aérea'),
-    ('Subterrâneo', false, 'Suporte de Fibra subterrânea'),
-    ('Aéreo',       true,  'Suporte de Fibra aérea + venda atrelada'),
-    ('Subterrâneo', true,  'Suporte de Fibra subterrânea + venda atrelada')
-  ) AS m(meio, agregada, descricao);
+  -- Instalação fora de condomínio (300)
+  ('{"finalidade":["Instalação - Fibra - PF","Instalação - Fibra - PJ","Mudança Endereço Fibra"],"condominio":false,"subterraneaAereo":"Aéreo"}'::jsonb,
+   '{"type":"fixed","value":100}'::jsonb, 'Instalação aérea', 300),
+  ('{"finalidade":["Instalação - Fibra - PF","Instalação - Fibra - PJ","Mudança Endereço Fibra"],"condominio":false,"subterraneaAereo":"Subterrâneo"}'::jsonb,
+   '{"type":"fixed","value":100}'::jsonb, 'Instalação subterrânea', 300),
 
-  -- ── Instalação em condomínio (prioridade 400 / 200) ──────────────────────────────────
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade) VALUES
-    (v_lpu_id, jsonb_build_object('finalidade', inst_fin, 'condominio', true,
-                                  'subterraneaAereo', 'Aéreo', 'tipoAtendimento', 'Externo'),
-     '{"type":"fixed","value":150}', 'Instalação Condomínio externo aéreo + do DG até o AP', 400),
-    (v_lpu_id, jsonb_build_object('finalidade', inst_fin, 'condominio', true,
-                                  'subterraneaAereo', 'Subterrâneo', 'tipoAtendimento', 'Externo'),
-     '{"type":"fixed","value":70}', 'Instalação Condomínio externo subterrâneo + do DG até o AP', 400),
-    -- Genérica: qualquer instalação em condomínio não coberta acima ("do DG até o AP").
-    (v_lpu_id, jsonb_build_object('finalidade', inst_fin, 'condominio', true),
-     '{"type":"fixed","value":60}', 'Instalação Condomínio do DG até o AP', 200);
+  -- Suporte interno (300). "Retenção", "Configuração/Garantia" e "Rádio" (todos 30) caem aqui.
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Interno","agregada":false}'::jsonb,
+   '{"type":"fixed","value":30}'::jsonb, 'Suporte Fibra Interno', 300),
+  ('{"finalidade":["Suporte Fibra","Suporte","Suporte Condomínio","Troca de Equipamentos","Troca de Equipamentos de Local"],"tipoAtendimento":"Interno","agregada":true}'::jsonb,
+   '{"type":"fixed","value":30}'::jsonb, 'Suporte Fibra Interno + venda de roteador atrelada', 300),
 
-  -- ── Instalação fora de condomínio (prioridade 300) ───────────────────────────────────
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade) VALUES
-    (v_lpu_id, jsonb_build_object('finalidade', inst_fin, 'condominio', false,
-                                  'subterraneaAereo', 'Aéreo'),
-     '{"type":"fixed","value":100}', 'Instalação aérea', 300),
-    (v_lpu_id, jsonb_build_object('finalidade', inst_fin, 'condominio', false,
-                                  'subterraneaAereo', 'Subterrâneo'),
-     '{"type":"fixed","value":100}', 'Instalação subterrânea', 300);
+  -- Retirada (100)
+  ('{"finalidade":"Retirada"}'::jsonb, '{"type":"fixed","value":20}'::jsonb, 'Retirada', 100)
+) AS x(cond, pay, descr, prio)
+WHERE l.nome = 'LPU Wave — SEM AUXILIAR';
 
-  -- ── Suporte interno (prioridade 300) ─────────────────────────────────────────────────
-  -- Planilha: interno 30, com venda de roteador atrelada também 30. "Suporte Fibra Retenção",
-  -- "Suporte Interno (Configuração/Garantia)" e "Suporte Rádio" (todos 30) caem aqui.
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade) VALUES
-    (v_lpu_id, jsonb_build_object('finalidade', sup_fin, 'tipoAtendimento', 'Interno',
-                                  'agregada', false),
-     '{"type":"fixed","value":30}', 'Suporte Fibra Interno', 300),
-    (v_lpu_id, jsonb_build_object('finalidade', sup_fin, 'tipoAtendimento', 'Interno',
-                                  'agregada', true),
-     '{"type":"fixed","value":30}', 'Suporte Fibra Interno + venda de roteador atrelada', 300);
+-- 4. Classificações de cabeamento próprias (ADR-009 + 0035).
+--    Só as chaves-BASE: a planilha confirma 30 por dois caminhos — "ponto dentro da casa +
+--    segundo ponto" = 60 (30 + 1 ponto de 30) e "3 pontos" = 90 (30 + 2 × 30), que é o que o
+--    motor calcula sozinho com o ponto de R$ 30 desta LPU.
+--    Chaves não declaradas (cabeamento fibra aérea/subterrânea, segundo cliente, retirada
+--    condomínio) seguem pagando o valor do tenant — o motor faz merge por chave.
+DELETE FROM cabeamento_classifications
+WHERE lpu_id IN (SELECT id FROM lpus WHERE nome = 'LPU Wave — SEM AUXILIAR');
 
-  -- ── Retirada (prioridade 100) ────────────────────────────────────────────────────────
-  INSERT INTO lpu_rules (lpu_id, conditions, payout, description, prioridade) VALUES
-    (v_lpu_id, '{"finalidade":"Retirada"}'::jsonb,
-     '{"type":"fixed","value":20}', 'Retirada', 100);
+INSERT INTO cabeamento_classifications
+  (tenant_id, lpu_id, explicacao_original, explicacao_key, valor, observacao)
+SELECT l.tenant_id, l.id, x.orig, x.chave, x.valor, x.obs
+FROM lpus l
+CROSS JOIN (VALUES
+  ('Cabeamento', 'Cabeamento', 30::numeric, 'SEM AUXILIAR: cabeamento/segundo ponto'),
+  ('Cabeamento agregado', 'Cabeamento agregado', 30::numeric, 'SEM AUXILIAR: cabeamento agregado a outra OS')
+) AS x(orig, chave, valor, obs)
+WHERE l.nome = 'LPU Wave — SEM AUXILIAR';
 
-  -- ── Classificações de cabeamento próprias (ADR-009 + 0035) ───────────────────────────
-  -- A planilha confirma a base R$ 30 por dois caminhos: "ponto dentro da casa + segundo
-  -- ponto" = 60 (30 + 1 ponto de 30) e "3 pontos (com adicionais)" = 90 (30 + 2 × 30). Por
-  -- isso só as chaves-BASE entram — o motor soma os pontos adicionais sozinho (ADR-016), com
-  -- o valor de R$ 30 desta LPU.
-  -- As chaves NÃO declaradas aqui (cabeamento fibra aérea/subterrânea, segundo cliente,
-  -- retirada condomínio) seguem pagando o valor do tenant: o motor faz merge, e um buraco
-  -- viraria `no_rule_match`, que trava o fechamento. Cadastrar depois em /cabeamento se a
-  -- Wave quiser valores próprios.
-  DELETE FROM cabeamento_classifications WHERE lpu_id = v_lpu_id;
-  INSERT INTO cabeamento_classifications
-    (tenant_id, lpu_id, explicacao_original, explicacao_key, valor, observacao)
-  VALUES
-    (v_tenant_id, v_lpu_id, 'Cabeamento', 'Cabeamento', 30,
-     'SEM AUXILIAR: cabeamento/segundo ponto (planilha 30/07/2026)'),
-    (v_tenant_id, v_lpu_id, 'Cabeamento agregado', 'Cabeamento agregado', 30,
-     'SEM AUXILIAR: cabeamento agregado a outra OS');
+-- 5. Repasse de homologação próprio (ADR-015 + 0035). A planilha traz só a base (30); os
+--    demais valores de Unetvale seguem herdando os do tenant.
+DELETE FROM homologacao_classifications
+WHERE lpu_id IN (SELECT id FROM lpus WHERE nome = 'LPU Wave — SEM AUXILIAR');
 
-  -- ── Repasse de homologação próprio (ADR-015 + 0035) ──────────────────────────────────
-  -- Planilha: "Instalação Fibra Homologação" = 30 (tabela padrão paga 35 para o mesmo
-  -- valor de Unetvale). Os demais valores de Unetvale (dobrada, com ponto) não constam na
-  -- planilha e seguem herdando os do tenant.
-  DELETE FROM homologacao_classifications WHERE lpu_id = v_lpu_id;
-  INSERT INTO homologacao_classifications
-    (tenant_id, lpu_id, valor_unetvale, valor_repasse, observacao)
-  VALUES
-    (v_tenant_id, v_lpu_id, 64.46, 30, 'SEM AUXILIAR: homologação base (planilha 30/07/2026)');
+INSERT INTO homologacao_classifications
+  (tenant_id, lpu_id, valor_unetvale, valor_repasse, observacao)
+SELECT l.tenant_id, l.id, 64.46, 30, 'SEM AUXILIAR: homologação base (planilha 30/07/2026)'
+FROM lpus l
+WHERE l.nome = 'LPU Wave — SEM AUXILIAR';
 
-  RAISE NOTICE 'LPU SEM AUXILIAR: % regras, % classificações de cabeamento, % de homologação.',
-    (SELECT count(*) FROM lpu_rules WHERE lpu_id = v_lpu_id),
-    (SELECT count(*) FROM cabeamento_classifications WHERE lpu_id = v_lpu_id),
-    (SELECT count(*) FROM homologacao_classifications WHERE lpu_id = v_lpu_id);
-END $$;
-
--- ── Conferência 1: a tabela padrão continua intocada ──────────────────────────────────────
--- Esperado: a LPU ativa com os três valores NULL (= comportamento histórico).
+-- ── Conferência 1: a tabela padrão continua intocada (os três valores NULL) ───────────────
 SELECT nome, ativa, ponto_adicional_valor, improdutiva_valor, feriado_acrescimo_pct
-FROM lpus ORDER BY ativa DESC;
+FROM lpus ORDER BY ativa DESC, nome;
 
--- ── Conferência 2: as regras da SEM AUXILIAR, na ordem em que o motor as avalia ───────────
+-- ── Conferência 2: as 18 regras da SEM AUXILIAR, na ordem em que o motor as avalia ────────
+-- Esperado: 2 de garantia (R$ 0) · 4 sem troca de drop (30) · 4 suporte externo (100) ·
+--           3 condomínio (150/70/60) · 2 instalação (100) · 2 suporte interno (30) · retirada (20)
 SELECT r.prioridade, r.description, r.payout ->> 'value' AS valor
 FROM lpu_rules r
 JOIN lpus l ON l.id = r.lpu_id
 WHERE l.nome = 'LPU Wave — SEM AUXILIAR'
 ORDER BY r.prioridade DESC, r.description;
 
--- ── Conferência 3: nenhum técnico foi atribuído automaticamente ───────────────────────────
--- Esperado: 0. A atribuição é ato do gestor, em /equipe/tecnicos/[id].
-SELECT count(*) AS tecnicos_na_sem_auxiliar
-FROM technicians t JOIN lpus l ON l.id = t.lpu_id
-WHERE l.nome = 'LPU Wave — SEM AUXILIAR';
+-- ── Conferência 3: classificações próprias e técnicos atribuídos (esperado: 2, 1 e 0) ─────
+SELECT
+  (SELECT count(*) FROM cabeamento_classifications c
+     JOIN lpus l ON l.id = c.lpu_id WHERE l.nome = 'LPU Wave — SEM AUXILIAR')  AS cabeamento_da_lpu,
+  (SELECT count(*) FROM homologacao_classifications h
+     JOIN lpus l ON l.id = h.lpu_id WHERE l.nome = 'LPU Wave — SEM AUXILIAR')  AS homologacao_da_lpu,
+  (SELECT count(*) FROM technicians t
+     JOIN lpus l ON l.id = t.lpu_id WHERE l.nome = 'LPU Wave — SEM AUXILIAR')  AS tecnicos_atribuidos;

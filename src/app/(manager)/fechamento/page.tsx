@@ -76,7 +76,7 @@ export default async function FechamentoPage() {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-[var(--text)]">Fechamento Mensal</h1>
         <p className="mt-1 text-sm text-[var(--text-3)]">
-          Consolidação e aprovação de payouts por período
+          Consolidação e aprovação de pagamentos por período
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default async function FechamentoPage() {
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--line)] py-16">
           <p className="text-sm text-[var(--text-3)]">Nenhum fechamento encontrado.</p>
           <p className="mt-1 text-xs text-[var(--text-3)]">
-            Os fechamentos são criados automaticamente ao calcular payouts.
+            Os fechamentos são criados automaticamente ao calcular os pagamentos.
           </p>
         </div>
       ) : (

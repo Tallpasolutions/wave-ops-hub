@@ -421,7 +421,7 @@ export default async function FechamentoPeriodoPage({ params, searchParams }: Pr
             {techGroups.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-[var(--text-3)]">
-                  Nenhum payout elegível neste período.
+                  Nenhum pagamento elegível neste período.
                 </td>
               </tr>
             ) : (

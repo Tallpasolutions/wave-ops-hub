@@ -39,7 +39,7 @@ export function OverridePayoutForm({ payoutId, valorAtual }: Props) {
       </div>
 
       <div>
-        <Label htmlFor="overrideMotivo">Motivo do override</Label>
+        <Label htmlFor="overrideMotivo">Motivo do ajuste</Label>
         <textarea
           id="overrideMotivo"
           name="overrideMotivo"

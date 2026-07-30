@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { payoutStatusLabel } from '@/lib/labels/payout-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,18 +33,10 @@ function VisitStatusIcon({ sucesso }: { sucesso: string | null }) {
 }
 
 function PayoutStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending_review: { label: 'Aguardando', cls: 'text-[var(--text-3)]' },
-    pending: { label: 'Pendente', cls: 'text-[var(--text-2)]' },
-    approved: { label: 'Aprovado', cls: 'text-[var(--green)]' },
-    paid: { label: 'Pago', cls: 'text-[var(--green)]' },
-    override: { label: 'Override', cls: 'text-yellow-400' },
-    no_rule_match: { label: 'Sem regra', cls: 'text-[var(--red)]' },
-    pending_classification: { label: 'Motivo pendente', cls: 'text-[var(--red)]' },
-    conflict: { label: 'Conflito', cls: 'text-[var(--red)]' },
-  }
-  const { label, cls } = map[status] ?? { label: status, cls: 'text-[var(--text-3)]' }
-  return <span className={`text-xs font-medium ${cls}`}>{label}</span>
+  // Badge sem fundo nesta tela: reaproveita só a cor de texto da fonte única.
+  const { curto: label, cls } = payoutStatusLabel(status)
+  const corTexto = cls.split(' ').find((c) => c.startsWith('text-')) ?? 'text-[var(--text-3)]'
+  return <span className={`text-xs font-medium ${corTexto}`}>{label}</span>
 }
 
 export default async function OsDetailPage({ params }: Props) {
@@ -280,7 +273,7 @@ export default async function OsDetailPage({ params }: Props) {
                       {payout && (
                         <div>
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
-                            Payout
+                            Pagamento
                           </span>
                           <p className="mt-0.5 flex items-center gap-2">
                             <span className="font-medium text-[var(--text)]">

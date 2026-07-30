@@ -45,7 +45,7 @@ export function TechnicianLpuSelector({
         LPU do técnico
       </h2>
       <p className="mb-3 text-xs text-[var(--text-3)]">
-        Tabela de valores usada no cálculo dos payouts deste técnico.
+        Tabela de valores usada no cálculo dos pagamentos deste técnico.
       </p>
       <Select value={value} onValueChange={onChange} disabled={isPending}>
         <SelectTrigger className="w-72">

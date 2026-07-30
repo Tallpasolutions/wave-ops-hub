@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { lpuFromEmbed, tabelaPrecoDetalhe } from '@/lib/lpu/tabela-preco'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,7 +93,8 @@ export default async function VisitDetailPage({ params }: Props) {
          technicians(id, nome_completo),
          reasons(motivo_original, motivo_normalizado, categoria),
          payouts(id, status, valor_calculado, valor_override, valor_deixado_na_mesa,
-                 override_motivo, acrescimo_dom_feriado, lpu_rules(description, conditions, payout))`,
+                 override_motivo, acrescimo_dom_feriado, lpus(nome, ativa),
+                 lpu_rules(description, conditions, payout))`,
       )
       .eq('id', id)
       .eq('tenant_id', user.tenantId!)
@@ -121,8 +123,12 @@ export default async function VisitDetailPage({ params }: Props) {
     valor_deixado_na_mesa: string | null
     override_motivo: string | null
     acrescimo_dom_feriado: string | null
+    lpus: unknown
     lpu_rules: { description: string | null; conditions: unknown; payout: unknown } | null
   } | null
+
+  // ADR-014: tabela de preços que pagou esta visita (padrão do tenant ou alternativa do técnico)
+  const lpuDaPayout = lpuFromEmbed(payout?.lpus)
 
   const valorCalculado = payout?.valor_calculado !== null ? Number(payout?.valor_calculado) : null
   const valorOverride = payout?.valor_override !== null ? Number(payout?.valor_override) : null
@@ -280,6 +286,10 @@ export default async function VisitDetailPage({ params }: Props) {
               {payout.lpu_rules && (
                 <div className="mt-4 border-t border-[var(--line)] pt-4">
                   <p className="mb-2 text-xs font-semibold text-[var(--text-3)]">Regra LPU aplicada</p>
+                  <p className="mb-2 text-xs text-[var(--text-3)]">
+                    Tabela de preços:{' '}
+                    <span className="text-[var(--text-2)]">{tabelaPrecoDetalhe(lpuDaPayout)}</span>
+                  </p>
                   {payout.lpu_rules.description && (
                     <p className="mb-2 text-sm text-[var(--text-2)]">{payout.lpu_rules.description}</p>
                   )}

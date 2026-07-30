@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
+import { lpuFromEmbed, tabelaAlternativaLabel, tabelaPrecoDetalhe } from '@/lib/lpu/tabela-preco'
 
 export const metadata: Metadata = { title: 'Detalhe do Pagamento' }
 import { Button } from '@/components/ui/button'
@@ -68,6 +69,7 @@ export default async function PayoutDetailPage({ params }: Props) {
          override_motivo, override_at, approved_at, paid_at, acrescimo_dom_feriado,
          service_visits(os_num, data_execucao, finalidade, sucesso, cidade, condominio, tecnico_raw),
          technicians(nome_completo),
+         lpus(nome, ativa),
          lpu_rules(description, conditions, payout),
          reasons(motivo_original, motivo_normalizado, categoria)`,
       )
@@ -95,6 +97,8 @@ export default async function PayoutDetailPage({ params }: Props) {
   } | null
 
   const tech = payout.technicians as unknown as { nome_completo: string } | null
+  // ADR-014: qual tabela de preços pagou esta visita (padrão do tenant ou alternativa do técnico)
+  const lpuDaPayout = lpuFromEmbed(payout.lpus)
   const rule = payout.lpu_rules as unknown as { description: string | null; conditions: unknown; payout: unknown } | null
   const reason = payout.reasons as unknown as {
     motivo_original: string
@@ -221,6 +225,18 @@ export default async function PayoutDetailPage({ params }: Props) {
             <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
               Regra LPU Aplicada
             </p>
+            {/* ADR-014: de qual tabela veio o valor — o gestor precisa saber sem abrir o técnico */}
+            <div className="mb-3">
+              <p className="mb-1 text-xs text-[var(--text-3)]">Tabela de preços</p>
+              <p className="text-sm text-[var(--text)]">
+                {tabelaPrecoDetalhe(lpuDaPayout)}
+                {tabelaAlternativaLabel(lpuDaPayout) && (
+                  <span className="ml-2 rounded bg-[rgba(56,189,248,0.12)] px-2 py-0.5 text-xs text-[var(--cyan)]">
+                    tabela alternativa
+                  </span>
+                )}
+              </p>
+            </div>
             {rule.description && (
               <p className="mb-3 text-sm text-[var(--text)]">{rule.description}</p>
             )}

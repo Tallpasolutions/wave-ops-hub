@@ -332,7 +332,7 @@ export function EditRuleForm({ rule, lpuId, lpuNome, technicians = [] }: Props) 
         {/* Payout */}
         <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-5">
           <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
-            Payout
+            Pagamento
           </p>
 
           <div className="mb-4 flex gap-2">

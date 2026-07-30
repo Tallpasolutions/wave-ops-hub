@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
+import { campoLabel, CAMPOS_OCULTOS_AUDITORIA } from '@/lib/labels/campos'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,58 +16,6 @@ type AuditRecord = {
   changed_at: string
   before: Record<string, unknown>
   after: Record<string, unknown>
-}
-
-const IGNORED_FIELDS = new Set([
-  'id',
-  'tenant_id',
-  'upload_id',
-  'created_at',
-  'updated_at',
-  'content_hash',
-  // infra: hidden per Wave request, 2026-06
-  'drop_usado',
-  'faixa_drop',
-  'conectores_usados',
-  'trocado_drop',
-  'motivo_troca',
-  'outras_fibras',
-  'quantas_fibras',
-])
-
-const FIELD_LABELS: Record<string, string> = {
-  os_num: 'OS',
-  data_execucao: 'Data de execução',
-  tecnico_id: 'Técnico (ID)',
-  tecnico_raw: 'Técnico (nome bruto)',
-  reason_id: 'Motivo (ID)',
-  sucesso: 'Sucesso',
-  improdutiva: 'Improdutiva',
-  valor_recebido_unetvale: 'Valor recebido',
-  finalidade: 'Finalidade',
-  tipo_atendimento: 'Tipo de atendimento',
-  cidade: 'Cidade',
-  garantia: 'Garantia',
-  validada: 'Validada',
-  agregada: 'Agregada',
-  rejeitada: 'Rejeitada',
-  agendada: 'Agendada',
-  trocado_drop: 'Trocado drop',
-  outras_fibras: 'Outras fibras',
-  drop_usado: 'Drop usado',
-  faixa_drop: 'Faixa de drop',
-  conectores_usados: 'Conectores usados',
-  observacoes: 'Observações',
-  explicacao_valor: 'Explicação do valor',
-  num_tecnicos: 'Nº de técnicos',
-  condominio: 'Condomínio',
-  subterraneo_aereo: 'Subterrâneo/Aéreo',
-  motivo_troca: 'Motivo de troca',
-  cat1: 'Categoria 1',
-  cat2: 'Categoria 2',
-  cat3: 'Categoria 3',
-  categoria_interna: 'Categoria interna',
-  quantas_fibras: 'Qtd. de fibras',
 }
 
 function formatValue(v: unknown): string {
@@ -83,11 +32,11 @@ function getDiff(before: Record<string, unknown>, after: Record<string, unknown>
   const changes: { field: string; label: string; before: unknown; after: unknown }[] = []
   const allKeys = new Set([...Object.keys(before), ...Object.keys(after)])
   for (const key of allKeys) {
-    if (IGNORED_FIELDS.has(key)) continue
+    if (CAMPOS_OCULTOS_AUDITORIA.has(key)) continue
     if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
       changes.push({
         field: key,
-        label: FIELD_LABELS[key] ?? key,
+        label: campoLabel(key),
         before: before[key],
         after: after[key],
       })

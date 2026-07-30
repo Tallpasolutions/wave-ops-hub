@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/sheet'
 import { getVisitsByReason } from '../actions'
 import type { VisitByReasonRow } from '../actions'
+import { payoutStatusLabel } from '@/lib/labels/payout-status'
 
 type Props = {
   reasonId: string
@@ -19,17 +20,6 @@ type Props = {
 function formatBRL(value: number | null): string {
   if (value === null || isNaN(value)) return '—'
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  pending_review: 'Aguardando',
-  pending: 'Pendente',
-  approved: 'Aprovado',
-  paid: 'Pago',
-  override: 'Override',
-  no_rule_match: 'Sem regra',
-  pending_classification: 'Motivo pendente',
-  conflict: 'Conflito',
 }
 
 export function OsListSheet({ reasonId, reasonLabel }: Props) {
@@ -96,7 +86,7 @@ export function OsListSheet({ reasonId, reasonLabel }: Props) {
                     {v.tecnicoNome ?? 'Sem técnico'}
                   </span>
                   <span className="text-xs text-[var(--text-2)]">
-                    {v.payoutStatus ? STATUS_LABELS[v.payoutStatus] ?? v.payoutStatus : '—'} ·{' '}
+                    {v.payoutStatus ? payoutStatusLabel(v.payoutStatus).curto : '—'} ·{' '}
                     {formatBRL(v.valorCalculado)}
                   </span>
                 </div>

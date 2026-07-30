@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { lpuFromEmbed, tabelaAlternativaLabel, tabelaPrecoDetalhe } from '@/lib/lpu/tabela-preco'
 import { formatConditions, formatPayout } from '@/lib/lpu/format'
+import { payoutStatusLabel } from '@/lib/labels/payout-status'
 import type { PayoutNarrowed } from '@/lib/lpu/types'
 
 export const metadata: Metadata = { title: 'Detalhe do Pagamento' }
@@ -24,20 +25,7 @@ function formatBRL(value: number | null): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending_review: { label: 'Aguardando fechamento', cls: 'bg-white/5 text-[var(--text-2)]' },
-    pending: { label: 'Pendente', cls: 'bg-white/5 text-[var(--text-2)]' },
-    approved: { label: 'Aprovado', cls: 'bg-[rgba(46,230,168,0.12)] text-[var(--green)]' },
-    paid: { label: 'Pago', cls: 'bg-[rgba(46,230,168,0.2)] text-[var(--green)]' },
-    override: { label: 'Override manual', cls: 'bg-[rgba(250,204,21,0.12)] text-yellow-400' },
-    no_rule_match: { label: 'Sem regra LPU', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-    pending_classification: {
-      label: 'Motivo pendente',
-      cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]',
-    },
-    conflict: { label: 'Conflito de prioridade', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-  }
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-white/5 text-[var(--text-3)]' }
+  const { detalhado: label, cls } = payoutStatusLabel(status)
   return (
     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>
       {label}
@@ -145,7 +133,7 @@ export default async function PayoutDetailPage({ params }: Props) {
           {canOverride && (
             <Link href={`/pagamentos/${id}/override`}>
               <Button size="sm" variant="outline">
-                Override manual
+                Ajustar valor
               </Button>
             </Link>
           )}
@@ -196,7 +184,7 @@ export default async function PayoutDetailPage({ params }: Props) {
           <InfoRow label="Valor calculado" value={formatBRL(valorCalculado)} />
           {valorOverride !== null && (
             <InfoRow
-              label="Override"
+              label="Valor ajustado pelo gestor"
               value={
                 <span className="text-yellow-400">{formatBRL(valorOverride)}</span>
               }
@@ -217,7 +205,7 @@ export default async function PayoutDetailPage({ params }: Props) {
             />
           )}
           {payout.override_motivo && (
-            <InfoRow label="Motivo do override" value={payout.override_motivo} />
+            <InfoRow label="Motivo do ajuste" value={payout.override_motivo} />
           )}
         </div>
 

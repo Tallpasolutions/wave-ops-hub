@@ -156,7 +156,7 @@ export default async function MinhaEquipePage() {
               </div>
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
-                  Payout
+                  Pagamento
                 </p>
                 <p className="mt-1 text-xl font-bold text-[var(--text)]">
                   {k.totalPayout.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

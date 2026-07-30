@@ -181,14 +181,14 @@ export default async function UploadDetailPage({
           </div>
           <div className="flex items-center gap-3">
             <StatusBadge status={u.status} />
-            {/* Recalcular payouts: sempre disponível em uploads com sucesso */}
+            {/* Recalcular pagamentos: sempre disponível em uploads com sucesso */}
             {u.status === 'success' && (
               <form action={recalculateUploadPayouts.bind(null, u.id)}>
                 <PendingSubmitButton
                   pendingLabel="Recalculando…"
                   className="rounded-lg border border-[var(--line)] bg-[var(--bg-2)] px-3 py-1.5 text-xs font-semibold text-[var(--text-2)] transition-colors hover:bg-[var(--bg-3)]"
                 >
-                  Recalcular payouts
+                  Recalcular pagamentos
                 </PendingSubmitButton>
               </form>
             )}

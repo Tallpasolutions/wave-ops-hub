@@ -239,7 +239,7 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
             A pagar
           </p>
           <p className="mt-1 text-2xl font-bold text-[var(--cyan)]">{formatBRL(totalPago)}</p>
-          <p className="text-xs text-[var(--text-3)]">payouts pendentes/aprovados</p>
+          <p className="text-xs text-[var(--text-3)]">pagamentos pendentes/aprovados</p>
         </div>
         {totalDeixadoNaMesa > 0 ? (
           <Link

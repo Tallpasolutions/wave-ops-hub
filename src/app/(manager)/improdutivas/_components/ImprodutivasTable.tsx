@@ -134,7 +134,7 @@ function RowActions({
       <button
         onClick={() => setConfirmingReject(true)}
         disabled={busy}
-        title="Rejeitar (payout vai a R$ 0 — pede confirmação)"
+        title="Rejeitar (o pagamento vai a R$ 0 — pede confirmação)"
         className="flex items-center gap-1 rounded-lg bg-[rgba(255,84,112,0.10)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--red)] transition-all hover:bg-[rgba(255,84,112,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <ThumbsDown size={12} />

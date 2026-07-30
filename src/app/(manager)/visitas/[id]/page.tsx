@@ -8,6 +8,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { lpuFromEmbed, tabelaPrecoDetalhe } from '@/lib/lpu/tabela-preco'
 import { formatPayout } from '@/lib/lpu/format'
 import type { PayoutNarrowed } from '@/lib/lpu/types'
+import { campoLabel, CAMPOS_OCULTOS_AUDITORIA } from '@/lib/labels/campos'
+import { payoutStatusLabel } from '@/lib/labels/payout-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,31 +18,6 @@ export const metadata: Metadata = { title: 'Detalhe da Visita' }
 type Props = {
   params: Promise<{ id: string }>
 }
-
-const FIELD_LABELS: Record<string, string> = {
-  os_num: 'OS',
-  data_execucao: 'Data de execução',
-  tecnico_raw: 'Técnico (nome bruto)',
-  sucesso: 'Sucesso',
-  improdutiva: 'Improdutiva',
-  valor_recebido_unetvale: 'Valor recebido',
-  finalidade: 'Finalidade',
-  tipo_atendimento: 'Tipo de atendimento',
-  cidade: 'Cidade',
-  garantia: 'Garantia',
-  validada: 'Validada',
-  agregada: 'Agregada',
-  rejeitada: 'Rejeitada',
-  agendada: 'Agendada',
-  observacoes: 'Observações',
-  condominio: 'Condomínio',
-}
-
-const IGNORED_AUDIT = new Set([
-  'id', 'tenant_id', 'upload_id', 'created_at', 'updated_at', 'content_hash',
-  // infra: hidden per Wave request, 2026-06
-  'drop_usado', 'faixa_drop', 'conectores_usados', 'trocado_drop', 'motivo_troca', 'outras_fibras', 'quantas_fibras',
-])
 
 function formatBRL(value: number | null): string {
   if (value === null || isNaN(value)) return '—'
@@ -57,17 +34,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function PayoutStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending_review: { label: 'Aguardando fechamento', cls: 'bg-white/5 text-[var(--text-2)]' },
-    pending: { label: 'Pendente', cls: 'bg-white/5 text-[var(--text-2)]' },
-    approved: { label: 'Aprovado', cls: 'bg-[rgba(46,230,168,0.12)] text-[var(--green)]' },
-    paid: { label: 'Pago', cls: 'bg-[rgba(46,230,168,0.2)] text-[var(--green)]' },
-    override: { label: 'Override', cls: 'bg-[rgba(250,204,21,0.12)] text-yellow-400' },
-    no_rule_match: { label: 'Sem regra LPU', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-    pending_classification: { label: 'Motivo pendente', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-    conflict: { label: 'Conflito', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-  }
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-white/5 text-[var(--text-3)]' }
+  const { detalhado: label, cls } = payoutStatusLabel(status)
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
       {label}
@@ -182,7 +149,7 @@ export default async function VisitDetailPage({ params }: Props) {
         {canOverride && (
           <Link href={`/pagamentos/${payout!.id}/override`}>
             <Button size="sm" variant="outline">
-              Override de payout
+              Ajustar valor
             </Button>
           </Link>
         )}
@@ -238,10 +205,10 @@ export default async function VisitDetailPage({ params }: Props) {
         {/* Payout */}
         <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-5">
           <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
-            Payout
+            Pagamento
           </p>
           {!payout ? (
-            <p className="text-sm text-[var(--text-3)]">Payout ainda não calculado para esta visita.</p>
+            <p className="text-sm text-[var(--text-3)]">Pagamento ainda não calculado para esta visita.</p>
           ) : (
             <>
               <InfoRow
@@ -264,7 +231,7 @@ export default async function VisitDetailPage({ params }: Props) {
               <InfoRow label="Valor calculado" value={formatBRL(valorCalculado)} />
               {valorOverride !== null && (
                 <InfoRow
-                  label="Override"
+                  label="Valor ajustado pelo gestor"
                   value={<span className="text-yellow-400">{formatBRL(valorOverride)}</span>}
                 />
               )}
@@ -283,7 +250,7 @@ export default async function VisitDetailPage({ params }: Props) {
                 />
               )}
               {payout.override_motivo && (
-                <InfoRow label="Motivo do override" value={payout.override_motivo} />
+                <InfoRow label="Motivo do ajuste" value={payout.override_motivo} />
               )}
               {payout.lpu_rules && (
                 <div className="mt-4 border-t border-[var(--line)] pt-4">
@@ -315,10 +282,10 @@ export default async function VisitDetailPage({ params }: Props) {
                 const diffs: { label: string; before: unknown; after: unknown }[] = []
                 const allKeys = new Set([...Object.keys(entry.before), ...Object.keys(entry.after)])
                 for (const key of allKeys) {
-                  if (IGNORED_AUDIT.has(key)) continue
+                  if (CAMPOS_OCULTOS_AUDITORIA.has(key)) continue
                   if (JSON.stringify(entry.before[key]) !== JSON.stringify(entry.after[key])) {
                     diffs.push({
-                      label: FIELD_LABELS[key] ?? key,
+                      label: campoLabel(key),
                       before: entry.before[key],
                       after: entry.after[key],
                     })

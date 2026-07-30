@@ -12,6 +12,7 @@ import { OsSearchInput } from '../_components/OsSearchInput'
 import { Pagination } from '../_components/Pagination'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
 import { lpuFromEmbed, tabelaAlternativaLabel } from '@/lib/lpu/tabela-preco'
+import { payoutStatusLabel } from '@/lib/labels/payout-status'
 import { RecalcularButton } from './_components/RecalcularButton'
 
 export const metadata: Metadata = { title: 'Pagamentos' }
@@ -28,19 +29,7 @@ function formatBRL(value: number | null): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending_review: { label: 'Aguardando', cls: 'bg-white/5 text-[var(--text-3)]' },
-    pending: { label: 'Pendente', cls: 'bg-white/5 text-[var(--text-2)]' },
-    approved: { label: 'Aprovado', cls: 'bg-[rgba(46,230,168,0.12)] text-[var(--green)]' },
-    paid: { label: 'Pago', cls: 'bg-[rgba(46,230,168,0.2)] text-[var(--green)]' },
-    override: { label: 'Override', cls: 'bg-[rgba(250,204,21,0.12)] text-yellow-400' },
-    no_rule_match: { label: 'Sem regra', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-    pending_classification: { label: 'Motivo pendente', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-    conflict: { label: 'Conflito', cls: 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]' },
-    pending_calculation: { label: 'Calculando', cls: 'bg-white/5 text-[var(--text-3)]' },
-    contestado: { label: 'Contestado', cls: 'bg-[rgba(250,204,21,0.12)] text-yellow-400' },
-  }
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-white/5 text-[var(--text-3)]' }
+  const { curto: label, cls } = payoutStatusLabel(status)
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
       {label}

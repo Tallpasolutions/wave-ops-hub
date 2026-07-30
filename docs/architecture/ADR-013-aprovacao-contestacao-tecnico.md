@@ -98,3 +98,32 @@ migration 0029; `NULL` nas contestações anteriores a esta mudança).
 
 **Consequência:** ajuste de valor por contestação é sempre um `override`, com autor, hora e motivo
 — a trilha de auditoria do payout e a contestação contam a mesma história.
+
+## Adendo (2026-07-30) — manter o valor também é decisão: trava no recálculo
+
+O adendo acima descreve a trava do payout **quando a Wave altera** o valor. Faltava o outro
+caso: quando a Wave analisa a contestação e **mantém** o valor, o payout voltava para `pending`
+sem nenhuma marca de decisão manual. Como `recalculate-batch.ts` só trava
+`approved`/`paid`/`contestado`/`override_by`, um "Recalcular pendentes" posterior podia
+sobrescrever exatamente o valor que o gestor tinha acabado de confirmar ao técnico — desfazendo
+a conferência em silêncio, sem erro e sem aviso.
+
+Com a conferência da Wave em andamento e a contestação contínua (adendo de 2026-07-22), esse era
+o caminho mais provável de perda de trabalho já feito: cada mudança de regra da LPU exige um
+recálculo, e o recálculo passava por cima das contestações já respondidas.
+
+**Decisão:** `resolverContestacao` grava `override_by`/`override_at`/`override_motivo` nos
+**dois** casos. Manter o valor depois de analisar é uma decisão do gestor tanto quanto alterá-lo,
+e fica registrada com autor, hora e a resposta dada ao técnico.
+
+`valor_override` continua sendo gravado **apenas quando o valor muda**. Preenchê-lo com o valor
+calculado só para travar teria dois efeitos indesejados: a tela do técnico deixaria de mostrar a
+quebra do acréscimo de domingo/feriado (a UI assume que override substitui o cálculo — ADR-011) e
+o detalhe do payout exibiria uma linha "Override" idêntica ao valor calculado.
+
+Migration [`0034`](../../supabase/migrations/0034_trava_contestacoes_resolvidas_sem_ajuste.sql)
+aplica a mesma trava às contestações já resolvidas sem ajuste (5 na base em 30/07/2026).
+
+**Contrapartida aceita:** payouts com contestação respondida deixam de acompanhar correções de
+regra automaticamente. Para reprocessar um deles de propósito, é preciso limpar `override_by`
+antes — o mesmo mecanismo que o "desfazer" das improdutivas já usa.

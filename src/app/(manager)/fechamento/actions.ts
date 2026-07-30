@@ -374,21 +374,31 @@ export async function resolverContestacao(
     })
     .eq('id', contestacaoId)
 
-  // Payout volta para 'pending'; se a Wave ajustou o valor, grava o override (override_by
-  // trava o payout no recálculo, preservando o ajuste manual).
+  // Payout volta para 'pending' e SEMPRE registra a decisão do gestor: `override_by` é o que
+  // trava o payout no recálculo (ver recalculate-batch.ts). Manter o valor depois de analisar a
+  // contestação é uma decisão tanto quanto alterá-lo — sem a trava, um "Recalcular pendentes"
+  // posterior sobrescreveria o valor que o gestor acabou de confirmar ao técnico, desfazendo a
+  // conferência em silêncio. Para reprocessar de propósito, limpe `override_by` antes.
+  //
+  // `valor_override` só é gravado quando o valor MUDOU. Preenchê-lo com o valor calculado
+  // apenas para travar teria dois efeitos indesejados: a tela do técnico deixaria de mostrar a
+  // quebra do acréscimo de domingo/feriado (assume que override substitui o cálculo — ADR-011)
+  // e o detalhe do payout exibiria uma linha "Override" idêntica ao valor calculado.
   await supabase
     .from('payouts')
-    .update(
-      aplicarOverride
+    .update({
+      status: 'pending',
+      override_by: user.id,
+      override_at: now,
+      ...(aplicarOverride
         ? {
-            status: 'pending',
             valor_override: valorNovo,
-            override_by: user.id,
-            override_at: now,
             override_motivo: `Ajuste na resolução de contestação: ${parsed.data.resposta}`,
           }
-        : { status: 'pending' },
-    )
+        : {
+            override_motivo: `Valor mantido na resolução de contestação: ${parsed.data.resposta}`,
+          }),
+    })
     .eq('id', c.payout_id)
     .eq('status', 'contestado')
 

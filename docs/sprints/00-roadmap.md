@@ -261,7 +261,13 @@ do escopo.
 | Notificações | ✅ **In-app + push entregues** — ADR-017 (tempo real via Supabase Realtime, Sprint 16) e ADR-018 (Web Push com app fechado, Sprint 17). **WhatsApp segue fora do escopo** |
 | App do técnico | ✅ **Entregue na Sprint 17** — PWA instalável + APK Android (TWA/sideload). Ver [Sprint 17](./18-sprint-17-app-tecnico.md). Não é app nativo: é a mesma PWA empacotada |
 
-**Candidatos a Sprint 17 (a priorizar com o gestor):**
+**Sprint 18 — EM ANDAMENTO** (ver [Sprint 18](./19-sprint-18-precisao-e-portugues.md)):
+precisão de pagamento, IQI e português integral. Nasceu da auditoria de uma OS de suporte em
+30/07. Fase 0 (suporte sem troca de drop, Troca de Poste, trava de contestação) concluída — 0.1 já
+verificada em produção. Fases 1–3 planejadas: coleta do IQI parada desde 21/07 (secret inválido no
+GitHub Actions), termos em inglês na interface e blocos de JSON nas telas do gestor.
+
+**Candidatos seguintes (a priorizar com o gestor):**
 
 1. **Onboarding e rotina mensal da Wave** — fechar o ciclo operacional completo de um mês com os
    usuários reais, do upload ao pagamento, com a conferência dos técnicos rodando de verdade.

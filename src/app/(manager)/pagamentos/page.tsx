@@ -11,6 +11,7 @@ import { paginate } from '../_lib/pagination'
 import { OsSearchInput } from '../_components/OsSearchInput'
 import { Pagination } from '../_components/Pagination'
 import { tecnicoDisplayName } from '@/lib/format/tecnico'
+import { lpuFromEmbed, tabelaAlternativaLabel } from '@/lib/lpu/tabela-preco'
 import { RecalcularButton } from './_components/RecalcularButton'
 
 export const metadata: Metadata = { title: 'Pagamentos' }
@@ -67,7 +68,8 @@ export default async function PayoutsPage({ searchParams }: Props) {
        payouts!inner(
          id, status, valor_calculado, valor_override,
          valor_deixado_na_mesa, visit_id, technician_id,
-         technicians(nome_completo)
+         technicians(nome_completo),
+         lpus(nome, ativa)
        )`,
     )
     .eq('tenant_id', user.tenantId!)
@@ -86,6 +88,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
     visit_id: string
     technician_id: string | null
     technicians: { nome_completo: string } | { nome_completo: string }[] | null
+    lpus: unknown
   }
 
   type PayoutRow = {
@@ -98,6 +101,8 @@ export default async function PayoutsPage({ searchParams }: Props) {
     os_num: number
     data_execucao: string
     finalidade: string | null
+    // ADR-014: nome da tabela alternativa que pagou; null quando veio da padrão
+    tabelaAlternativa: string | null
   }
 
   const allPayouts: PayoutRow[] = (visitsRaw ?? []).flatMap((v) => {
@@ -119,6 +124,7 @@ export default async function PayoutsPage({ searchParams }: Props) {
       os_num: v.os_num as number,
       data_execucao: v.data_execucao as string,
       finalidade: v.finalidade as string | null,
+      tabelaAlternativa: tabelaAlternativaLabel(lpuFromEmbed(p.lpus)),
     }]
   })
 
@@ -320,6 +326,14 @@ export default async function PayoutsPage({ searchParams }: Props) {
                       </td>
                       <td className="px-4 py-3 text-sm text-[var(--text)]">
                         {p.tecnico}
+                        {/* ADR-014: só a tabela alternativa é sinalizada — marcar a padrão em
+                            toda linha viraria ruído e esconderia a exceção. Fica junto do
+                            técnico (a tabela é dele) para não abrir coluna nova. */}
+                        {p.tabelaAlternativa && (
+                          <span className="ml-2 whitespace-nowrap rounded bg-[rgba(56,189,248,0.12)] px-1.5 py-0.5 text-[10px] text-[var(--cyan)]">
+                            {p.tabelaAlternativa}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-[var(--text-3)]">
                         {p.finalidade ?? '—'}

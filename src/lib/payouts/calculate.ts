@@ -48,6 +48,15 @@ const UNETVALE_NAO_PAGA_CENTAVOS = 2930;
 // (o repasse com ponto já vem do mapa de homologação — ADR-015).
 const PONTO_ADICIONAL_VALOR = 36;
 
+// ADR-019: valores próprios da tabela de preços (migration 0035). Cada campo ausente cai no
+// valor histórico acima — a LPU padrão não declara nenhum, então seu cálculo é idêntico ao de
+// antes desta mudança. Só uma LPU alternativa que declare valores muda de comportamento.
+export type LpuValores = {
+  pontoAdicional?: number | null;
+  improdutiva?: number | null;
+  feriadoPct?: number | null;
+};
+
 function isImprodutivaPadrao(valorRecebidoUnetvale: number | null): boolean {
   if (valorRecebidoUnetvale === null) return false;
   return Math.round(valorRecebidoUnetvale * 100) === UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS;
@@ -100,7 +109,15 @@ export function buildPayoutUpsert(
   // este parâmetro fica em `false`; existe para manter o contrato correto se a função for
   // chamada por outro caminho.
   manualDecisionExists = false,
+  // ADR-019: valores da tabela de preços que está pagando esta visita. Omitido/vazio =
+  // valores históricos (o caso da LPU padrão).
+  lpuValores?: LpuValores,
 ): PayoutUpsertData {
+  // ADR-019: cada valor cai no histórico quando a LPU não declara o seu. `?? ` (e não `||`)
+  // para que um valor legítimo de R$ 0 configurado pelo gestor seja respeitado.
+  const pontoAdicionalValor = lpuValores?.pontoAdicional ?? PONTO_ADICIONAL_VALOR;
+  const improdutivaValor = lpuValores?.improdutiva ?? PAYOUT_IMPRODUTIVA_PADRAO;
+
   // ADR-009: visita com sucesso do grupo Cabeamento/Condomínio → payout vem da
   // classificação (não da LPU). Improdutivas e demais finalidades seguem o fluxo normal.
   const finalidadeKey = visit.finalidade?.trim().toLowerCase();
@@ -126,7 +143,7 @@ export function buildPayoutUpsert(
       lpuId,
       lpuRuleId: null,
       reasonId: visit.reasonId,
-      valorCalculado: PAYOUT_IMPRODUTIVA_PADRAO,
+      valorCalculado: improdutivaValor,
       valorDeixadoNaMesa: 0,
       status: "approved",
       improdutivaAprovada: true,
@@ -163,22 +180,25 @@ export function buildPayoutUpsert(
     !isRetirada &&
     !!feriado &&
     isDomingoOuFeriado(visit.dataExecucao, feriado.feriados);
+  // ADR-019: a LPU pode ter percentual próprio; sem ele vale o do tenant. A LISTA de feriados
+  // continua sendo do tenant — o calendário é o mesmo para todo mundo, só o percentual muda.
+  const feriadoPct = lpuValores?.feriadoPct ?? feriado?.pct ?? 0;
   const comAcrescimo = (valor: number | null): number | null =>
     valor != null && valor > 0 && aplicaAcrescimo
-      ? aplicarAcrescimo(valor, feriado!.pct)
+      ? aplicarAcrescimo(valor, feriadoPct)
       : valor;
   // ADR-011: valor em R$ que o acréscimo somou (null quando não incide), a partir do MESMO
   // valor-base passado a `comAcrescimo`. Persistido para a tela exibir a quebra base → +pct%.
   // Arredondado a 2 casas para casar com numeric(10,2) e reconciliar (base = calculado − acréscimo).
   const acrescimoDe = (base: number | null): number | null =>
     base != null && base > 0 && aplicaAcrescimo
-      ? Math.round((aplicarAcrescimo(base, feriado!.pct) - base) * 100) / 100
+      ? Math.round((aplicarAcrescimo(base, feriadoPct) - base) * 100) / 100
       : null;
 
   // ADR-016: acréscimo por pontos adicionais (coluna Z). Homologação NÃO passa por aqui —
   // retorna antes, com o repasse (inclusive ponto) vindo do próprio mapa (ADR-015).
   const acrescimoPontos =
-    parsePontosAdicionais(visit.explicacaoValor) * PONTO_ADICIONAL_VALOR;
+    parsePontosAdicionais(visit.explicacaoValor) * pontoAdicionalValor;
   const comPontos = (base: number | null): number | null =>
     base != null ? base + acrescimoPontos : null;
 

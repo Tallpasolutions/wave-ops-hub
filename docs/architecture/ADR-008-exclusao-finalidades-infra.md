@@ -110,3 +110,20 @@ A lista original tinha `Genérico` e `Parcial` sem prefixo, mas o dado da Unetva
 apareceu como `no_rule_match` no fechamento). Migration `0028_finalidade_infra_generico.sql`
 adiciona `Infra Genérico` e `Infra Parcial` a `config.finalidades_infra` e remarca os dados
 existentes. Como o `ingestor` lê a lista do config, uploads futuros já saem marcados.
+
+## Adendo (2026-07-30) — "Troca de Poste" no singular
+
+Mesma classe de falha do adendo anterior, terceira ocorrência: a lista trazia
+**`Troca de postes`** (plural, escrito na 0013 a partir da ata da decisão), mas a planilha emite
+**`Troca de Poste`** (singular). Match exato = nenhuma marcação; as 3 visitas (OS 575578, 575598,
+575759, julho/2026) apareciam como "Sem regra" em `/pagamentos`, apesar de a coluna Z dizer
+`"OS infra feita por terceirizada"`. Corrigido pela migration
+[`0033_finalidade_troca_de_poste_infra.sql`](../../supabase/migrations/0033_finalidade_troca_de_poste_infra.sql),
+que acrescenta a variante e refaz o backfill.
+
+> **O padrão se repetiu três vezes** (0013 → 0028 → 0033), sempre do mesmo jeito: a lista é
+> escrita a partir do que o gestor **fala**, e o match é feito contra o que a planilha
+> **emite**. Enquanto a lista for editável só por migration, cada variante nova custa um ciclo
+> de deploy e passa despercebida até alguém reparar na fila de "Sem regra". Ver
+> [tech-debt 021](../tech-debt.md) para as saídas possíveis (tela de gestão da lista e/ou
+> alerta de finalidade desconhecida no upload).

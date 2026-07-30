@@ -181,6 +181,20 @@ tenant, a sineta do Tallpa vira ruído — notificação de todos os tenants mis
 **Esforço estimado:** S — filtro por tenant de interesse, ou agrupamento por tenant na sineta.
 **Quando idealmente resolver:** antes do segundo tenant entrar.
 
+### 020 — Payouts pagos sobre visitas com receita Unetvale R$ 0,00 (sucesso)
+**Identificado em:** 2026-07-30, na investigação do suporte externo sem troca de drop
+**Onde:** LPU ativa da Wave + `src/lib/payouts/calculate.ts`
+**Por quê:** o corte por receita da Unetvale (ADR-015/016 e o threshold de suporte) trata R$ 0,00
+como "receita desconhecida/não reembolsada" só no caminho das **improdutivas**. Em visitas com
+**sucesso** e receita R$ 0,00 a LPU paga o valor cheio.
+**Impacto se não resolver:** margem negativa silenciosa. Levantamento na base atual:
+19 suportes externos com troca de drop e receita R$ 0,00 pagando R$ 120/R$ 135; e 4 visitas
+"Roteador agregado à OS que não é de Suporte nem Cabeamento" com receita R$ 0,00 pagando R$ 30
+pela regra de Suporte Interno. Não está claro se a receita zerada é falha da planilha (a Unetvale
+ainda vai pagar) ou glosa real — a decisão é da Wave, não técnica.
+**Esforço estimado:** S no código (o threshold já existe); o custo é a decisão de negócio.
+**Quando idealmente resolver:** junto com a próxima revisão de LPU com o gestor.
+
 ### Template
 
 ```

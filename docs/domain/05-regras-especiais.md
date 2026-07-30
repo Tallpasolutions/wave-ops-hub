@@ -68,6 +68,51 @@ Captura visitas cujo `valorRecebidoUnetvale` é maior que R$64. A prioridade mai
 
 ---
 
+## Suporte externo: com x sem troca de drop (2026-07-30)
+
+As regras **"Suporte Fibra Aéreo Externo" (R$ 120)** e **"Suporte Fibra Subterrâneo Externo"
+(R$ 135)** casam por `tipoAtendimento` + `subterraneaAereo`. Elas foram desenhadas para o suporte
+**com troca de drop**, cuja receita da Unetvale é ~R$ 206 (aéreo) / ~R$ 232 (subterrâneo) — a
+margem fecha. Mas a LPU não tem como distinguir, por esses dois campos, o **suporte simples**
+(`"Suporte | 50 * 1.1 …"`, receita R$ 64,46): quando a planilha o traz marcado como Externo com o
+meio preenchido, ele casava a mesma regra e pagava 4x o devido, com **margem negativa**
+(R$ 120 pagos sobre R$ 64,46 recebidos).
+
+O corte é por **receita da Unetvale** — o mesmo padrão de threshold descrito acima. Quatro regras
+de prioridade **500** (5 condições), que vencem as de 400 quando a receita indica que não houve
+troca de drop:
+
+| Regra | Condições (além da lista de finalidades de suporte) | Valor |
+|---|---|---|
+| Suporte Fibra Aéreo Externo sem troca de drop | `Externo` + `Aéreo` + `agregada: false` + receita `{min:40, max:150}` | R$ 30 |
+| Suporte Fibra Subterrâneo Externo sem troca de drop | `Externo` + `Subterrâneo` + `agregada: false` + receita `{min:40, max:150}` | R$ 30 |
+| … + venda atrelada (aéreo) | idem com `agregada: true` | R$ 45 |
+| … + venda atrelada (subterrâneo) | idem com `agregada: true` | R$ 45 |
+
+Os valores espelham o par já vigente do suporte simples **interno** (R$ 30 / R$ 45). As duas
+regras `agregada: true` são preventivas — nenhuma visita casa esse cenário hoje; existem para o
+bug não voltar pela porta da venda atrelada.
+
+**A faixa R$ 40–150 foi calibrada contra os dados reais**, não escolhida por estética:
+
+- **Dentro:** suporte simples (64,46) · suporte condomínio sem troca de fibra (64,46) · suporte
+  retenção sem troca de drop (106,54) · troca de equipamento de local (109,87)
+- **Fora:** troca de drop aéreo (206,26 / 247,51 / 412,52) e subterrâneo (232,04 / 278,45) ·
+  improdutivas (15,98 e 0,00 — já resolvidas antes do motor de LPU)
+- **O piso de R$ 40 é deliberado:** preserva o comportamento das 19 visitas externas *com* troca
+  de drop cuja receita veio R$ 0,00. Esse é um caso separado, ainda não decidido.
+
+Migration: [`supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql`](../../supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql).
+Testes de regressão em `src/lib/lpu/__tests__/match-engine.test.ts`.
+
+> **Por que não condicionar por "houve troca de drop"?** Seria mais fiel ao domínio, mas exigiria
+> uma chave de condição nova no motor (`trocadoDrop`) — mudança de código + ADR. E a coluna
+> `trocado_drop` da planilha **não é confiável**: em 11 visitas cuja explicação de valor descreve
+> troca de drop, ela veio `false`. A receita é o sinal mais estável, e é o mesmo critério que o
+> ADR-015 e o ADR-016 já usam.
+
+---
+
 ## Invariantes do motor
 
 - O campo `valorRecebidoUnetvale` vem da planilha Unetvale e é armazenado em `service_visits.valor_recebido_unetvale` (numeric).

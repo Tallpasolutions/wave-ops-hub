@@ -195,6 +195,20 @@ ainda vai pagar) ou glosa real — a decisão é da Wave, não técnica.
 **Esforço estimado:** S no código (o threshold já existe); o custo é a decisão de negócio.
 **Quando idealmente resolver:** junto com a próxima revisão de LPU com o gestor.
 
+### 021 — `finalidades_infra` só é editável por migration, e o match é exato
+**Identificado em:** 2026-07-30 (terceira ocorrência do mesmo problema)
+**Onde:** `tenants.config.finalidades_infra`, `src/lib/etl/ingestor.ts` (`isFinalidadeInfra`)
+**Por quê:** a lista nasceu de uma decisão pontual da Wave (Sprint 12) e ficou na config do
+tenant, escrita por migration. O match é exato (`trim + lower`).
+**Impacto se não resolver:** cada variante de nome que a Unetvale emitir custa um ciclo de
+deploy e só é notada quando alguém repara na fila "Sem regra" — já aconteceu 3x:
+`Genérico` → `Infra Genérico` (0028) e `Troca de postes` → `Troca de Poste` (0033).
+A falha é silenciosa: a OS não some da listagem, mas também não paga nada.
+**Esforço estimado:** S para o alerta (upload avisar "finalidade nunca vista antes: X"),
+M para a tela de gestão da lista pelo gestor.
+**Quando idealmente resolver:** junto do onboarding da Wave — o alerta no upload sozinho já
+elimina a descoberta tardia, e é o pedaço barato.
+
 ### Template
 
 ```

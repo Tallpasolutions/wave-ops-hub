@@ -356,14 +356,26 @@ async function processVisitPage(
   const upserts = toProcess.map((v) => {
     // ADR-014: usa a LPU atribuída ao técnico, se houver; senão a padrão do tenant.
     const assigned = v.tecnico_id ? ctx.lpuByTecnico.get(v.tecnico_id) : undefined;
-    // ADR-019: a LPU alternativa substitui classificações e repasses SÓ quando declara os
-    // seus; sem nada cadastrado, herda os do tenant. O conjunto de finalidades classificadas
-    // é do tenant nos dois casos — define QUAIS finalidades saem do motor de LPU, não quanto
-    // pagam.
+    // ADR-019: as classificações da LPU são aplicadas SOBRE as do tenant, chave a chave —
+    // não substituem o conjunto inteiro. Trocar tudo de uma vez abriria buraco: uma chave que
+    // a tabela alternativa não declara (ex.: "Cabeamento fibra aérea") ficaria sem valor e a
+    // visita cairia em `no_rule_match`, que trava o fechamento. Com o merge, o gestor cadastra
+    // só as diferenças e o resto segue pago pelo valor do tenant.
     const classifications =
       assigned && assigned.classifications.size > 0
-        ? assigned.classifications
+        ? new Map([...ctx.classifications, ...assigned.classifications])
         : ctx.classifications;
+    // Mesma herança para homologação: valor da Unetvale não declarado na LPU cai no do tenant,
+    // em vez de virar "sem regra" e parar na fila do gestor.
+    const homologacao =
+      assigned?.homologacao && ctx.homologacao
+        ? {
+            valores: new Map([
+              ...ctx.homologacao.valores,
+              ...assigned.homologacao.valores,
+            ]),
+          }
+        : (assigned?.homologacao ?? ctx.homologacao);
     return buildPayoutUpsert(
       rowToSimVisit(v),
       assigned?.rules ?? ctx.rules,
@@ -372,7 +384,7 @@ async function processVisitPage(
       tenantId,
       { map: classifications, finalidades: ctx.finalidadesClassificar },
       ctx.feriado,
-      assigned?.homologacao ?? ctx.homologacao,
+      homologacao,
       false,
       assigned?.valores ?? ctx.lpuValores,
     );

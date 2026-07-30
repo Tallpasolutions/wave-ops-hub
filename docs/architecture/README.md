@@ -26,6 +26,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-016](./ADR-016-ajustes-coluna-z.md) | Ajustes de payout pela coluna Z (29,30, pontos adicionais, Venda Produto Externo) | Aceito |
 | [ADR-017](./ADR-017-notificacoes-realtime.md) | Notificações cross-user e entrega em tempo real (Supabase Realtime) | Aceito |
 | [ADR-018](./ADR-018-push-app-fechado.md) | Notificação push com o app fechado (Web Push + VAPID) | Aceito |
+| [ADR-019](./ADR-019-valores-por-lpu.md) | Valores de pagamento próprios de cada LPU (tabela "SEM AUXILIAR") | Aceito |
 
 ### Onde cada ADR toca o cálculo de payout
 

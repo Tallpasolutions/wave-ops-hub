@@ -1,269 +1,299 @@
-# Sprint 18 — Precisão de pagamento, IQI e português integral
+# Sprint 18 — LPU "SEM AUXILIAR", precisão de pagamento, IQI e português integral
 
 **Período:** 2026-07-30 em diante
-**Status:** 🟡 Fase 0 concluída (aguardando aplicação em produção) · Fases 1–3 planejadas
-**Origem:** Auditoria de uma OS de suporte que pagava R$ 120 (30/07), que descobriu três frentes
-distintas — precisão do cálculo, coleta do IQI parada há 9 dias e linguagem técnica vazando para
-a tela do gestor.
+**Status:** 🟡 Fase 0 concluída e em produção · Fase 1 (LPU) é a prioridade · Fases 2–4 planejadas
+**Origem:** Auditoria de uma OS de suporte que pagava R$ 120 (30/07), que abriu quatro frentes —
+precisão do cálculo, a segunda tabela de preços da Wave, coleta do IQI parada e linguagem técnica
+vazando para a tela.
 **Regras de execução:** [`regras-de-execucao.md`](./regras-de-execucao.md)
 
 ---
 
-## Fase 0 — Precisão do pagamento (CONCLUÍDA, aguardando produção)
+## Fase 0 — Precisão do pagamento (CONCLUÍDA)
 
-Três correções nascidas da mesma investigação. Todas com evidência colhida no banco de produção.
+Três correções da mesma investigação, todas com evidência colhida no banco de produção.
 
-### 0.1 — Suporte externo sem troca de drop pagava 4x o devido
-
-**Sintoma:** OS 574486 (Suporte Fibra, Brusque) pagava R$ 120 sobre uma receita da Unetvale de
-R$ 64,46 — margem negativa de R$ 55,54.
-
-**Causa:** as regras "Suporte Fibra Aéreo/Subterrâneo Externo" (R$ 120 / R$ 135) casam por
-`tipoAtendimento` + `subterraneaAereo` e foram desenhadas para o suporte **com troca de drop**
-(receita ~R$ 206 / ~R$ 232). O suporte **simples** (`"Suporte | 50 * 1.1"`, receita R$ 64,46)
-casava as mesmas regras quando a planilha o trazia como Externo com o meio preenchido. A LPU não
-tinha como distinguir os dois casos pelos campos que usava.
-
-**Correção:** threshold por receita da Unetvale — quatro regras de prioridade 500 (Aéreo/Subterrâneo
-× com/sem venda atrelada), faixa R$ 40–150, pagando R$ 30 / R$ 45. Sem mudança de código:
-`valorRecebidoUnetvale` já era condição do motor.
-
-| Evidência | Valor |
-|---|---|
-| Visitas de suporte com sucesso analisadas | 728 |
-| Afetadas (todas `pending_review`, sem override, nenhuma paga) | 3 |
-| Diferença acumulada | R$ 285 |
-| Casos de regressão validados no motor de match | 12 (3 alvo + 9 preservados) |
-
-Migration [`0032`](../../supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql) ·
-detalhes em [`docs/domain/05-regras-especiais.md`](../domain/05-regras-especiais.md) ·
-PR [#45](https://github.com/Tallpasolutions/wave-ops-hub/pull/45) (mergeado).
-
-**Verificado em produção (30/07):** migration aplicada + "Recalcular pendentes" → OS 574486,
-558063 e 559731 em R$ 30, com a regra nova. A visita de 19/05 da OS 559731 seguiu em R$ 135
-(teve troca de drop real, receita R$ 0,00 — ver tech-debt 020).
-
-**Calibragem da faixa** (contra os dados reais, não por estética):
-- **Dentro:** suporte simples (64,46) · condomínio sem troca de fibra (64,46) · retenção sem
-  troca (106,54) · troca de equipamento de local (109,87)
-- **Fora:** troca de drop (206,26 / 232,04 / 247,51 / 278,45 / 412,52) · improdutivas (15,98 e 0,00)
-- **Piso de R$ 40 deliberado:** preserva as 19 externas *com* troca de drop e receita R$ 0,00
-
-### 0.2 — "Troca de Poste" não casava a lista de infra
-
-**Sintoma:** 3 OSs de Troca de Poste apareciam como "Sem regra" em `/pagamentos`.
-
-**Causa:** a 0013 gravou `"Troca de postes"` (plural, como saiu da ata da decisão da Wave); a
-planilha emite `"Troca de Poste"` (singular). O match é exato (`trim + lower`) → nunca casou, e
-as visitas ficaram com `fora_escopo = false`. A coluna Z confirma que são infra: *"OS infra feita
-por terceirizada"*.
-
-**Correção:** migration [`0033`](../../supabase/migrations/0033_finalidade_troca_de_poste_infra.sql)
-acrescenta a variante, refaz o backfill e remove os payouts (padrão da 0013).
-
-> **Terceira ocorrência do mesmo padrão** (0013 → 0028 → 0033): a lista nasce do que o gestor
-> **fala**, o match é contra o que a planilha **emite**. Falha em silêncio — a OS não some da
-> listagem e também não paga. Ver [tech-debt 021](../tech-debt.md).
-
-### 0.3 — Contestação respondida sem ajuste ficava destravada no recálculo
-
-**Sintoma potencial (não chegou a causar perda):** `resolverContestacao` só gravava `override_by`
-quando a Wave **alterava** o valor. Ao analisar e **manter** o valor, o payout voltava a `pending`
-sem marca de decisão manual — e `recalculate-batch` trava apenas
-`approved`/`paid`/`contestado`/`override_by`. Um "Recalcular pendentes" posterior sobrescreveria o
-valor recém-confirmado ao técnico, desfazendo a conferência em silêncio.
-
-Com a conferência da Wave em andamento e contestação contínua, esse era o caminho mais provável de
-perda de trabalho já feito: toda mudança de regra da LPU exige um recálculo.
-
-**Correção:** `override_by`/`override_at`/`override_motivo` gravados nos dois casos.
-`valor_override` segue só quando o valor muda — preenchê-lo apenas para travar esconderia a quebra
-do acréscimo de domingo/feriado na tela do técnico (ADR-011) e exibiria uma linha "Override"
-redundante. Migration [`0034`](../../supabase/migrations/0034_trava_contestacoes_resolvidas_sem_ajuste.sql)
-aplica a mesma trava às 5 contestações já resolvidas sem ajuste.
-
-**Contrapartida aceita:** payouts com contestação respondida deixam de acompanhar correções de
-regra automaticamente; para reprocessar de propósito, limpar `override_by` antes. Registrado no
-adendo do [ADR-013](../architecture/ADR-013-aprovacao-contestacao-tecnico.md).
-
-### Estado da Fase 0
-
-| Item | Código | Migration | Produção |
+| Item | O que era | Migration | Estado |
 |---|---|---|---|
-| 0.1 suporte sem troca de drop | ✅ PR #45 mergeado | 0032 | ✅ **verificado** |
-| 0.2 Troca de Poste | ✅ branch `fix/troca-de-poste-fora-escopo` | 0033 | ⏳ aplicar |
-| 0.3 trava de contestação | ✅ mesma branch | 0034 | ⏳ aplicar + deploy |
+| **0.1** Suporte externo sem troca de drop pagava R$ 120 sobre receita de R$ 64,46 | Regras de R$ 120/R$ 135 casavam por tipo+meio; valiam para o suporte **com** troca de drop (receita ~R$ 206/~R$ 232) | [0032](../../supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql) | ✅ **verificado em produção** |
+| **0.2** "Troca de Poste" aparecia como "Sem regra" | Lista de infra tinha `"Troca de postes"` (plural); planilha emite o singular. Match exato → nunca casou | [0033](../../supabase/migrations/0033_finalidade_troca_de_poste_infra.sql) | ✅ aplicada |
+| **0.3** Contestação respondida **sem** ajuste ficava destravada no recálculo | `override_by` só era gravado quando a Wave alterava o valor; manter o valor não travava, e um recálculo desfazia a conferência em silêncio | [0034](../../supabase/migrations/0034_trava_contestacoes_resolvidas_sem_ajuste.sql) | ✅ aplicada |
 
-240/240 testes · typecheck ✅ · lint ✅
+Detalhes: [`docs/domain/05-regras-especiais.md`](../domain/05-regras-especiais.md) ·
+adendos no [ADR-008](../architecture/ADR-008-exclusao-finalidades-infra.md) e
+[ADR-013](../architecture/ADR-013-aprovacao-contestacao-tecnico.md) · tech-debt 020 e 021.
 
 ---
 
-## Fase 1 — IQI: a coleta está parada há 9 dias
+## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
 
-### Diagnóstico (evidência colhida em 30/07)
+### Primeiro: a premissa precisa ser corrigida
 
-O botão "Sincronizar IQI" **dispara** corretamente o workflow do GitHub Actions. O que falha é a
-coleta, e ela falha sempre no mesmo ponto:
+O pedido foi "deixar duas LPUs ativas". **O sistema não precisa disso — e com duas ativas ele
+quebra.** Existem duas travas:
 
-```
-Error: Tenant 'wave' não encontrado: Invalid API key
-    at runIqiCollection (src/lib/iqi/collector.ts:116)
-```
+1. `trg_single_active_lpu` ([0001_initial_schema.sql:290](../../supabase/migrations/0001_initial_schema.sql)) rejeita duas ativas no mesmo tenant
+2. `loadRecalcContext` ([recalculate-batch.ts:98](../../src/lib/payouts/recalculate-batch.ts)) busca a LPU ativa com `.single()` — duas linhas retornam **erro**, e o recálculo inteiro falha
 
-| Evidência | Dado |
+O que você quer **já está implementado** desde o [ADR-014](../architecture/ADR-014-lpu-por-tecnico.md)
+(20/07), por outro caminho — e o ADR foi escrito citando esta planilha pelo nome:
+
+> *"A Wave passou a ter uma LPU alternativa 'SEM AUXILIAR' (valores menores, serviço sem técnico
+> auxiliar) que deve valer só para técnicos específicos escolhidos pelo gestor."*
+
+O desenho: a LPU alternativa é cadastrada como **segunda LPU não-ativa**. `ativa = true` significa
+apenas "tabela padrão do tenant", não "em uso". O motor resolve **por visita**: usa as regras da
+LPU do técnico se ele tiver uma atribuída, senão as da padrão. Uma LPU não-ativa atribuída a um
+técnico é aplicada normalmente — o filtro `ativa` no carregamento das regras alternativas é sobre
+`lpu_rules.ativa` (a regra), não sobre `lpus.ativa`.
+
+**O que já existe e funciona:**
+
+| Peça | Onde | Estado |
+|---|---|---|
+| Coluna `technicians.lpu_id` | migration 0023 | ✅ aplicada |
+| Motor resolve LPU por técnico | `recalculate-batch.ts:80` (`lpuByTecnico`) | ✅ |
+| Seletor "LPU do técnico" no cadastro | `/equipe/tecnicos/[id]` → `TechnicianLpuSelector` | ✅ lista "Padrão" + alternativas |
+| Recálculo escopado ao técnico ao trocar a LPU | `setTechnicianLpu` | ✅ |
+
+**Verificado hoje:** 13 técnicos ativos, **0 com LPU própria** — o mecanismo nunca foi usado porque
+a LPU "SEM AUXILIAR" nunca foi cadastrada. É exatamente a pendência que o ADR-014 deixou registrada.
+
+> **Portanto o trabalho não é "permitir duas ativas".** É (1) cadastrar a LPU SEM AUXILIAR,
+> (2) atribuir aos técnicos e (3) sinalizar na tela qual tabela pagou cada OS.
+
+### 1.1 — Mapear a planilha para regras
+
+A planilha tem 44 linhas. Elas se dividem em três grupos, e só o primeiro vira regra de LPU.
+
+#### Grupo A — vira regra de LPU (mecânico, valores comparados com a tabela padrão)
+
+| Serviço na planilha | SEM AUXILIAR | Padrão hoje | Condições |
+|---|---|---|---|
+| Instalação aérea | 100 | 120 | `condominio:false` + `Aéreo` |
+| Instalação subterrânea | 100 | 135 | `condominio:false` + `Subterrâneo` |
+| Instalação Condomínio externo aéreo + DG até AP | 150 | 190 | `condominio:true` + `Aéreo` + `Externo` |
+| Instalação Condomínio externo subterrâneo + DG até AP | 70 | 70 | `condominio:true` + `Subterrâneo` + `Externo` |
+| Instalação Condomínio do DG até o AP | 60 | 70 (genérica) | `condominio:true` |
+| Retirada | 20 | 20 | `finalidade: Retirada` |
+| Suporte de Fibra aérea | 100 | 120 | suporte + `Aéreo` + `Externo` |
+| Suporte de Fibra Subterrânea | 100 | 135 | suporte + `Subterrâneo` + `Externo` |
+| Suporte de Fibra aérea **mais venda atrelada** | 100 | 130 | idem + `agregada:true` |
+| Suporte de Fibra Subterrânea **mais venda atrelada** | 100 | 135 | idem + `agregada:true` |
+| Suporte Fibra Interno | 30 | 30 | suporte + `Interno` |
+| Suporte Fibra Interno **mais venda de roteador** | 30 | 45 | idem + `agregada:true` |
+| Suporte Fibra Retenção · Suporte Interno (Config./Garantia) · Suporte Rádio | 30 | 30 | já caem em Suporte Interno |
+
+**Itens com garantia pagam "-" (zero)** — e isso é modelável: `garantia` é condição válida do motor.
+São 6 linhas: instalação aérea/subterrânea com garantia, condomínio DG-AP menos garantia, suporte
+subterrâneo/aéreo com OS de garantia, suporte retenção com garantia, suporte fibra interno com
+garantia. ⚠️ **A tabela padrão não tem essas regras** — hoje, uma OS de garantia paga valor cheio
+para todo mundo. Confirmar se o "não paga em garantia" vale só para SEM AUXILIAR ou para as duas.
+
+#### Grupo B — precisa de decisão sua (o motor não resolve sozinho)
+
+| Item | Conflito |
 |---|---|
-| Runs do workflow examinados | 26 |
-| Falhas | 24 |
-| **Último sucesso** | **2026-07-22 14:32 UTC** |
-| Secrets `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_SUPABASE_URL` regravados em | **2026-07-23 00:21** |
-| Snapshots em `iqi_snapshots` | 45, **todos com `synced_at` de 21/07** |
+| **Instalação aérea/subterrânea com ponto adicional → 130** | O motor soma **+R$ 36 por ponto** (ADR-016), o que daria 100 + 36 = **136**, não 130. Para SEM AUXILIAR o ponto vale **+R$ 30**? Se sim, o acréscimo por ponto precisa deixar de ser constante no código e passar a variar por LPU. |
+| **Suporte Fibra Interno com ponto adicional → 60** | Mesma coisa: 30 + 30 = 60 (e não 30 + 36 = 66). Confirma que na SEM AUXILIAR o ponto é R$ 30. |
+| **Cordoalha → 200** (instalação aérea/subterrânea + cordoalha; suporte aéreo/subterrâneo com cordoalha) | "Cordoalha" **não é condição do motor** — aparece só na coluna Z. Hoje nenhuma regra a considera. Precisa de mecanismo novo (como foi feito para homologação e pontos adicionais). |
+| **Telefonia** (suporte mesma localidade 20 / outra 30; cabeamento novo 30 / atrelado 30) | Qual é a **finalidade exata** que a Unetvale emite para telefonia? Sem o texto da planilha da Unetvale não dá para escrever a condição. |
+| **Cabeamento segundo ponto com EX-220 → 20** | Depende do texto exato da coluna Z. |
 
-A correlação é direta: funcionava até 22/07, os secrets foram regravados em 23/07 e **toda**
-execução desde então falha na primeira chamada ao Supabase. A chave de serviço gravada no GitHub
-está inválida — provavelmente colada com espaço/quebra de linha, ou trocada pela chave `anon`.
-O scraping da Unetvale nem chega a ser tentado.
+#### Grupo C — está FORA do motor de LPU (o achado mais importante desta fase)
 
-> A data que "permanece a mesma" na tela é 21/07 porque é literalmente o último dado gravado.
+Estes serviços **não passam pela LPU** hoje. São resolvidos por estruturas **por tenant** — o que
+significa que atribuir a LPU alternativa a um técnico **não muda nada** neles:
 
-### 1.1 — Correção imediata (ação do usuário, não do assistente)
+| Serviço | SEM AUXILIAR | Valor de hoje | Onde é resolvido | Escopo |
+|---|---|---|---|---|
+| Cabeamento/Segundo Ponto | 30 | 44 | `cabeamento_classifications` (ADR-009) | **tenant** |
+| Cabeamento 2 pontos / DG até AP + 2º ponto | 60 | 70 | idem | **tenant** |
+| Cabeamento 3 pontos | 90 | 106 | idem | **tenant** |
+| Instalação Fibra Homologação | 30 | 35 | `homologacao_classifications` (ADR-015) | **tenant** |
+| Visita improdutiva | 10 | 15 (constante no código) | `calculate.ts` | **global** |
+| Domingos e feriados | 10% | 15% (`config.feriado_acrescimo_pct`) | config | **tenant** |
 
-Regravar o secret no GitHub — `Settings → Secrets and variables → Actions`:
+⚠️ **Consequência prática:** se a Wave atribuir a SEM AUXILIAR a um técnico hoje, ele passa a
+receber os valores menores de instalação/suporte/retirada, **mas continua recebendo R$ 44 de
+cabeamento, R$ 35 de homologação, R$ 15 de improdutiva e 15% de acréscimo em feriado** — os valores
+da tabela padrão. O pagamento fica misturado entre as duas tabelas.
 
-- `SUPABASE_SERVICE_ROLE_KEY` = a **service_role** do projeto (Supabase → Settings → API), sem
-  espaços nem quebra de linha
-- `NEXT_PUBLIC_SUPABASE_URL` = a URL do projeto, **sem barra no final**
+Isso não é um bug: o ADR-014 entregou o vínculo só no motor de LPU, e essas outras estruturas
+nasceram depois (ADR-015 e ADR-016 são de julho). Mas é uma limitação que precisa de decisão antes
+de a LPU entrar em uso.
 
-Validar disparando o workflow pela aba Actions e conferindo que o run fica verde. Definir secrets é
-manuseio de credencial: o assistente não faz.
+**Três saídas, da mais rápida à mais completa:**
 
-### 1.2 — A UI mente quando a coleta falha
+- **(a) Entrar só com o Grupo A agora** e assumir a mistura, com a limitação documentada e visível
+  na tela. Rápido, mas paga errado nos serviços do Grupo C.
+- **(b) Tornar as três estruturas "por LPU"** — coluna `lpu_id` em `cabeamento_classifications` e
+  `homologacao_classifications`, e mover improdutiva/percentual de feriado para colunas da própria
+  LPU. É o modelo correto e exige ADR + migrations + mudança no `loadRecalcContext`. Esforço M.
+- **(c) Adiar a SEM AUXILIAR** até (b) estar pronto.
 
-`sincronizarIqi` ([actions.ts:44](../../src/app/(manager)/produtividade/actions.ts)) considera
-sucesso o HTTP 204 do `workflow_dispatch` — que significa apenas "o disparo foi aceito", não "a
-coleta funcionou". Por isso a mensagem verde apareceu 24 vezes enquanto nada era coletado.
+**Recomendo (b)**, mas fatiado: entra o Grupo A junto com a mudança de escopo de
+`cabeamento_classifications` e `homologacao_classifications` (que cobrem a maior parte do volume);
+improdutiva e feriado ficam para um segundo momento, sinalizados na tela. Se você precisa da tabela
+valendo esta semana, (a) é viável **desde que** a diferença esteja visível para o gestor.
 
-**Proposta:** trocar a promessa por verificação do efeito.
+⚠️ **Contradição na própria planilha:** a linha de domingos/feriados diz "**15%** a mais" no nome do
+serviço e "**10%** a mais nos domingos e feriados" no valor. O sistema está com 15%. Qual vale?
+
+### 1.2 — Como a LPU entra no sistema
+
+Pelo mesmo caminho da LPU atual: **migration numerada** com o `INSERT` das regras
+(o precedente é `seed-wave-lpu-2026-revisada.sql`, hoje seria uma `0035`). Rastreável, idempotente e
+reproduzível — melhor do que digitar 20 regras na tela, e não precisa de acesso ao navegador.
+
+A LPU nasce **`ativa = false`**, com nome "LPU Wave — SEM AUXILIAR". Depois o gestor atribui aos
+técnicos em `/equipe/tecnicos/[id]`, um a um, e cada atribuição já recalcula os payouts daquele
+técnico (`approved`/`paid`/`contestado`/`override_by` preservados — Fase 0.3).
+
+### 1.3 — Sinalizar qual tabela pagou cada OS
+
+Pedido seu, e **o dado já existe**: `payouts.lpu_id` é gravado a cada cálculo. Falta exibir.
+
+| Tela | Proposta |
+|---|---|
+| `/pagamentos` (lista) | Coluna ou etiqueta com o nome da tabela; só aparece quando não é a padrão, para não poluir |
+| `/pagamentos/[id]` | Linha "Tabela de preços: LPU Wave — SEM AUXILIAR" junto da regra aplicada |
+| `/visitas/[id]` | Idem, no bloco de pagamento |
+| `/fechamento/[periodo]` | Etiqueta por técnico, para o gestor conferir em bloco |
+| `/equipe/tecnicos/[id]` | Já mostra o seletor; deixar explícito qual está valendo |
+
+Visível **só para o gestor** (rotas `(manager)`) — o técnico vê pontos, não a tabela.
+
+### DoD da Fase 1
+- [ ] LPU "SEM AUXILIAR" criada por migration, inativa, com as regras do Grupo A
+- [ ] Um técnico de teste atribuído, com os payouts dele recalculados e conferidos contra a planilha
+- [ ] Nome da tabela visível nas telas de pagamento do gestor
+- [ ] Decisão registrada (a/b/c) sobre o Grupo C, e o que ficou de fora escrito na tela
+- [ ] ADR-014 atualizado com o que foi de fato entregue
+
+---
+
+## Fase 2 — IQI: a coleta continua parada, mas por outro motivo
+
+### O secret foi corrigido — e o erro mudou
+
+Sua regravação **funcionou**. O `Invalid API key` desapareceu: o coletor agora autentica no
+Supabase, lê o tenant e lista os 13 técnicos. O run de 30/07 17:19 falha em outro ponto:
+
+```
+Resumo: 0 técnicos processados · 0 meses gravados · 1 sem código Unetvale · 12 com erro.
+  ERRO Carlos Henrique...: Tempo esgotado (15000ms) em
+       https://os.unetvale.com.br/index/iqi/INS-INS2-INS3-MIGE-MIGF-MUD-MUDF/30/540
+  (… os mesmos 15000ms para todos os 12 técnicos)
+```
+
+Todos os 12 fetches ao endpoint do IQI estouram o timeout de 15s. É o **mesmo sintoma que motivou
+tirar a coleta da Vercel** ([ADR-012](../architecture/ADR-012-iqi-ingestao-scraping.md)) — só que
+agora no runner do GitHub.
+
+### Duas hipóteses, e o teste que as separa
+
+**H1 — Sessão inválida.** Os secrets `UNETVALE_USER`/`UNETVALE_PASSWORD` também foram regravados em
+23/07 00:20. E a validação do login é frouxa: `loginUnetvale` só verifica se **veio algum cookie**
+([collector.ts:86](../../src/lib/iqi/collector.ts)) — se a Unetvale devolver a página de login com
+um cookie de sessão novo, o código segue achando que logou. Com sessão inválida, o endpoint pode
+pendurar em vez de responder 401.
+
+**H2 — Bloqueio de IP.** A Unetvale passou a barrar também os IPs do GitHub Actions.
+
+**O que aponta para H1:** o login (2 requisições ao mesmo host) **passou sem timeout**; só
+`/index/iqi/...` pendura. Bloqueio de IP costuma derrubar o host inteiro, não uma rota.
+
+**Teste que decide:** com credencial válida e um IP residencial, chamar o endpoint de um técnico
+(ex.: 540) com o cookie de sessão. Responde rápido → H2. Pendura igual → o endpoint mudou. Volta
+HTML de login → H1 confirmada, e a correção é regravar a senha da Unetvale.
+
+### 2.1 — Correções de robustez (independentes de qual hipótese vencer)
 
 | Item | Mudança |
 |---|---|
-| Mensagem | De "atualizam em cerca de 1 minuto — recarregue a página" para "Sincronização iniciada…" sem prazo inventado |
-| Feedback | O botão passa a consultar `max(synced_at)` de `iqi_snapshots` a cada ~5s (até ~3 min). Mudou → "IQI atualizado" e revalida a tela. Não mudou no prazo → "A coleta não concluiu. Veja o histórico de execuções." |
-| Tela | Exibir **sempre** "Última sincronização: <data>", com destaque visual quando passar de 48h (a coleta é 2x/dia) |
+| Validar o login de verdade | Checar se a resposta é redirect/sessão autenticada, não só "veio cookie". Login falho tem de **falhar dizendo que é login**, não virar 12 timeouts |
+| Mensagem honesta no botão | Hoje `sincronizarIqi` trata o HTTP 204 do `workflow_dispatch` como sucesso — é só "disparo aceito". Foi assim que a tela exibiu 24 mensagens verdes com zero coleta |
+| Verificar o efeito | Após disparar, consultar `max(synced_at)` a cada ~5s (até ~3 min): mudou → "IQI atualizado"; não mudou → "A coleta não concluiu" com link para o histórico |
+| Dado velho visível | "Última sincronização: <data>" sempre na tela, com destaque acima de 48h (a coleta é 2x/dia) |
 
-Verificar o efeito (`synced_at` mudou) em vez da intenção (disparo aceito) é mais honesto e não
-depende de token extra do GitHub.
-
-### 1.3 — Falha silenciosa por 9 dias
-
-Ninguém soube das 24 falhas. Duas saídas, da mais barata para a mais completa:
-
-1. **Indicador de dado velho na tela** (parte do item 1.2) — resolve a descoberta tardia com o
-   menor custo
-2. **Notificação ao gestor** quando a coleta falhar: passo `if: failure()` no workflow chamando um
-   endpoint que usa `notify.ts` (o mesmo ponto único que já entrega in-app + push, ADR-017/018)
-
-**Recomendação:** fazer o 1 junto com o 1.2 e avaliar o 2 depois — sem o indicador, qualquer
-alerta novo só duplica ruído.
-
-### DoD da Fase 1
-- [ ] Um run do workflow verde, com `iqi_snapshots.synced_at` do dia
-- [ ] Botão mostrando resultado real (sucesso confirmado ou falha explícita), verificado com a
-      coleta funcionando e com ela quebrada de propósito
-- [ ] "Última sincronização" visível em `/produtividade`
+### DoD da Fase 2
+- [ ] Hipótese decidida com evidência (não com suposição)
+- [ ] Um run verde, com `iqi_snapshots.synced_at` do dia
+- [ ] Botão mostrando resultado real, testado com a coleta funcionando **e** quebrada de propósito
+- [ ] "Última sincronização" em `/produtividade`
 
 ---
 
-## Fase 2 — Português integral na interface
+## Fase 3 — Português integral na interface
 
-**Pedido do usuário, reafirmado:** nenhum termo em inglês deve chegar ao gestor ou ao técnico. Já
-foi pedido antes para `payout` → **pagamento**, mas sobraram telas.
+Nenhum termo em inglês deve chegar ao gestor ou ao técnico. Já foi pedido antes (`payout` →
+**pagamento**) e voltou — a causa é estrutural, não descuido.
 
-### O que foi encontrado
-
-**a) Mapas de tradução de status duplicados por tela** — a causa da inconsistência. Cada tela
-traduz por conta própria, e o que não está no mapa cai num fallback que mostra o termo cru:
+**Mapas de rótulo duplicados, cada um com fallback que vaza o termo cru:**
 
 | Arquivo | Situação |
 |---|---|
 | `pagamentos/page.tsx:31` | mapa próprio |
-| `pagamentos/[id]/page.tsx:25` | **outro** mapa, com rótulos diferentes para o mesmo status |
-| `motivos/_components/OsListSheet.tsx:24` | terceiro mapa, com fallback `?? v.payoutStatus` → vaza `pending_review` |
+| `pagamentos/[id]/page.tsx:25` | **outro** mapa, rótulos diferentes para o mesmo status |
+| `motivos/_components/OsListSheet.tsx:24` | terceiro mapa, `?? v.payoutStatus` → mostra `pending_review` |
 
-**b) `override` na interface** — `OverridePayoutForm.tsx:42` ("Motivo do override"),
-`pagamentos/[id]/page.tsx:191` (linha "Override" e "Motivo do override").
+Mais: `override` visível em `OverridePayoutForm.tsx:42` e `pagamentos/[id]/page.tsx:191`; e
+`FIELD_LABELS` duplicado em `visitas/[id]/page.tsx:17` e `uploads/[id]/audit/page.tsx:37`, ambos com
+`?? key` — campos fora do mapa aparecem como `subterraneo_aereo`, `explicacao_valor`.
 
-**c) Nomes de coluna crus nas telas de auditoria** — `FIELD_LABELS` duplicado em
-`visitas/[id]/page.tsx:17` e `uploads/[id]/audit/page.tsx:37`, ambos com fallback `?? key`. Campos
-fora do mapa aparecem como `subterraneo_aereo`, `explicacao_valor`, `lpu_rule_id`.
+**Proposta:** fonte única em `src/lib/labels/` (`payout-status.ts`, `campos.ts`) **sem fallback
+silencioso** — chave desconhecida vira erro de tipo, não texto cru; `override` → "ajuste manual";
+e um **teste de regressão** varrendo `.tsx` por lista negra de termos, no espírito do
+`schema-conventions.test.ts`. É o teste que impede a próxima reincidência.
 
-**d) Termos técnicos que viraram vocabulário da tela** — "LPU" e "OS" ficam (são o vocabulário da
-Wave); "payout", "override", "status" cru, "batch", "upload" precisam de decisão caso a caso.
+"LPU" e "OS" ficam — são o vocabulário da Wave.
 
-### Proposta
-
-1. **Fonte única de rótulos**, seguindo o precedente da Sprint 13 (`src/lib/reasons/categoria.ts`)
-   e de `lpu/_lib/status.ts`:
-   - `src/lib/labels/payout-status.ts` — status do pagamento
-   - `src/lib/labels/campos.ts` — nomes de campo das telas de auditoria
-   Ambos **sem fallback silencioso**: campo desconhecido é erro de tipo, não texto cru na tela.
-2. **Trocar `override` por "ajuste manual"** em toda a interface (o nome da coluna no banco não
-   muda — é vocabulário interno).
-3. **Teste de regressão** varrendo `.tsx` por uma lista negra de termos em inglês em texto visível,
-   no mesmo espírito do `schema-conventions.test.ts`. É o que impede a terceira reincidência —
-   sem ele, a próxima tela nova volta a vazar.
-
-### Decisão que preciso de você
-
-O glossário da Wave mantém **"payout"** como termo de domínio em `docs/glossary.md` e no CLAUDE.md.
-A troca vale só para o que o usuário lê na tela, ou você quer renomear também no código e na
-documentação? Recomendo **só a interface**: renomear o código toca ~40 arquivos, o banco
-(`payouts`, `valor_override`) e todos os ADRs, com risco alto e zero ganho para quem usa o sistema.
+**Decisão pendente:** trocar só na interface, ou renomear também código/banco/ADRs? Recomendo **só
+a interface** — renomear o resto toca ~40 arquivos, a tabela `payouts` e todos os ADRs, com risco
+alto e zero ganho para quem usa.
 
 ---
 
-## Fase 3 — Tirar código e log da interface
+## Fase 4 — Tirar código e log da interface
 
-**Pedido do usuário:** "Isso não é visualmente legal para a Wave."
-
-| Onde | O que aparece hoje | Proposta |
+| Onde | Hoje | Proposta |
 |---|---|---|
-| `visitas/[id]/page.tsx:286` | JSON da regra de LPU (`{"type":"fixed","value":20}`) | "Valor fixo de R$ 20,00" |
-| `pagamentos/[id]/page.tsx:230,236` | JSON de `conditions` **e** de `payout` | Frase legível: "Retirada · valor fixo de R$ 20,00"; condições como lista ("Finalidade: Retirada") |
-| `uploads/[id]/page.tsx:260` | JSON dos erros de importação | Lista de erros com linha e motivo |
-| `visitas/[id]`, `uploads/[id]/audit` | `before`/`after` com nomes de coluna crus | Usa a fonte única da Fase 2 |
+| `visitas/[id]/page.tsx:286` | JSON da regra (`{"type":"fixed","value":20}`) | "Valor fixo de R$ 20,00" |
+| `pagamentos/[id]/page.tsx:230,236` | JSON de `conditions` **e** de `payout` | "Retirada · valor fixo de R$ 20,00" + condições em lista |
+| `uploads/[id]/page.tsx:260` | JSON dos erros de importação | Lista com linha e motivo |
+| `visitas/[id]`, `uploads/[id]/audit` | `before`/`after` com nomes de coluna crus | Usa a fonte única da Fase 3 |
 
-A formatação legível de uma regra é lógica de domínio, não de componente: entra em
-`src/lib/lpu/format.ts` (`formatPayout`, `formatConditions`), com teste unitário. As telas passam a
-consumir texto pronto.
-
-`(dev)/dev/components/ComponentsDemo.tsx` **fica como está** — é tela de diagnóstico local, não
-recebe funcionalidade de produto (CLAUDE.md §6).
-
-### DoD da Fase 3
-- [ ] Nenhum `<pre>` com JSON nas rotas `(manager)` e `(technician)`
-- [ ] Regra de LPU legível em `/visitas/[id]` e `/pagamentos/[id]`
-- [ ] Erros de upload em lista legível
-- [ ] Testes de `formatPayout`/`formatConditions` cobrindo os três tipos de payout
-      (`fixed`, `formula`, `percentage_of_revenue`)
+A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format.ts`
+(`formatPayout`, `formatConditions`) com teste dos três tipos de payout. `(dev)/` fica como está.
 
 ---
 
-## Ordem sugerida
+## Ordem de execução
 
-1. **Aplicar 0033 e 0034** (Fase 0 fechada) — o dinheiro é o que importa primeiro
-2. **Regravar o secret do IQI** (1.1) — desbloqueia dado parado há 9 dias, custa 2 minutos
-3. **Fase 3** — maior ganho visível por esforço, escopo fechado, sem decisão pendente
-4. **Fase 2** — depende da sua decisão sobre o alcance da renomeação
-5. **1.2 e 1.3** — depois que a coleta estiver comprovadamente verde
+1. **Fase 1 — LPU SEM AUXILIAR** (prioridade sua). Bloqueada nas decisões do Grupo B/C abaixo
+2. **Fase 2.1 — teste do endpoint da Unetvale**: 10 minutos, decide entre senha errada e bloqueio
+3. **Fase 4** — maior ganho visível por esforço, escopo fechado, sem decisão pendente
+4. **Fase 3** — depende da decisão sobre o alcance da renomeação
+5. **Fase 2 restante** — feedback real do botão, depois que a coleta estiver verde
+
+## Decisões que destravam a Fase 1
+
+1. **Ponto adicional na SEM AUXILIAR é R$ 30** (100→130, 30→60)? Hoje o motor soma R$ 36 fixo para todos.
+2. **Garantia não paga** — vale só para a SEM AUXILIAR ou também para a tabela padrão?
+3. **Grupo C** — (a) entrar já assumindo a mistura, (b) tornar cabeamento/homologação por LPU antes, ou (c) adiar?
+4. **Domingo/feriado: 10% ou 15%?** A planilha se contradiz; o sistema está em 15%.
+5. **Cordoalha e Telefonia** — quais finalidades/textos exatos a Unetvale emite? Sem isso não dá para escrever a condição.
 
 ---
 
 ## Estado verificado
 
-- **30/07/2026 — Fase 0.1 VERIFICADA EM PRODUÇÃO:** migration 0032 aplicada pelo usuário +
-  "Recalcular pendentes". As 3 visitas em R$ 30 com a regra "sem troca de drop". LPU ativa foi de
-  14 → 18 regras, todas `ativa = true`.
-- **30/07/2026 — Fases 0.2 e 0.3 implementadas**, branch `fix/troca-de-poste-fora-escopo`:
-  aguardando merge, aplicação de 0033/0034 e deploy.
-- **30/07/2026 — Fase 1 diagnosticada**, não corrigida: causa raiz é o secret
-  `SUPABASE_SERVICE_ROLE_KEY` do GitHub Actions, inválido desde 23/07. Correção depende do usuário.
+- **30/07 — Fase 0.1 verificada em produção:** 0032 aplicada + recálculo; 3 visitas em R$ 30 com a
+  regra nova; LPU ativa de 14 → 18 regras.
+- **30/07 — 0033 e 0034 aplicadas** pelo usuário; PR mergeado.
+- **30/07 — Fase 1 levantada:** mecanismo do ADR-014 confirmado pronto (coluna, motor, UI);
+  **13 técnicos ativos, 0 com LPU atribuída**; a LPU SEM AUXILIAR nunca foi cadastrada.
+- **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
+  com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
+  na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

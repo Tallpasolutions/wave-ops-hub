@@ -133,6 +133,34 @@ Resultado:
 - Sobreposição de períodos → linhas idênticas viram skip
 - Conflito real (valor mudou) → update + audit log
 
+### Onde a idempotência falha: reemissão com horário trocado (adendo de 03/08/2026)
+
+A idempotência acima só vale enquanto os quatro campos da chave forem estáveis na origem. **O
+`data_execucao` não é.** Quando a Unetvale corrige o pagamento de uma OS já entregue, ela reemite
+a linha com o valor novo e carimba na coluna de data de execução o **horário do ajuste**, não o da
+execução. A chave muda, o `existing` não é encontrado, e o que deveria ser um `update` vira um
+`insert`: duas visitas para a mesma execução, duas receitas somadas e **dois payouts**.
+
+Descoberto pela OS 572894, que aparecia com 3 visitas e R$ 634,50 de receita enquanto a planilha
+trazia 2 linhas. Varredura completa da base em 03/08/2026: **3 ocorrências**, todas do upload de
+03/08, todas com a linha nova em 23:4x e a observação explicando o acréscimo (fora do horário de
+expediente, apoio a outro técnico, "alinhado pagamento com acréscimo"). Limpas pela migration
+[0040](../../supabase/migrations/0040_remove_visitas_reemitidas.sql) — R$ 160 de payout duplicado
+e R$ 335,18 de receita fantasma.
+
+**A chave natural NÃO passa a ser por dia.** Seria a correção óbvia — `DATE(data_execucao)` em vez
+do timestamp — e está errada: a OS 568170 tem duas visitas com sucesso do **mesmo técnico no mesmo
+dia** (10:03 e 10:51), ambas na mesma planilha, uma delas zerada pela Unetvale porque a outra
+fechou a OS. Colapsar por dia apagaria uma execução real. Duas visitas no mesmo dia são
+legítimas; o que não é legítimo é a mesma execução chegar duas vezes — e os dois casos são
+indistinguíveis pelos campos da planilha.
+
+**O que separa um do outro** é *quando* a linha chegou: a reemissão aparece num upload
+**posterior** ao que já tinha a visita daquele (OS, técnico, dia). Isso é sinal para **avisar**,
+não para mesclar automaticamente — uma segunda visita real reportada com atraso teria a mesma
+assinatura. A detecção está registrada em `docs/tech-debt.md` (025) com a query da varredura, que
+também vai como Conferência 3 da 0040.
+
 ---
 
 ## Vinculação de técnicos

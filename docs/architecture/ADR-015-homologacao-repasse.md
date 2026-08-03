@@ -72,6 +72,33 @@ definir o repasse; salvar recalcula os payouts).
   (fórmula com constantes 64,46/77,77/35/44 embutidas no código) foi descartada por embutir
   constantes do reajuste atual no motor.
 
+## Adendo — receita glosada pela Unetvale (03/08/2026)
+
+O `no_rule_match` de valor não cadastrado tem um caso que não estava previsto no contexto acima:
+a Unetvale às vezes **reduz** o que pagou por uma homologação já executada. A OS 572737 (20/07,
+Douglas Ribeiro) veio com receita **R$ 3,96** em vez dos R$ 64,46 habituais, e a própria Unetvale
+explicou na observação da OS: *"21/07/2026 17:04 - Pagamento alterado devido a abertura da OS de
+garantia"*. A coluna Z continua sendo `Homologação | 60.50 (Reajuste +6,54% fevereiro/2025)` — o
+serviço não mudou, o pagamento é que foi glosado.
+
+**O desenho se sustenta:** o valor cai na fila em vez de pagar os R$ 35 da homologação cheia, e a
+Wave decide o repasse. Três pontos que a experiência acrescenta:
+
+- **A glosa não tem campo próprio.** O sinal está em `observacoes`, texto livre da Unetvale — o
+  mesmo motivo pelo qual `trocado_drop` foi descartado como condição em
+  [`05-regras-especiais.md`](../domain/05-regras-especiais.md). Não é base para regra automática.
+- **`garantia` na visita glosada é `false`.** A OS de garantia é **outra** OS, aberta depois; a
+  visita original não carrega essa marca. Quem tentar resolver isso pela condição `garantia` do
+  motor não vai casar nada.
+- **Um valor cadastrado vale para todas as visitas com aquela receita**, em todo o tenant. Como
+  cada glosa tende a produzir um valor distinto, o cadastro funciona como decisão caso a caso —
+  o que é adequado aqui, mas significa que a fila vai receber uma linha nova a cada glosa
+  diferente. Se isso virar volume, é hora de um ADR sobre glosa, não de mais cadastros.
+
+Frequência medida em 03/08/2026: **1 visita** em 50 homologações do tenant (as outras 49 se
+distribuem entre 64,46 · 128,92 · 142,23 · e 3 com receita R$ 0,00, que hoje resolvem pelo
+[ADR-020](./ADR-020-receita-zerada-sem-repasse.md)).
+
 ## Alternativas consideradas
 
 - **Nova regra de LPU com campo `homologacao`:** o modelo de payout fixo da LPU não captura o

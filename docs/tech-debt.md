@@ -262,6 +262,34 @@ Vira problema na primeira que aparecer, e vai aparecer como "técnico não receb
 **Quando idealmente resolver:** na próxima revisão de LPU com o gestor, ou assim que surgir a
 primeira visita dessas num técnico da padrão.
 
+### 025 — Reemissão da Unetvale cria visita duplicada e ninguém é avisado
+**Identificado em:** 2026-08-03, pela OS 572894 (3 visitas onde a planilha tinha 2)
+**Onde:** `src/lib/etl/ingestor.ts` (chave natural) + `UNIQUE (tenant_id, os_num, data_execucao, tecnico_id)`
+**Por quê:** quando a Unetvale corrige o pagamento de uma OS, ela reemite a linha carimbando o
+**horário do ajuste** na coluna de data de execução. A chave natural inclui o timestamp → o
+ingestor insere em vez de atualizar, e a mesma execução vira duas visitas, duas receitas e dois
+payouts. A 0040 limpou as 3 ocorrências existentes, mas **nada impede a próxima**.
+**Por que não trocar a chave para o dia:** apagaria visitas reais — a OS 568170 tem duas execuções
+com sucesso do mesmo técnico no mesmo dia (10:03 e 10:51), ambas na mesma planilha. Ver o adendo
+do [ADR-003](./architecture/ADR-003-os-visit-modeling.md#onde-a-idempotência-falha-reemissão-com-horário-trocado-adendo-de-03082026).
+**Impacto se não resolver:** payout pago duas vezes pela mesma execução, em silêncio. Foram
+R$ 160 em um único upload. Só apareceu porque o gestor estranhou a receita de uma OS.
+**Desenho proposto (avisar, não mesclar):** no fim da ingestão, procurar grupos
+`(os_num, tecnico_id, dia)` com 2+ visitas de sucesso onde pelo menos uma veio de um upload
+anterior; devolver a lista em `IngestWarning` (o tipo já existe em `src/lib/etl/types.ts`) e
+exibir no detalhe do upload — hoje **nenhuma tela consome `IngestWarning`**, então esse é o
+primeiro consumidor. Mesclar automaticamente está descartado: uma segunda visita real reportada
+com atraso tem a mesma assinatura.
+**Query da varredura** (é a Conferência 3 da 0040):
+```sql
+SELECT os_num, tecnico_id, data_execucao::date AS dia, count(*),
+       array_agg(data_execucao::time ORDER BY data_execucao)
+FROM service_visits WHERE lower(btrim(sucesso)) LIKE 'sim%'
+GROUP BY os_num, tecnico_id, data_execucao::date HAVING count(*) > 1;
+```
+**Esforço estimado:** S para a detecção + M para a tela do upload consumir `IngestWarning`.
+**Quando idealmente resolver:** antes do próximo fechamento — o risco é dinheiro pago em dobro.
+
 ### Template
 
 ```

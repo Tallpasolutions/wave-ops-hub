@@ -28,6 +28,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-018](./ADR-018-push-app-fechado.md) | Notificação push com o app fechado (Web Push + VAPID) | Aceito |
 | [ADR-019](./ADR-019-valores-por-lpu.md) | Valores de pagamento próprios de cada LPU (tabela "SEM AUXILIAR") | Aceito |
 | [ADR-020](./ADR-020-receita-zerada-sem-repasse.md) | Receita zerada da Unetvale não gera repasse automático | Aceito |
+| [ADR-021](./ADR-021-alteracoes-unetvale-garantia.md) | Registro e notificação de alterações de valor da Unetvale (OS de garantia) | Aceito |
 
 ### Onde cada ADR toca o cálculo de payout
 

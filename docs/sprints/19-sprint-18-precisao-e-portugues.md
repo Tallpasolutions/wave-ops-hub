@@ -160,6 +160,37 @@ receita fantasma. A OS 572894 volta a R$ 428,24.
 reemissão. O desenho proposto é **avisar, não mesclar** — detectar no fim da ingestão e exibir no
 detalhe do upload via `IngestWarning` (o tipo já existe e hoje nenhuma tela o consome).
 
+### 0.10 — Registro e notificação das alterações de valor da Unetvale (03/08)
+
+Pedido do gestor: "registrar as OSs em que vem um valor e depois a Unetvale altera esse valor".
+Implementado com escopo em **abertura de OS de garantia**, por decisão dele —
+[ADR-021](../architecture/ADR-021-alteracoes-unetvale-garantia.md), migration
+[0041](../../supabase/migrations/0041_unetvale_alteracoes.sql).
+
+**O dado já existia e ninguém tinha olhado:** `service_visits_audit` guarda `before`/`after` de
+todo UPDATE de visita desde a migration 0001 — 3.554 linhas. Dentro delas, **21 alterações reais
+da Unetvale** (as outras 237 são a correção de locale de 14/07):
+
+| Motivo (observação da Unetvale) | Qtd | No escopo? |
+|---|---|---|
+| `Pagamento zerado devido o técnico X ter realizado o fechamento desta OS` | 15 | não — ADR-020 já trata |
+| `Pagamento alterado devido a abertura da OS de garantia` | **4** | **sim** |
+| `Visita improdutiva invalidada` | 2 | não |
+
+As 4 de garantia reduziram a receita em **exatamente R$ 60,50** cada — R$ 242,00 que a Wave perdeu
+sem ninguém ver. Em nenhuma delas o pagamento do técnico mudou.
+
+**Achado que descartou o caminho óbvio:** o campo `garantia` da planilha **nunca vem preenchido**
+(0 de 2.345 visitas). Consequência que extrapola esta fase — as regras `{"garantia": true}` da LPU
+SEM AUXILIAR nunca casaram nada, ou seja, o "não paga em garantia" da planilha da Wave **não está
+valendo**. Registrado em tech-debt 026 para decisão do gestor.
+
+**O que entrou:** tabela `unetvale_alteracoes` com backfill dos 4 casos · detecção em
+`src/lib/etl/alteracoes.ts` (gatilho objetivo pelo valor + classificação pelo texto, com trava de
+assinatura numérica) · gancho no fluxo de upload · notificação por `notify.ts` (gestor sempre,
+técnico só quando os pontos mudam, um resumo por upload) · tela `/alteracoes` com "Ciente" ·
+aviso não-bloqueante em `/pagamentos` · contexto no detalhe da visita e no card do técnico.
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -462,6 +493,10 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
   **Fila "Sem regra de LPU": 7 → 1** (só a OS 572737, da Fase 0.8, que depende de decisão da Wave).
 - **03/08 — Fase 0.8:** OS 572737 investigada — glosa da Unetvale por abertura de OS de garantia.
   Sem código a mudar; resolve cadastrando o repasse de R$ 3,96 em `/homologacao`.
+- **03/08 — Fase 0.10:** 3.554 linhas de `service_visits_audit` analisadas; 21 alterações reais da
+  Unetvale, 4 delas por garantia (−R$ 60,50 cada). Campo `garantia` da planilha vazio em 100% das
+  2.345 visitas. Código e migration 0041 prontos na branch `feat/alteracoes-unetvale-garantia`;
+  **falta aplicar a 0041 e conferir o backfill (esperado: exatamente 4 registros).**
 - **03/08 — Fase 0.9:** varredura completa das 2.348 visitas do tenant: **3 duplicatas por
   reemissão**, todas do upload de 03/08 (`lista-os-julho-2026-completa.xlsx`), todas
   `pending_review` e sem ajuste manual. Migration 0040 escrita; **falta aplicar**. A OS 568170

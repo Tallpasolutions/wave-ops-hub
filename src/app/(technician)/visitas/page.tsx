@@ -70,8 +70,23 @@ export default async function VisitasPage({ searchParams }: PageProps) {
 
   const reasonMap = new Map(reasons.map((r) => [r.id as string, r.motivo_normalizado as string]))
 
-  // Payouts para as visitas do período
+  // ADR-021: OSs em que a Unetvale mudou o valor depois. Só interessa ao técnico quando os
+  // PONTOS dele mudaram — receita da Unetvale ele não vê. A RLS já limita ao próprio técnico.
   const visitIds = visits.map((v) => v.id as string)
+  const alteradasComMudancaDePontos = new Set<string>()
+  if (visitIds.length > 0) {
+    const { data: alts } = await supabase
+      .from('unetvale_alteracoes')
+      .select('visit_id, payout_anterior, payout_novo')
+      .in('visit_id', visitIds)
+    for (const a of alts ?? []) {
+      const antes = a.payout_anterior === null ? null : Math.round(Number(a.payout_anterior) * 100)
+      const depois = a.payout_novo === null ? null : Math.round(Number(a.payout_novo) * 100)
+      if (antes !== depois) alteradasComMudancaDePontos.add(a.visit_id as string)
+    }
+  }
+
+  // Payouts para as visitas do período
   let payouts: Payout[] = []
   if (visitIds.length > 0) {
     const { data } = await supabase
@@ -217,6 +232,16 @@ export default async function VisitasPage({ searchParams }: PageProps) {
                 {motivo && (
                   <p className="mt-2 rounded-md bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-[var(--text-3)]">
                     {motivo}
+                  </p>
+                )}
+
+                {alteradasComMudancaDePontos.has(v.id as string) && (
+                  <p
+                    className="mt-2 rounded-md px-2.5 py-1.5 text-[11px]"
+                    style={{ background: 'rgba(255,181,71,0.06)', color: 'var(--text-2)' }}
+                  >
+                    A Unetvale alterou o valor desta OS depois do serviço, e seus pontos mudaram.
+                    Se você não concorda, conteste aqui embaixo.
                   </p>
                 )}
 

@@ -157,6 +157,17 @@ Indicador **da Unetvale**, não calculado por nós: percentual de contratos que 
 `/produtividade`; o técnico vê só o próprio em `/iqi`.
 Ver [ADR-012](./architecture/ADR-012-iqi-ingestao-scraping.md).
 
+### Alteração da Unetvale (glosa)
+Mudança de valor que a Unetvale faz **depois** de já ter informado outro para a mesma OS. A causa
+que o sistema registra é a **abertura de OS de garantia**, em que a Unetvale reduz o que paga por
+um serviço já executado (nos 4 casos de julho/2026, exatamente **−R$ 60,50**). Fica em
+`unetvale_alteracoes`, aparece em `/alteracoes` e notifica: sempre o gestor, e o técnico só quando
+os **pontos dele** mudam. O registro **não** altera payout — quem decide é a Wave, e o técnico
+contesta pelo app. Ver [ADR-021](./architecture/ADR-021-alteracoes-unetvale-garantia.md).
+
+⚠️ Não confundir com o campo `garantia` da planilha: ele existe, mas a Unetvale **nunca o
+preenche** (0 de 2.345 visitas), e por isso não serve para identificar OS de garantia.
+
 ### Fora de escopo (`fora_escopo`)
 Visita cuja finalidade é de **infraestrutura** (manutenção de rede, troca de poste, massiva etc.):
 não é serviço de campo remunerado pela LPU do técnico. É marcada na ingestão a partir de

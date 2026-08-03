@@ -63,6 +63,29 @@ Para entender por que uma OS pagou determinado valor, é essa a ordem:
 
 Depois, sobre o valor encontrado: **+ pontos adicionais** e, se for domingo/feriado com sucesso, **+15%**. Nos casos 1 e 2 não incide nada — não há valor-base sobre o que somar.
 
+## Quando a Unetvale muda o valor depois
+
+A Unetvale às vezes altera o valor de uma OS **depois** de já ter informado outro. O caso que o
+sistema registra é a **abertura de OS de garantia**: o serviço foi feito, alguém abriu uma OS de
+garantia em cima dele, e a Unetvale reduz o que paga (nos casos de julho/2026, sempre R$ 60,50 a
+menos).
+
+Isso aparece em **Financeiro → Alterações da Unetvale**, com o valor antes e depois, o pagamento
+do técnico antes e depois, e a explicação que a própria Unetvale escreveu na planilha. Você
+recebe uma notificação a cada envio de planilha que traga alterações.
+
+**O sistema não muda o pagamento do técnico por conta disso.** A receita da Wave cai, o pagamento
+segue como estava, e a decisão é sua: se achar que o técnico deve receber menos, use o ajuste
+manual em Pagamentos. O botão **Ciente** só tira a linha da fila — não mexe em valor nem trava o
+fechamento.
+
+O técnico só é avisado quando os **pontos dele** mudam de fato. Como ele não vê a receita da
+Unetvale no aplicativo, avisá-lo de uma mudança que não mexeu nos pontos geraria dúvida sem nada
+que ele pudesse fazer.
+
+> A coluna "Garantia" da planilha **não** identifica essas OSs — a Unetvale nunca a preenche. O
+> que identifica é a observação que ela escreve na linha.
+
 ## Por que um técnico da tabela alternativa às vezes recebe o valor da padrão
 
 A tabela alternativa **só sobrescreve o que ela declara**. Um serviço que ela não lista continua pagando o valor da tabela padrão — de propósito: se ela substituísse a lista inteira, todo serviço não declarado ficaria sem valor e travaria o fechamento.

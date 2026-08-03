@@ -9,6 +9,13 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { run as runIngestor } from '@/lib/etl'
 import type { IngestResult } from '@/lib/etl'
 import { recalculatePendingPayouts } from '@/lib/payouts'
+import {
+  detectarAlteracoesGarantia,
+  finalizarAlteracoes,
+  payoutMudou,
+  type AlteracaoFinalizada,
+} from '@/lib/etl/alteracoes'
+import { notifyManagers, notifyTechnician } from '@/lib/notifications/notify'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { isUniqueViolation } from '@/lib/supabase/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -35,6 +42,81 @@ async function recalcUploadVisits(
   if (visitIds.length > 0) {
     await recalculatePendingPayouts(tenantId, supabase, { visitIds })
   }
+}
+
+// ADR-021: a Unetvale altera o valor de OSs já informadas. O registro é detectado ANTES do
+// recálculo (para o snapshot do payout refletir o que o técnico via) e finalizado depois, quando
+// já se sabe se o pagamento dele mudou. Nada aqui pode derrubar a ingestão — mesmo espírito do
+// `pushSafely` de notify.ts.
+async function registrarAlteracoesERecalcular(
+  uploadId: string,
+  tenantId: string,
+  supabase: SupabaseClient,
+): Promise<void> {
+  let naoClassificadas = 0
+  try {
+    const deteccao = await detectarAlteracoesGarantia(uploadId, tenantId, supabase)
+    naoClassificadas = deteccao.naoClassificadas
+  } catch (err) {
+    console.error('[registrarAlteracoes] detecção', err)
+  }
+
+  await recalcUploadVisits(uploadId, tenantId, supabase)
+
+  try {
+    const alteracoes = await finalizarAlteracoes(uploadId, tenantId, supabase)
+    await notificarAlteracoes(tenantId, alteracoes, naoClassificadas)
+  } catch (err) {
+    console.error('[registrarAlteracoes] finalização', err)
+  }
+}
+
+const brl = (n: number) =>
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+async function notificarAlteracoes(
+  tenantId: string,
+  alteracoes: AlteracaoFinalizada[],
+  naoClassificadas: number,
+): Promise<void> {
+  if (alteracoes.length === 0) return
+
+  // Gestor: um resumo por upload, sempre que a receita da Unetvale mudar.
+  const total = alteracoes.reduce((acc, a) => acc + (a.receitaNova - a.receitaAnterior), 0)
+  const n = alteracoes.length
+  const extra =
+    naoClassificadas > 0
+      ? ` Houve também ${naoClassificadas} ${naoClassificadas === 1 ? 'outra alteração' : 'outras alterações'} de valor neste envio, por outro motivo.`
+      : ''
+  await notifyManagers(tenantId, {
+    type: 'unetvale_garantia_alterou_valor',
+    title:
+      n === 1
+        ? 'A Unetvale alterou o valor de 1 OS'
+        : `A Unetvale alterou o valor de ${n} OSs`,
+    body: `Abertura de OS de garantia. Diferença na receita: ${brl(total)}.${extra}`,
+    link: '/alteracoes',
+  })
+
+  // Técnico: só quando os pontos dele mudaram — receita da Unetvale ele não vê.
+  const porTecnico = new Map<string, number>()
+  for (const a of alteracoes) {
+    if (!a.technicianId || !payoutMudou(a)) continue
+    porTecnico.set(a.technicianId, (porTecnico.get(a.technicianId) ?? 0) + 1)
+  }
+  await Promise.all(
+    [...porTecnico].map(([technicianId, qtd]) =>
+      notifyTechnician(tenantId, technicianId, {
+        type: 'pagamento_alterado_unetvale',
+        title: 'Pagamento de uma OS foi alterado',
+        body:
+          qtd === 1
+            ? 'A Unetvale alterou o valor de uma OS sua e os pontos mudaram. Confira em Minhas Visitas.'
+            : `A Unetvale alterou o valor de ${qtd} OSs suas e os pontos mudaram. Confira em Minhas Visitas.`,
+        link: '/visitas',
+      }),
+    ),
+  )
 }
 
 export type PrepareUploadResult =
@@ -136,9 +218,10 @@ export async function processUpload(uploadId: string): Promise<IngestResult> {
   const buffer = Buffer.from(await blob.arrayBuffer())
   const result = await runIngestor(uploadId, buffer, upload.tenant_id, upload.uploaded_by, supabase)
 
-  // 4. Recalcula payouts das visitas deste upload após ingestão bem-sucedida (escopo).
+  // 4. Registra as alterações da Unetvale (ADR-021) e recalcula os payouts das visitas deste
+  //    upload (escopo por upload_id).
   if (result.status === 'success') {
-    await recalcUploadVisits(uploadId, upload.tenant_id, supabase)
+    await registrarAlteracoesERecalcular(uploadId, upload.tenant_id, supabase)
   }
 
   return result
@@ -181,7 +264,7 @@ export async function rerunUpload(uploadId: string): Promise<void> {
       const result = await runIngestor(uploadId, buffer, upload.tenant_id, upload.uploaded_by ?? '', supabase)
 
       if (result.status === 'success' && user.tenantId) {
-        await recalcUploadVisits(uploadId, user.tenantId, supabase)
+        await registrarAlteracoesERecalcular(uploadId, user.tenantId, supabase)
       }
     }
   } catch {

@@ -135,11 +135,20 @@ export default async function PayoutsPage({ searchParams }: Props) {
       .eq('tenant_id', user.tenantId!)
       .eq('status', status)
 
-  const [nrmRes, pcRes, cfRes] = await Promise.all([
+  const [nrmRes, pcRes, cfRes, altRes] = await Promise.all([
     countPendencia('no_rule_match'),
     countPendencia('pending_classification'),
     countPendencia('conflict'),
+    // ADR-021: alterações de valor da Unetvale ainda não olhadas pelo gestor. É informativo —
+    // não entra em `totalPendencias` e não bloqueia o fechamento (decisão da Wave, 03/08).
+    supabase
+      .from('unetvale_alteracoes')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', user.tenantId!)
+      .is('ciente_em', null),
   ])
+
+  const alteracoesSemCiencia = altRes.count ?? 0
 
   const pendencias = {
     no_rule_match: nrmRes.count ?? 0,
@@ -263,6 +272,34 @@ export default async function PayoutsPage({ searchParams }: Props) {
               </Link>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ADR-021: alterações de valor da Unetvale. Aviso, não bloqueio — o fechamento segue
+          normalmente; isto só garante que a redução de receita não passe despercebida. */}
+      {alteracoesSemCiencia > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgba(255,181,71,0.25)] bg-[rgba(255,181,71,0.05)] px-5 py-3.5">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--amber)]" />
+            <div>
+              <p className="text-sm font-semibold text-[var(--amber)]">
+                {alteracoesSemCiencia}{' '}
+                {alteracoesSemCiencia === 1
+                  ? 'OS teve o valor alterado pela Unetvale'
+                  : 'OSs tiveram o valor alterado pela Unetvale'}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--text-3)]">
+                Alteração por abertura de OS de garantia, ainda sem ciência. Não bloqueia o
+                fechamento.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/alteracoes"
+            className="shrink-0 text-xs font-semibold text-[var(--amber)] transition-opacity hover:opacity-80"
+          >
+            Revisar →
+          </Link>
         </div>
       )}
 

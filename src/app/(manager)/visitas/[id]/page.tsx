@@ -76,6 +76,22 @@ export default async function VisitDetailPage({ params }: Props) {
       .limit(20),
   ])
 
+  // ADR-021: a Unetvale alterou o valor desta visita depois de já ter informado outro.
+  const { data: alteracoes } = await supabase
+    .from('unetvale_alteracoes')
+    .select('receita_anterior, receita_nova, observacao_unetvale, ciente_em')
+    .eq('visit_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const alteracao = (alteracoes ?? [])[0] as
+    | {
+        receita_anterior: number | string | null
+        receita_nova: number | string | null
+        observacao_unetvale: string | null
+        ciente_em: string | null
+      }
+    | undefined
+
   if (!visit) notFound()
 
   const tech = visit.technicians as unknown as { id: string; nome_completo: string } | null
@@ -260,6 +276,19 @@ export default async function VisitDetailPage({ params }: Props) {
               )}
               {payout.override_motivo && (
                 <InfoRow label="Motivo do ajuste" value={payout.override_motivo} />
+              )}
+              {alteracao && (
+                <p className="mt-4 rounded-lg border border-[rgba(255,181,71,0.25)] bg-[rgba(255,181,71,0.05)] px-3 py-2 text-xs text-[var(--text-2)]">
+                  <span className="font-semibold text-[var(--amber)]">
+                    A Unetvale alterou o valor desta OS depois de já ter informado outro:
+                  </span>{' '}
+                  {formatBRL(Number(alteracao.receita_anterior ?? 0))} →{' '}
+                  {formatBRL(Number(alteracao.receita_nova ?? 0))}.{' '}
+                  {alteracao.observacao_unetvale ?? 'Sem descrição na planilha.'}{' '}
+                  <Link href="/alteracoes" className="text-[var(--amber)] hover:underline">
+                    Ver alterações
+                  </Link>
+                </p>
               )}
               {semRepassePorReceitaZerada && (
                 <p className="mt-4 rounded-lg border border-[var(--line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-3)]">

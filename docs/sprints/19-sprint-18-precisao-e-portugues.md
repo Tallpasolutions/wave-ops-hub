@@ -58,6 +58,29 @@ não é garantida, o valor pago nem era estável.
 (R$ 640,00) e 22 de homologação (R$ 110,00), **R$ 750,00** no total (maio 31 · junho 13 · julho 24).
 Nenhuma travada: todas voltam ao valor correto no recálculo. Sem migration.
 
+### 0.6 — Cabeamento de fibra da SEM AUXILIAR nunca foi cadastrado (03/08)
+
+Aberto pela OS 569827, pagando R$ 120 em vez de R$ 100. **Não é bug do motor** — é o oposto do
+0.5: a chave existe no tenant e **falta** na LPU alternativa, então a herança por chave
+(ADR-019, decisão 3) faz o técnico da SEM AUXILIAR receber o valor da tabela padrão.
+
+A 0036 cadastrou só as chaves-base ("Cabeamento" e "Cabeamento agregado"); "Cabeamento fibra
+aérea" (tenant R$ 120) e "Cabeamento fibra subterrênea" (tenant R$ 135) ficaram de fora.
+**Decisão do usuário (03/08): as duas valem R$ 100** — a distinção aéreo/subterrâneo da padrão
+não existe na SEM AUXILIAR, onde instalação e suporte pagam 100 nos dois meios.
+
+Migration [0038](../../supabase/migrations/0038_lpu_sem_auxiliar_cabeamento_fibra.sql).
+**Alcance:** 8 visitas dos 3 técnicos da tabela nova (4 aéreas em 120, 4 subterrâneas em 135),
+todas `pending_review`, nenhuma com ajuste manual → **−R$ 220** no recálculo.
+
+Chaves que a SEM AUXILIAR continua herdando **de propósito**, conferidas na mesma consulta:
+"Retirada condomínio" (R$ 20, igual na planilha) e "Outros motivos sem contrato atrelado,
+pagamento zerado" (R$ 0).
+
+> ⚠️ **Padrão a lembrar:** valor que a planilha da tabela alternativa tem mas que ninguém
+> cadastrou **não** aparece como erro — paga o valor da padrão em silêncio. Ao criar uma LPU
+> alternativa, conferir serviço a serviço em `/cabeamento` e `/homologacao`.
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -341,8 +364,11 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
   (só 123 `approved`) — um recálculo global reprocessa maio. Decisão do usuário (03/08): **não
   travar por período**; a proteção é contestação do técnico + alteração do gestor + aprovado/pago,
   que é o que `recalculate-batch` já aplica por payout.
-- Código e testes prontos na branch `fix/receita-zerada-sem-repasse`; **falta rodar "Recalcular
-  pendentes" após o deploy e conferir em produção** (OS 573312 → R$ 44, OS 575303 → R$ 0).
+- **03/08 — Fase 0.6:** 8 visitas de cabeamento de fibra dos técnicos da SEM AUXILIAR (4 em
+  R$ 120, 4 em R$ 135), todas `pending_review` e sem ajuste manual → R$ 100 pela migration 0038.
+- Código, migration e testes prontos na branch `fix/receita-zerada-sem-repasse`; **falta aplicar
+  a 0038, rodar "Recalcular pendentes" e conferir em produção** (OS 573312 → R$ 44,
+  OS 575303 → R$ 0, OS 569827 → R$ 100).
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

@@ -232,6 +232,21 @@ período fechado — não foi resolvida.
 fechamento fechado); M para o fechamento passar a "adotar" visitas que chegam depois.
 **Quando idealmente resolver:** antes do próximo fechamento mensal.
 
+### 023 — Classificações de cabeamento com ponto adicional na chave são linhas mortas
+**Identificado em:** 2026-08-03, ao mapear as chaves usadas pelos técnicos da SEM AUXILIAR
+**Onde:** `cabeamento_classifications` (tenant Wave), 3 linhas
+**Por quê:** desde o ADR-016 o `normalizeExplicacao` **remove** o modificador de pontos da chave
+(o ponto virou acréscimo separado). As linhas `Cabeamento (+73 * 1 ponto(s) adicional(is))` = 76,
+`Cabeamento (+73 * 2 ponto(s) adicional(is))` = 106 e `Cabeamento agregado (+73 * 1 ponto(s)
+adicional(is))` = 76 nunca mais podem casar nenhuma visita. A migration 0026 foi criada para
+apagá-las, mas elas continuam na base.
+**Impacto se não resolver:** baixo hoje — chave morta não paga errado, só polui. O risco é de
+leitura: quem abre `/cabeamento` vê valores de ponto que não valem mais e pode reeditar por cima
+achando que estão em uso.
+**Esforço estimado:** XS (um DELETE, com conferência de que nenhuma visita normaliza para essas
+chaves — já verificado em 03/08).
+**Quando idealmente resolver:** junto da próxima migration que tocar classificações.
+
 ### Template
 
 ```

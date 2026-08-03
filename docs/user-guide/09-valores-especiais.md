@@ -52,10 +52,19 @@ O vínculo é feito no cadastro da LPU alternativa. Ao calcular, o sistema resol
 Para entender por que uma OS pagou determinado valor, é essa a ordem:
 
 1. Improdutiva com receita de R$ 15,98 → R$ 15,00 (já aprovada) · receita R$ 0,00 → R$ 0,00
-2. Receita de R$ 29,30 → não paga
-3. Homologação (pela coluna de explicação) → mapa de homologação
-4. Venda Produto Externo → valor pela explicação
-5. Cabeamento/Condomínio → classificação do gestor
-6. Todo o resto → LPU
+2. **Visita concluída com receita R$ 0,00 → R$ 0,00.** A Unetvale não pagou nada por essa OS
+   (em geral porque outro técnico fechou a OS), então não há repasse automático. Se o técnico
+   entender que deve receber, ele contesta pelo aplicativo e a Wave decide caso a caso
+3. Receita de R$ 29,30 → não paga
+4. Homologação (pela coluna de explicação) → mapa de homologação
+5. Venda Produto Externo → valor pela explicação
+6. Cabeamento/Condomínio → classificação do gestor
+7. Todo o resto → LPU
 
-Depois, sobre o valor encontrado: **+ pontos adicionais** e, se for domingo/feriado com sucesso, **+15%**.
+Depois, sobre o valor encontrado: **+ pontos adicionais** e, se for domingo/feriado com sucesso, **+15%**. Nos casos 1 e 2 não incide nada — não há valor-base sobre o que somar.
+
+## Por que um técnico da tabela alternativa às vezes recebe o valor da padrão
+
+A tabela alternativa **só sobrescreve o que ela declara**. Um serviço que ela não lista continua pagando o valor da tabela padrão — de propósito: se ela substituísse a lista inteira, todo serviço não declarado ficaria sem valor e travaria o fechamento.
+
+Na prática isso significa que **um valor que a planilha da tabela alternativa tem, mas que ninguém cadastrou no sistema, segue pagando o valor da padrão sem nenhum aviso**. Foi o caso do cabeamento de fibra aérea/subterrânea da SEM AUXILIAR (pagava R$ 120/R$ 135 da padrão em vez de R$ 100), corrigido em 03/08/2026. Ao criar ou revisar uma tabela alternativa, confira serviço por serviço em `/cabeamento` e `/homologacao`.

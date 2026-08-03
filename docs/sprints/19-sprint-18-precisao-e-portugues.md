@@ -125,6 +125,41 @@ cadastrado, o fechamento de julho segue bloqueado por essa visita.
 Frequência: 1 em 50 homologações do tenant. Se virar volume, o caminho é um ADR sobre glosa,
 não mais cadastros avulsos.
 
+### 0.9 — Reemissão da Unetvale duplicava a visita (03/08)
+
+Aberto pela OS 572894: 3 visitas e receita R$ 634,50 no sistema, contra **2 linhas** na planilha.
+
+**Causa:** ao corrigir o pagamento de uma OS já entregue, a Unetvale reemite a linha com o valor
+novo e carimba na coluna de data de execução o **horário do ajuste**. Como `data_execucao` faz
+parte da chave natural da visita, o ingestor **insere em vez de atualizar** — mesma execução,
+duas visitas, duas receitas, **dois payouts**.
+
+Na 572894 a linha voltou como 15/07 **23:48** (R$ 412,26) no lugar de 15/07 **20:24**
+(R$ 206,26), e a observação da linha nova preserva o horário verdadeiro: *"Acréscimo de pagamento
+pelo atendimento fora do horário de expediente [...] 15/07/2026 20:24"*.
+
+**Varredura completa da base:** 3 ocorrências, todas do upload de 03/08, todas com a linha nova
+em 23:4x e observação explicando o acréscimo. Todas `pending_review`, nenhuma travada.
+
+| OS | Técnico | Original | Reemitida | Payout duplicado |
+|---|---|---|---|---|
+| 572894 | Douglas Ribeiro | 15/07 20:24 · R$ 206,26 | 15/07 23:48 · R$ 412,26 | R$ 100 |
+| 569727 | Eduardo Ribeiro | 01/07 16:54 · R$ 64,46 | 01/07 23:44 · R$ 128,92 | R$ 30 |
+| 568969 | Eduardo Ribeiro | 01/07 11:24 · R$ 64,46 | 01/07 23:43 · R$ 128,92 | R$ 30 |
+
+Migration [0040](../../supabase/migrations/0040_remove_visitas_reemitidas.sql) remove as três
+linhas antigas (o payout cai por cascata): **−R$ 160** de payout duplicado e **−R$ 335,18** de
+receita fantasma. A OS 572894 volta a R$ 428,24.
+
+> **A chave natural NÃO virou "por dia"** — seria a correção óbvia e está errada. A OS 568170 tem
+> duas visitas com sucesso do mesmo técnico no mesmo dia (10:03 e 10:51), **ambas na mesma
+> planilha**, uma zerada pela Unetvale porque a outra fechou a OS. Colapsar por dia apagaria uma
+> execução real. Adendo no [ADR-003](../architecture/ADR-003-os-visit-modeling.md).
+
+**Prevenção ainda em aberto (tech-debt 025):** a limpeza é retroativa; nada impede a próxima
+reemissão. O desenho proposto é **avisar, não mesclar** — detectar no fim da ingestão e exibir no
+detalhe do upload via `IngestWarning` (o tipo já existe e hoje nenhuma tela o consome).
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -427,6 +462,11 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
   **Fila "Sem regra de LPU": 7 → 1** (só a OS 572737, da Fase 0.8, que depende de decisão da Wave).
 - **03/08 — Fase 0.8:** OS 572737 investigada — glosa da Unetvale por abertura de OS de garantia.
   Sem código a mudar; resolve cadastrando o repasse de R$ 3,96 em `/homologacao`.
+- **03/08 — Fase 0.9:** varredura completa das 2.348 visitas do tenant: **3 duplicatas por
+  reemissão**, todas do upload de 03/08 (`lista-os-julho-2026-completa.xlsx`), todas
+  `pending_review` e sem ajuste manual. Migration 0040 escrita; **falta aplicar**. A OS 568170
+  foi conferida linha a linha e **não** é duplicata — é o caso legítimo que impede a mudança da
+  chave natural.
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

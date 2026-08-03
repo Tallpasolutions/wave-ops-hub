@@ -148,6 +148,15 @@ export default async function VisitasPage({ searchParams }: PageProps) {
 
             const motivo = v.reason_id ? reasonMap.get(v.reason_id as string) : null
 
+            // ADR-020: visita concluída que não gerou receita para a Unetvale não tem repasse
+            // automático. Sem essa linha o técnico vê "0 pts" numa visita finalizada sem
+            // nenhuma explicação — e o caminho previsto é justamente contestar.
+            const semRepassePorReceitaZerada =
+              sucesso &&
+              valorPayout === 0 &&
+              v.valor_recebido_unetvale !== null &&
+              Number(v.valor_recebido_unetvale) === 0
+
             return (
               <div
                 key={v.id as string}
@@ -208,6 +217,13 @@ export default async function VisitasPage({ searchParams }: PageProps) {
                 {motivo && (
                   <p className="mt-2 rounded-md bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-[var(--text-3)]">
                     {motivo}
+                  </p>
+                )}
+
+                {semRepassePorReceitaZerada && (
+                  <p className="mt-2 rounded-md bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-[var(--text-3)]">
+                    Esta OS veio sem valor pela Unetvale, por isso não gerou pontos. Se você
+                    entende que deveria receber, conteste aqui embaixo.
                   </p>
                 )}
 

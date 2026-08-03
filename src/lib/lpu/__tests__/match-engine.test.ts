@@ -164,6 +164,8 @@ describe("threshold de receita: suporte externo com x sem troca de drop", () => 
     if (result.type === "match") expect(result.rule.id).toBe("troca-drop");
   });
 
+  // Comportamento do motor de match isolado. No payout final essa visita sai R$ 0 de qualquer
+  // forma: `buildPayoutUpsert` zera receita 0,00 antes de chegar na LPU (ADR-020).
   it("receita R$ 0,00 fica fora do threshold (piso R$ 40) e mantém o valor cheio", () => {
     const visita: VisitForMatch = {
       ...BASE_VISIT,

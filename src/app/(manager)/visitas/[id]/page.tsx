@@ -112,6 +112,15 @@ export default async function VisitDetailPage({ params }: Props) {
   const pctAcrescimo =
     temAcrescimo && valorBase! > 0 ? Math.round((acrescimoDomFeriado! / valorBase!) * 100) : null
   const canOverride = payout && !LOCKED_STATUSES.includes(payout.status)
+  // ADR-020: sem receita da Unetvale não há repasse automático. Explicita o motivo do R$ 0,00
+  // para o gestor, que é quem responde a contestação do técnico sobre esta visita.
+  const semRepassePorReceitaZerada =
+    !!payout &&
+    valorOverride === null &&
+    valorCalculado === 0 &&
+    visit.valor_recebido_unetvale !== null &&
+    Number(visit.valor_recebido_unetvale) === 0 &&
+    (visit.sucesso as string | null)?.trim().toLowerCase().startsWith('sim') === true
 
   const auditEntries = (auditRaw ?? []) as Array<{
     id: string
@@ -251,6 +260,12 @@ export default async function VisitDetailPage({ params }: Props) {
               )}
               {payout.override_motivo && (
                 <InfoRow label="Motivo do ajuste" value={payout.override_motivo} />
+              )}
+              {semRepassePorReceitaZerada && (
+                <p className="mt-4 rounded-lg border border-[var(--line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-3)]">
+                  Sem repasse automático: a Unetvale não pagou nada por esta visita. Se o técnico
+                  entender que deve receber, ele contesta pelo aplicativo e a Wave decide aqui.
+                </p>
               )}
               {payout.lpu_rules && (
                 <div className="mt-4 border-t border-[var(--line)] pt-4">

@@ -23,6 +23,21 @@ Detalhes: [`docs/domain/05-regras-especiais.md`](../domain/05-regras-especiais.m
 adendos no [ADR-008](../architecture/ADR-008-exclusao-finalidades-infra.md) e
 [ADR-013](../architecture/ADR-013-aprovacao-contestacao-tecnico.md) · tech-debt 020 e 021.
 
+### 0.4 — Receita zerada da Unetvale não gera repasse (03/08)
+
+Mesma frente de precisão, aberta pela OS 575303: a Unetvale zerou a receita ("Pagamento zerado
+devido o técnico RM - Matheus Deiss Silva ter realizado o fechamento desta OS") e o sistema
+repassou R$ 30,00 assim mesmo. **Decisão:** sucesso com `valor_recebido_unetvale = R$ 0,00` passa a
+pagar R$ 0,00, e quem discordar contesta pelo app —
+[ADR-020](../architecture/ADR-020-receita-zerada-sem-repasse.md).
+
+Sem migration (regra de cálculo em `buildPayoutUpsert`); aplica pelo recálculo de pendentes.
+
+**Levantamento em produção (03/08, consulta direta ao banco):** 186 visitas com sucesso e receita
+R$ 0,00, das quais **52 pagam hoje R$ 3.980,50** (maio 18 · R$ 1.539,50 | junho 13 · R$ 970,00 |
+julho 21 · R$ 1.471,00) — todas em `pending_review`/`no_rule_match`, nenhuma travada. Parte é
+trabalho real (troca de drop, instalação nova) e deve gerar contestação: é o caminho previsto.
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -294,6 +309,10 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
 - **30/07 — 0033 e 0034 aplicadas** pelo usuário; PR mergeado.
 - **30/07 — Fase 1 levantada:** mecanismo do ADR-014 confirmado pronto (coluna, motor, UI);
   **13 técnicos ativos, 0 com LPU atribuída**; a LPU SEM AUXILIAR nunca foi cadastrada.
+- **03/08 — Fase 0.4:** 186 visitas com sucesso e receita R$ 0,00 no tenant Wave; 52 com payout > 0
+  somando R$ 3.980,50 (maio a julho), nenhuma travada. Código e testes prontos na branch
+  `fix/receita-zerada-sem-repasse`; **falta rodar "Recalcular pendentes" após o deploy e conferir
+  em produção.**
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

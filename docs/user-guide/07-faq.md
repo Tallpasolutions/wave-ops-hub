@@ -39,7 +39,13 @@ Para o **IQI**, não para o vínculo das visitas. Sem ele, o técnico simplesmen
 ## Payouts e LPU
 
 **Um payout aparece como "Sem regra".**
-Significa que nenhuma regra da LPU ativa se aplicou à visita. Revise as condições das regras da LPU e compare com os dados da visita (finalidade, tipo de atendimento, cidade). Ajuste as regras e ative uma nova versão da LPU se necessário.
+Significa que o sistema não encontrou valor para a visita — e ele **nunca chuta**. São três causas, e a solução é diferente em cada uma:
+
+1. **Nenhuma regra da LPU casou.** Revise as condições das regras e compare com os dados da visita (finalidade, tipo de atendimento, meio, condomínio). Se o técnico usa uma **tabela alternativa**, confira as regras *daquela* tabela: regra de LPU não é herdada da padrão — uma finalidade que a tabela alternativa não declara não casa nada.
+2. **É um cabeamento/condomínio com explicação nova.** Cadastre o padrão em **Regras → Cabeamento**.
+3. **É uma homologação com um valor de Unetvale que não está no mapa.** Cadastre em **Regras → Homologação**. Acontece quando a Unetvale paga um valor diferente do habitual — inclusive quando ela **reduz o pagamento** (por exemplo, ao abrir uma OS de garantia sobre aquele serviço). Nesse caso a observação da própria Unetvale, visível no detalhe da visita, costuma explicar a redução.
+
+Enquanto existir "Sem regra" no período, o fechamento fica bloqueado — é de propósito, para ninguém fechar o mês com visita sem valor definido.
 
 **O payout de uma visita está incorreto.**
 Na página do payout (`Pagamentos → [payout]`), use o botão **Override manual** para corrigir o valor e registrar o motivo. O valor calculado original é preservado para auditoria.

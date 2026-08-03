@@ -105,6 +105,26 @@ Os 7 `no_rule_match` de hoje, conferidos um a um em 03/08:
 | 572037 | finalidade sem regra na SEM AUXILIAR | R$ 30 pela 0039 |
 | 572737 | homologação com receita R$ 3,96, valor não cadastrado no mapa | **continua na fila** — a Wave precisa decidir o repasse dessa receita |
 
+### 0.8 — A última "Sem regra": OS 572737 (investigada em 03/08)
+
+**Não é bug, e não tem código a mudar.** A Unetvale glosou o pagamento: a visita de 20/07
+(Douglas Ribeiro, Mudança Endereço Fibra, coluna Z `Homologação | 60.50`) veio com receita
+**R$ 3,96** em vez de R$ 64,46, e a observação da própria Unetvale na OS explica:
+*"21/07/2026 17:04 - Pagamento alterado devido a abertura da OS de garantia"*.
+
+R$ 3,96 não está no mapa de homologação, então o ADR-015 manda para a fila em vez de pagar os
+R$ 35 da homologação cheia — que é exatamente o comportamento desenhado. Detalhes e as três
+armadilhas do caso (glosa não tem campo próprio; `garantia` da visita é `false` porque a OS de
+garantia é outra; valor cadastrado vale para o tenant inteiro) no adendo do
+[ADR-015](../architecture/ADR-015-homologacao-repasse.md#adendo--receita-glosada-pela-unetvale-03082026).
+
+**Resolução: é decisão da Wave, feita na tela.** Cadastrar o repasse de R$ 3,96 em
+`/homologacao` — que voltou a salvar com a correção do `42P10` (Fase 0.5). Enquanto não for
+cadastrado, o fechamento de julho segue bloqueado por essa visita.
+
+Frequência: 1 em 50 homologações do tenant. Se virar volume, o caminho é um ADR sobre glosa,
+não mais cadastros avulsos.
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -394,12 +414,19 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
   Externo" na base inteira, em `no_rule_match` → R$ 30 pela migration 0039.
 - **03/08 — 0038 aplicada em produção** pelo usuário; classificações conferidas no banco (tenant
   120/135 intactos, SEM AUXILIAR 100/100). Payouts ainda em 120/135 — mudam só no recálculo.
-- Código, migrations e testes prontos na branch `fix/receita-zerada-sem-repasse`.
-  ⚠️ **Ordem obrigatória: merge → deploy → aplicar 0039 → "Recalcular pendentes".** Recalcular
-  antes do deploy propaga o vazamento da 0.5 para as chaves novas da 0038 (9 visitas de
-  cabeamento de fibra de técnicos da padrão cairiam de 120/135 para 100, −R$ 255).
-  **Conferir depois:** OS 573312 → R$ 44 · OS 575303 → R$ 0 · OS 569827 → R$ 100 ·
-  OS 572037 → R$ 30.
+- **03/08 — Fases 0.4 a 0.7 VERIFICADAS EM PRODUÇÃO.** PR #52 mergeado, 0038 e 0039 aplicadas,
+  recálculo rodado. Consulta ao banco após o recálculo:
+
+  | OS | Fase | Esperado | Em produção |
+  |---|---|---|---|
+  | 573312 | 0.5 vazamento | R$ 44 | ✅ R$ 44 |
+  | 575303 | 0.4 receita zerada | R$ 0 | ✅ R$ 0 |
+  | 569827 | 0.6 cabeamento de fibra | R$ 100 | ✅ R$ 100 |
+  | 572037 | 0.7 configuração de roteador | R$ 30 | ✅ R$ 30 |
+
+  **Fila "Sem regra de LPU": 7 → 1** (só a OS 572737, da Fase 0.8, que depende de decisão da Wave).
+- **03/08 — Fase 0.8:** OS 572737 investigada — glosa da Unetvale por abertura de OS de garantia.
+  Sem código a mudar; resolve cadastrando o repasse de R$ 3,96 em `/homologacao`.
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

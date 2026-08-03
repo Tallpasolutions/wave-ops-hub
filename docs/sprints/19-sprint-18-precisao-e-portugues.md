@@ -81,6 +81,30 @@ pagamento zerado" (R$ 0).
 > cadastrou **não** aparece como erro — paga o valor da padrão em silêncio. Ao criar uma LPU
 > alternativa, conferir serviço a serviço em `/cabeamento` e `/homologacao`.
 
+### 0.7 — "Configuração de Roteador Externo" sem regra na SEM AUXILIAR (03/08)
+
+Aberto pela OS 572037, em "Sem regra de LPU". A finalidade existe na tabela padrão como regra
+explícita de R$ 0 (vinda do seed), e a SEM AUXILIAR nunca a declarou. **Regra de LPU não tem
+herança entre tabelas** — só as classificações de cabeamento/homologação têm (ADR-019). Sem regra
+que case, o payout fica `no_rule_match`: não paga **e** trava o fechamento.
+
+**Decisão do usuário (03/08): R$ 30 na SEM AUXILIAR** — o mesmo do suporte interno da tabela nova,
+e o mesmo que o ADR-016 já repassa quando o roteador chega como "Venda Produto Externo".
+Migration [0039](../../supabase/migrations/0039_lpu_sem_auxiliar_config_roteador.sql).
+
+**Alcance:** 1 visita (a única com essa finalidade em toda a base), sem ajuste manual. A tabela
+padrão segue em R$ 0 — nenhuma visita dela tem essa finalidade hoje; registrado em tech-debt 024.
+
+### Efeito colateral bom: a fila "Sem regra" quase esvazia
+
+Os 7 `no_rule_match` de hoje, conferidos um a um em 03/08:
+
+| OS | Causa | Depois deste PR |
+|---|---|---|
+| 573797, 576398, 574298, 575683, 575110 | receita R$ 0,00 (suporte e homologação) | R$ 0,00 `pending_review` pelo ADR-020 — saem da fila |
+| 572037 | finalidade sem regra na SEM AUXILIAR | R$ 30 pela 0039 |
+| 572737 | homologação com receita R$ 3,96, valor não cadastrado no mapa | **continua na fila** — a Wave precisa decidir o repasse dessa receita |
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -366,9 +390,16 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
   que é o que `recalculate-batch` já aplica por payout.
 - **03/08 — Fase 0.6:** 8 visitas de cabeamento de fibra dos técnicos da SEM AUXILIAR (4 em
   R$ 120, 4 em R$ 135), todas `pending_review` e sem ajuste manual → R$ 100 pela migration 0038.
-- Código, migration e testes prontos na branch `fix/receita-zerada-sem-repasse`; **falta aplicar
-  a 0038, rodar "Recalcular pendentes" e conferir em produção** (OS 573312 → R$ 44,
-  OS 575303 → R$ 0, OS 569827 → R$ 100).
+- **03/08 — Fase 0.7:** 1 visita (OS 572037), única com a finalidade "Configuração de Roteador
+  Externo" na base inteira, em `no_rule_match` → R$ 30 pela migration 0039.
+- **03/08 — 0038 aplicada em produção** pelo usuário; classificações conferidas no banco (tenant
+  120/135 intactos, SEM AUXILIAR 100/100). Payouts ainda em 120/135 — mudam só no recálculo.
+- Código, migrations e testes prontos na branch `fix/receita-zerada-sem-repasse`.
+  ⚠️ **Ordem obrigatória: merge → deploy → aplicar 0039 → "Recalcular pendentes".** Recalcular
+  antes do deploy propaga o vazamento da 0.5 para as chaves novas da 0038 (9 visitas de
+  cabeamento de fibra de técnicos da padrão cairiam de 120/135 para 100, −R$ 255).
+  **Conferir depois:** OS 573312 → R$ 44 · OS 575303 → R$ 0 · OS 569827 → R$ 100 ·
+  OS 572037 → R$ 30.
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

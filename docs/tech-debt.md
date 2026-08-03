@@ -247,6 +247,21 @@ achando que estão em uso.
 chaves — já verificado em 03/08).
 **Quando idealmente resolver:** junto da próxima migration que tocar classificações.
 
+### 024 — "Configuração de Roteador Externo" paga R$ 0 na tabela padrão
+**Identificado em:** 2026-08-03, ao corrigir a OS 572037 (migration 0039)
+**Onde:** regra "Configuração de Roteador (não repassada ao técnico)" da LPU Wave 2026 — Revisada
+**Por quê:** a regra vem do seed e diz R$ 0. Mas o mesmo serviço, quando chega pela finalidade
+"Venda Produto Externo" com a coluna Z `Roteador | 50 ...`, paga **R$ 30** desde o ADR-016 — que
+é posterior ao seed e resolve o roteador antes da LPU. Ou seja: o mesmo trabalho tem dois valores
+na tabela padrão, conforme a finalidade que a Unetvale escolher emitir. A SEM AUXILIAR passou a
+pagar R$ 30 (0039) por decisão explícita da Wave; a padrão ficou como estava.
+**Impacto se não resolver:** **zero hoje** — não existe nenhuma visita com essa finalidade de
+técnico da tabela padrão (verificado em 03/08: 1 visita na base inteira, e é da SEM AUXILIAR).
+Vira problema na primeira que aparecer, e vai aparecer como "técnico não recebeu", não como erro.
+**Esforço estimado:** XS (uma linha de migration) — o custo é a decisão da Wave sobre o valor.
+**Quando idealmente resolver:** na próxima revisão de LPU com o gestor, ou assim que surgir a
+primeira visita dessas num técnico da padrão.
+
 ### Template
 
 ```

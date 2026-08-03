@@ -290,6 +290,25 @@ GROUP BY os_num, tecnico_id, data_execucao::date HAVING count(*) > 1;
 **Esforço estimado:** S para a detecção + M para a tela do upload consumir `IngestWarning`.
 **Quando idealmente resolver:** antes do próximo fechamento — o risco é dinheiro pago em dobro.
 
+### 026 — As regras "em garantia (não paga)" da LPU SEM AUXILIAR são letra morta
+**Identificado em:** 2026-08-03, ao investigar como detectar OSs de garantia (ADR-021)
+**Onde:** LPU "LPU Wave — SEM AUXILIAR", regras `Instalação em garantia (não paga)` e
+`Suporte em garantia (não paga)` (prioridade 900, `{"garantia": true}`, migration 0036)
+**Por quê:** as regras casam pelo campo `garantia` da visita, e **a Unetvale nunca preenche essa
+coluna**: das 2.345 visitas do tenant, todas estão com `garantia = false` e nenhuma com `true`
+(verificado em 03/08). As duas regras nunca casaram nada desde que foram criadas.
+**Impacto se não resolver:** o "não paga em garantia" que a Wave definiu na planilha da SEM
+AUXILIAR **não está valendo** — uma instalação refeita em garantia paga valor cheio. Não é
+regressão (nunca funcionou), mas é uma decisão de negócio que o sistema não está cumprindo, e
+ninguém tem como perceber porque a regra existe e parece ativa na tela da LPU.
+**Caminho possível:** o sinal real de garantia é o texto da observação da Unetvale (`abertura da
+OS de garantia`) — o mesmo que o ADR-021 já detecta. Mas atenção: a observação marca a OS **cuja
+receita foi reduzida**, e não a OS de garantia em si; são coisas diferentes e usar uma pela outra
+pagaria errado. Antes de codar, mapear com o gestor o que a Wave chama de "OS em garantia".
+**Esforço estimado:** XS para remover as regras mortas; M para fazer a regra valer de verdade —
+e o custo real é a definição de domínio, não o código.
+**Quando idealmente resolver:** na próxima revisão de LPU com o gestor.
+
 ### Template
 
 ```

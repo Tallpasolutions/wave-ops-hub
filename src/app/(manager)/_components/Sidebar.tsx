@@ -51,7 +51,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/financeiro',
     label: 'Financeiro',
     icon: DollarSign,
-    match: ['/pagamentos', '/fechamento'],
+    match: ['/pagamentos', '/fechamento', '/alteracoes'],
   },
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { DollarSign, TrendingUp, CalendarCheck } from 'lucide-react'
+import { DollarSign, TrendingUp, CalendarCheck, AlertTriangle } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +24,12 @@ const LINKS = [
     icon: CalendarCheck,
     title: 'Fechamento',
     description: 'Consolidação mensal para aprovação, pagamento e exportação.',
+  },
+  {
+    href: '/alteracoes',
+    icon: AlertTriangle,
+    title: 'Alterações da Unetvale',
+    description: 'OSs em que a Unetvale mudou o valor depois, por abertura de OS de garantia.',
   },
 ]
 

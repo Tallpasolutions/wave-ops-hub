@@ -18,4 +18,5 @@ export * from "./supervisor-technicians";
 export * from "./cabeamento-classifications";
 export * from "./homologacao-classifications";
 export * from "./iqi-snapshots";
+export * from "./unetvale-alteracoes";
 export * from "./aprovacao";

@@ -120,7 +120,9 @@ function toLpuValores(row: Record<string, unknown> | null | undefined): LpuValor
   };
 }
 
-async function loadRecalcContext(
+// Exportada para teste: é aqui que as classificações do tenant e as de LPU alternativa se
+// separam, e a mistura entre elas já pagou valor errado em produção.
+export async function loadRecalcContext(
   tenantId: string,
   supabase: SupabaseClient,
 ): Promise<RecalcContext> {
@@ -232,11 +234,18 @@ async function loadRecalcContext(
       r.valor_improdutiva != null ? Number(r.valor_improdutiva) : null,
   }));
 
-  // ADR-009: classificações de Cabeamento/Condomínio + finalidades do grupo
+  // ADR-009: classificações de Cabeamento/Condomínio + finalidades do grupo.
+  // ADR-019: `lpu_id IS NULL` é obrigatório. As classificações próprias de uma LPU carregam o
+  // MESMO tenant_id, então sem este filtro elas entram neste mapa e sobrescrevem a chave do
+  // tenant (`new Map` mantém a última ocorrência) — o valor da LPU alternativa passa a valer
+  // para todos os técnicos, e como a ordem das linhas não é garantida o resultado nem é
+  // estável. Foi o que fez o cabeamento pagar R$ 30 (SEM AUXILIAR) em vez de R$ 44 na
+  // tabela padrão. O merge por técnico acontece depois, em `processVisitPage`.
   const { data: classRaw } = await supabase
     .from("cabeamento_classifications")
     .select("explicacao_key, valor")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .is("lpu_id", null);
   const classifications = new Map<string, number>(
     (classRaw ?? []).map((c) => [c.explicacao_key as string, Number(c.valor)]),
   );
@@ -270,10 +279,13 @@ async function loadRecalcContext(
   // ADR-015: repasse de homologação. Só carrega se a feature estiver ligada para o tenant.
   let homologacao: HomologacaoCtx | undefined;
   if (cfg.homologacao_por_explicacao === true) {
+    // `lpu_id IS NULL` pelo mesmo motivo do cabeamento acima: sem o filtro, o repasse próprio
+    // da LPU alternativa sobrescreve o do tenant para todo mundo (35 → 30 na base 64,46).
     const { data: homoRaw } = await supabase
       .from("homologacao_classifications")
       .select("valor_unetvale, valor_repasse")
-      .eq("tenant_id", tenantId);
+      .eq("tenant_id", tenantId)
+      .is("lpu_id", null);
     const valores = new Map<number, number>(
       (homoRaw ?? []).map((h) => [
         Math.round(Number(h.valor_unetvale) * 100),

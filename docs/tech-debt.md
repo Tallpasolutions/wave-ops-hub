@@ -181,7 +181,11 @@ tenant, a sineta do Tallpa vira ruído — notificação de todos os tenants mis
 **Esforço estimado:** S — filtro por tenant de interesse, ou agrupamento por tenant na sineta.
 **Quando idealmente resolver:** antes do segundo tenant entrar.
 
-### 020 — Payouts pagos sobre visitas com receita Unetvale R$ 0,00 (sucesso)
+### 020 — Payouts pagos sobre visitas com receita Unetvale R$ 0,00 (sucesso) — RESOLVIDO 03/08
+**Resolvido por:** [ADR-020](./architecture/ADR-020-receita-zerada-sem-repasse.md) — a decisão da
+Wave (03/08/2026) foi "sem receita, sem repasse automático": sucesso com receita R$ 0,00 paga
+R$ 0,00 e o técnico contesta pelo app. Mover para "Itens resolvidos" quando verificado em produção.
+
 **Identificado em:** 2026-07-30, na investigação do suporte externo sem troca de drop
 **Onde:** LPU ativa da Wave + `src/lib/payouts/calculate.ts`
 **Por quê:** o corte por receita da Unetvale (ADR-015/016 e o threshold de suporte) trata R$ 0,00
@@ -208,6 +212,25 @@ A falha é silenciosa: a OS não some da listagem, mas também não paga nada.
 M para a tela de gestão da lista pelo gestor.
 **Quando idealmente resolver:** junto do onboarding da Wave — o alerta no upload sozinho já
 elimina a descoberta tardia, e é o pedaço barato.
+
+### 022 — Fechamento "pago" com a maioria dos payouts destravada
+**Identificado em:** 2026-08-03, ao medir o alcance do ADR-020 e do vazamento entre LPUs
+**Onde:** `monthly_closings` × `payouts.status`, `src/app/(manager)/fechamento/actions.ts`
+**Por quê:** maio/2026 está com `monthly_closings.status = 'pago'`, mas dos seus payouts
+**644 estão em `pending_review` e só 123 em `approved`** — e **nenhum payout no sistema inteiro
+está `paid`**. `aprovarFechamento` marca `approved` só os payouts que existiam no momento da
+aprovação, e `marcarComoPago` só promove a `paid` os que têm `closing_id` + `approved`. Visitas
+que chegaram depois (re-upload) ficam de fora e nunca travam.
+**Impacto se não resolver:** todo recálculo global reprocessa um período já pago e pode mudar o
+valor do que a Wave já quitou, sem nenhum aviso — a divergência só aparece se alguém comparar o
+relatório com o extrato. O botão "Recalcular pendentes" (`recalculatePendingPayoutsChunk`) varre o
+tenant inteiro, sem filtro de período.
+**Decisão de 03/08:** não travar por período; a proteção continua sendo por payout (contestado,
+override do gestor, aprovado, pago). O item fica registrado porque a causa — payout novo em
+período fechado — não foi resolvida.
+**Esforço estimado:** S para reconciliar (promover a `approved`/`paid` os payouts órfãos de um
+fechamento fechado); M para o fechamento passar a "adotar" visitas que chegam depois.
+**Quando idealmente resolver:** antes do próximo fechamento mensal.
 
 ### Template
 

@@ -34,9 +34,29 @@ pagar R$ 0,00, e quem discordar contesta pelo app —
 Sem migration (regra de cálculo em `buildPayoutUpsert`); aplica pelo recálculo de pendentes.
 
 **Levantamento em produção (03/08, consulta direta ao banco):** 186 visitas com sucesso e receita
-R$ 0,00, das quais **52 pagam hoje R$ 3.980,50** (maio 18 · R$ 1.539,50 | junho 13 · R$ 970,00 |
-julho 21 · R$ 1.471,00) — todas em `pending_review`/`no_rule_match`, nenhuma travada. Parte é
-trabalho real (troca de drop, instalação nova) e deve gerar contestação: é o caminho previsto.
+R$ 0,00, das quais **51 serão zeradas, somando R$ 3.950,50** (maio 18 · R$ 1.539,50 | junho 13 ·
+R$ 970,00 | julho 20 · R$ 1.441,00). A OS 574142 fica de fora — tem override do gestor vindo de
+contestação resolvida. Parte das 51 é trabalho real (troca de drop, instalação nova) e deve gerar
+contestação: é o caminho previsto.
+
+### 0.5 — Vazamento entre tabelas de preço (03/08)
+
+Aberto pela OS 573312: cabeamento pagando **R$ 30 (SEM AUXILIAR) em vez de R$ 44** para um técnico
+da tabela padrão. `loadRecalcContext` carregava as classificações do tenant filtrando só por
+`tenant_id` — e as classificações próprias de uma LPU alternativa carregam o **mesmo** `tenant_id`
+(migration 0036). As duas coleções caíam no mesmo mapa e a chave da LPU alternativa sobrescrevia a
+do tenant (`new Map` mantém a última linha), **para todos os técnicos**. Como a ordem das linhas
+não é garantida, o valor pago nem era estável.
+
+| Onde | O que era | Correção |
+|---|---|---|
+| `loadRecalcContext` (cabeamento e homologação) | `.eq('tenant_id')` sem `lpu_id IS NULL` | filtro adicionado + teste de regressão `recalc-context.test.ts` |
+| `/cabeamento` e `/homologacao` (telas) | mesma query, gestor via valores misturados | filtro adicionado |
+| `classifyCabeamento` / `classifyHomologacao` | `onConflict` num UNIQUE que a 0035 trocou por índice **parcial** → `42P10`, salvar quebrado desde então | update-or-insert explícito, escopado a `lpu_id IS NULL` |
+
+**Alcance medido (03/08, consulta paginada):** 68 visitas pagando a menos — 46 de cabeamento
+(R$ 640,00) e 22 de homologação (R$ 110,00), **R$ 750,00** no total (maio 31 · junho 13 · julho 24).
+Nenhuma travada: todas voltam ao valor correto no recálculo. Sem migration.
 
 ---
 
@@ -309,10 +329,20 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
 - **30/07 — 0033 e 0034 aplicadas** pelo usuário; PR mergeado.
 - **30/07 — Fase 1 levantada:** mecanismo do ADR-014 confirmado pronto (coluna, motor, UI);
   **13 técnicos ativos, 0 com LPU atribuída**; a LPU SEM AUXILIAR nunca foi cadastrada.
-- **03/08 — Fase 0.4:** 186 visitas com sucesso e receita R$ 0,00 no tenant Wave; 52 com payout > 0
-  somando R$ 3.980,50 (maio a julho), nenhuma travada. Código e testes prontos na branch
-  `fix/receita-zerada-sem-repasse`; **falta rodar "Recalcular pendentes" após o deploy e conferir
-  em produção.**
+- **03/08 — Fase 0.4:** 186 visitas com sucesso e receita R$ 0,00 no tenant Wave; 51 serão zeradas
+  (R$ 3.950,50, maio a julho) e 1 fica protegida por override de contestação resolvida.
+- **03/08 — Fase 0.5:** vazamento das classificações da SEM AUXILIAR para a tabela padrão
+  confirmado no banco (tenant `Cabeamento` = 44, SEM AUXILIAR = 30, payout gravado = 30 com
+  `lpu_id` da padrão). 68 visitas afetadas, R$ 750,00. O salvar das telas `/cabeamento` e
+  `/homologacao` estava quebrado desde a 0035 — sondado e confirmado (`42P10`).
+- **03/08 — Estado dos travados (verificado):** 14 contestações, todas resolvidas e **todas com
+  `override_by`** → protegidas. 421 payouts `approved`, 17 com override do gestor, 0 `paid`.
+  ⚠️ **Maio está com `monthly_closings.status = 'pago'` mas tem 644 payouts em `pending_review`**
+  (só 123 `approved`) — um recálculo global reprocessa maio. Decisão do usuário (03/08): **não
+  travar por período**; a proteção é contestação do técnico + alteração do gestor + aprovado/pago,
+  que é o que `recalculate-batch` já aplica por payout.
+- Código e testes prontos na branch `fix/receita-zerada-sem-repasse`; **falta rodar "Recalcular
+  pendentes" após o deploy e conferir em produção** (OS 573312 → R$ 44, OS 575303 → R$ 0).
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

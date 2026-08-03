@@ -23,10 +23,11 @@ resolvido pelo serviço descrito — LPU, classificação de cabeamento (ADR-009
 próprio bolso um serviço que não faturou.
 
 **Levantamento em produção (03/08/2026, tenant Wave, consulta na sessão):** 186 visitas com sucesso
-e receita R$ 0,00; **52 delas com payout efetivo > 0, somando R$ 3.980,50** (maio R$ 1.539,50 ·
-junho R$ 970,00 · julho R$ 1.471,00). Concentradas em Suporte Fibra (36), Instalação - Fibra - PF
-(8), Troca de Equipamentos (5), Mudança Endereço Fibra (2) e Cabeamento/Segundo Ponto (1). Nenhuma
-estava travada (`approved`/`paid`/`contestado`) — todas em `pending_review` ou `no_rule_match`.
+e receita R$ 0,00; 52 com payout efetivo > 0, das quais **51 serão zeradas pelo recálculo, somando
+R$ 3.950,50** (maio R$ 1.539,50 · junho R$ 970,00 · julho R$ 1.441,00). Concentradas em Suporte
+Fibra, Instalação - Fibra - PF, Troca de Equipamentos, Mudança Endereço Fibra e
+Cabeamento/Segundo Ponto. A 52ª (OS 574142, R$ 30) **não muda**: tem `override_by` de uma
+contestação já resolvida pela Wave, e o recálculo pula payouts com decisão manual.
 
 O ponto delicado: **parte dessas visitas é trabalho real e completo** (troca de drop, instalação
 nova). Não dá para distinguir automaticamente "linha zerada porque outro fechou a OS" de "linha
@@ -84,7 +85,7 @@ cálculo, aplicada pelo recálculo de pendentes.
 ## Consequências
 
 **Positivas**
-- A Wave deixa de repassar serviço que não faturou. No histórico levantado, R$ 3.980,50 em três
+- A Wave deixa de repassar serviço que não faturou. No histórico levantado, R$ 3.950,50 em três
   meses.
 - A regra é única e vale para toda finalidade — não há brecha nova a cada tipo de serviço.
 - Quem tem a informação decide: o técnico contesta, a Wave responde com o contexto da OS.

@@ -54,10 +54,13 @@ export default async function CabeamentoPage() {
         .order('os_num')
         .range(from, to),
     ),
+    // ADR-019: só as classificações do tenant. As de uma LPU alternativa têm o mesmo
+    // tenant_id e, sem este filtro, apareceriam misturadas com as da tabela padrão.
     supabase
       .from('cabeamento_classifications')
       .select('explicacao_key, valor')
-      .eq('tenant_id', user.tenantId),
+      .eq('tenant_id', user.tenantId)
+      .is('lpu_id', null),
   ])
 
   const classMap = new Map(

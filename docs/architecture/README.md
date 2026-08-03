@@ -27,13 +27,14 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-017](./ADR-017-notificacoes-realtime.md) | Notificações cross-user e entrega em tempo real (Supabase Realtime) | Aceito |
 | [ADR-018](./ADR-018-push-app-fechado.md) | Notificação push com o app fechado (Web Push + VAPID) | Aceito |
 | [ADR-019](./ADR-019-valores-por-lpu.md) | Valores de pagamento próprios de cada LPU (tabela "SEM AUXILIAR") | Aceito |
+| [ADR-020](./ADR-020-receita-zerada-sem-repasse.md) | Receita zerada da Unetvale não gera repasse automático | Aceito |
 
 ### Onde cada ADR toca o cálculo de payout
 
 A ordem de precedência efetiva no `buildPayoutUpsert` está em
 [`docs/domain/03-payout.md`](../domain/03-payout.md#ordem-de-precedência-do-cálculo) — consulte-a
-antes de mexer em qualquer regra financeira: ADR-009, 011, 014, 015 e 016 se combinam nessa mesma
-função, e a ordem entre eles é a decisão, não um detalhe de implementação.
+antes de mexer em qualquer regra financeira: ADR-009, 011, 014, 015, 016 e 020 se combinam nessa
+mesma função, e a ordem entre eles é a decisão, não um detalhe de implementação.
 
 ## Template para novos ADRs
 

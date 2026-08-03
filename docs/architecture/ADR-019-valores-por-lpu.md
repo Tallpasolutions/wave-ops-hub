@@ -55,6 +55,24 @@ fechamento**. Com o merge, o gestor cadastra só as diferenças.
 Novo parâmetro opcional `lpuValores`. O contexto de recálculo carrega, para cada LPU alternativa,
 seus valores escalares e suas classificações, junto das regras que o ADR-014 já trazia.
 
+### 5. Toda leitura "do tenant" precisa de `lpu_id IS NULL` (adendo de 03/08/2026)
+Uma classificação de LPU alternativa carrega o **mesmo `tenant_id`** das do tenant — o `lpu_id` é o
+único discriminador. Consultar por `tenant_id` sozinho mistura as duas coleções, e como o mapa é
+construído com `new Map(...)` a última linha vence: o valor da tabela alternativa passa a valer
+para **todos** os técnicos, sem erro nenhum e sem ordem garantida.
+
+Foi exatamente o que aconteceu depois da 0036 (OS 573312): cabeamento pagando R$ 30 da SEM AUXILIAR
+em vez dos R$ 44 da padrão, e homologação R$ 30 em vez de R$ 35 — 68 visitas, R$ 750,00. Todas as
+leituras de escopo-tenant filtram `lpu_id IS NULL`: `loadRecalcContext` (cabeamento e homologação),
+`/cabeamento` e `/homologacao`. Regressão travada em
+`src/lib/payouts/__tests__/recalc-context.test.ts`.
+
+**Escrita pela tela:** os `UNIQUE` de escopo viraram índices únicos **parciais** na 0035, e o
+Postgres não infere índice parcial sem o predicado — que o `on_conflict` do PostgREST não tem como
+passar. O upsert das actions retornava `42P10` e o gestor ficou sem conseguir salvar classificação
+desde a 0035. `classifyCabeamento` e `classifyHomologacao` fazem update-or-insert explícito,
+escopado a `lpu_id IS NULL`.
+
 ## Consequências
 
 - **A tabela padrão não muda.** Quatro testes em `calculate.test.ts` existem só para falhar se

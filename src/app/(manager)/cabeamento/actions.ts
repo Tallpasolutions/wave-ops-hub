@@ -28,16 +28,45 @@ export async function classifyCabeamento(
   if (!parsed.success) return { error: parsed.error.errors[0].message }
 
   const supabase = await createSupabaseServerClient()
-  const { error } = await supabase.from('cabeamento_classifications').upsert(
-    {
-      tenant_id: user.tenantId,
-      explicacao_original: parsed.data.explicacaoOriginal,
-      explicacao_key: parsed.data.explicacaoKey,
-      valor: parsed.data.valor,
-    },
-    { onConflict: 'tenant_id,explicacao_key' },
-  )
-  if (error) return { error: 'Erro ao salvar classificação. Tente novamente.' }
+
+  // ADR-019: a migration 0035 trocou o UNIQUE (tenant_id, explicacao_key) por índices únicos
+  // PARCIAIS (um para lpu_id IS NULL, outro para lpu_id NOT NULL). O Postgres não infere índice
+  // parcial sem o predicado, e o `on_conflict` do PostgREST não tem como passá-lo — o upsert
+  // antigo voltava 42P10 e a tela ficava sem salvar. Update-or-insert explícito, escopado à
+  // classificação do tenant (lpu_id IS NULL); as de LPU alternativa vêm por migration.
+  const { data: existing, error: findError } = await supabase
+    .from('cabeamento_classifications')
+    .select('id')
+    .eq('tenant_id', user.tenantId)
+    .eq('explicacao_key', parsed.data.explicacaoKey)
+    .is('lpu_id', null)
+    .maybeSingle()
+
+  if (findError) {
+    console.error('[classifyCabeamento] busca falhou', findError)
+    return { error: 'Erro ao salvar classificação. Tente novamente.' }
+  }
+
+  const { error } = existing
+    ? await supabase
+        .from('cabeamento_classifications')
+        .update({
+          explicacao_original: parsed.data.explicacaoOriginal,
+          valor: parsed.data.valor,
+        })
+        .eq('id', existing.id)
+    : await supabase.from('cabeamento_classifications').insert({
+        tenant_id: user.tenantId,
+        lpu_id: null,
+        explicacao_original: parsed.data.explicacaoOriginal,
+        explicacao_key: parsed.data.explicacaoKey,
+        valor: parsed.data.valor,
+      })
+
+  if (error) {
+    console.error('[classifyCabeamento] gravação falhou', error)
+    return { error: 'Erro ao salvar classificação. Tente novamente.' }
+  }
 
   // Recalcula os payouts afetados (mesmo padrão de updateReason)
   await recalculatePendingPayouts(user.tenantId, supabase)

@@ -27,15 +27,39 @@ export async function classifyHomologacao(
   if (!parsed.success) return { error: parsed.error.errors[0].message }
 
   const supabase = await createSupabaseServerClient()
-  const { error } = await supabase.from('homologacao_classifications').upsert(
-    {
-      tenant_id: user.tenantId,
-      valor_unetvale: parsed.data.valorUnetvale,
-      valor_repasse: parsed.data.valorRepasse,
-    },
-    { onConflict: 'tenant_id,valor_unetvale' },
-  )
-  if (error) return { error: 'Erro ao salvar repasse. Tente novamente.' }
+
+  // Mesmo motivo do cabeamento (ADR-019 / migration 0035): o UNIQUE virou índice único parcial
+  // e o `on_conflict` do PostgREST não consegue inferi-lo (42P10). Update-or-insert explícito,
+  // escopado ao repasse do tenant (lpu_id IS NULL).
+  const { data: existing, error: findError } = await supabase
+    .from('homologacao_classifications')
+    .select('id')
+    .eq('tenant_id', user.tenantId)
+    .eq('valor_unetvale', parsed.data.valorUnetvale)
+    .is('lpu_id', null)
+    .maybeSingle()
+
+  if (findError) {
+    console.error('[classifyHomologacao] busca falhou', findError)
+    return { error: 'Erro ao salvar repasse. Tente novamente.' }
+  }
+
+  const { error } = existing
+    ? await supabase
+        .from('homologacao_classifications')
+        .update({ valor_repasse: parsed.data.valorRepasse })
+        .eq('id', existing.id)
+    : await supabase.from('homologacao_classifications').insert({
+        tenant_id: user.tenantId,
+        lpu_id: null,
+        valor_unetvale: parsed.data.valorUnetvale,
+        valor_repasse: parsed.data.valorRepasse,
+      })
+
+  if (error) {
+    console.error('[classifyHomologacao] gravação falhou', error)
+    return { error: 'Erro ao salvar repasse. Tente novamente.' }
+  }
 
   await recalculatePendingPayouts(user.tenantId, supabase)
 

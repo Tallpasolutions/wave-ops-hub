@@ -269,6 +269,92 @@ describe("buildPayoutUpsert — improdutiva padrão (Unetvale 15,98)", () => {
   });
 });
 
+// ADR-020: receita zerada pela Unetvale não gera repasse automático, mesmo com sucesso.
+// A regra precede homologação, coluna Z, cabeamento e LPU — todos pagariam pelo serviço descrito.
+describe("buildPayoutUpsert — sucesso com receita Unetvale zerada (ADR-020)", () => {
+  const REAJ = "(Reajuste +6,54% fevereiro/2025)";
+
+  it("sucesso com Unetvale 0,00 → R$ 0, sem regra de LPU e sem deixado na mesa", () => {
+    const visit = makeVisit({ sucesso: "Sim", valorRecebidoUnetvale: 0 });
+    const rule = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 120 } });
+    const r = buildPayoutUpsert(visit, [rule], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(0);
+    expect(r.status).toBe("pending_review");
+    expect(r.lpuRuleId).toBeNull();
+    expect(r.valorDeixadoNaMesa).toBe(0);
+    expect(r.improdutivaAprovada).toBeNull();
+  });
+
+  it("precede a classificação de cabeamento (caso da OS 575303)", () => {
+    const classification = {
+      finalidades: new Set(["cabeamento/segundo ponto"]),
+      map: new Map([["Cabeamento", 30]]),
+    };
+    const visit = makeVisit({
+      finalidade: "Cabeamento/Segundo Ponto",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 0,
+      explicacaoValor: `Cabeamento | 88 ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, classification);
+    expect(r.valorCalculado).toBe(0);
+    expect(r.status).toBe("pending_review");
+  });
+
+  it("precede o repasse de homologação (ADR-015)", () => {
+    const homologacao = { valores: new Map([[0, 35]]) };
+    const visit = makeVisit({
+      finalidade: "Instalação - Fibra - PF",
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 0,
+      explicacaoValor: `Homologação | 60.50 ${REAJ}`,
+    });
+    const r = buildPayoutUpsert(visit, [], [], LPU_ID, TENANT_ID, undefined, undefined, homologacao);
+    expect(r.valorCalculado).toBe(0);
+  });
+
+  it("não recebe acréscimo de domingo/feriado nem ponto adicional da coluna Z", () => {
+    const visit = makeVisit({
+      sucesso: "Sim",
+      valorRecebidoUnetvale: 0,
+      dataExecucao: "2026-06-07", // domingo
+      explicacaoValor: `Instalação nova | 160 (+73 * 2 ponto(s) adicional(is)) ${REAJ}`,
+    });
+    const rule = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 120 } });
+    const r = buildPayoutUpsert(visit, [rule], [], LPU_ID, TENANT_ID, undefined, {
+      feriados: new Set<string>(),
+      pct: 15,
+    });
+    expect(r.valorCalculado).toBe(0);
+    expect(r.acrescimoDomFeriado).toBeNull();
+  });
+
+  it("decisão manual do gestor prevalece → fluxo normal (paga a LPU)", () => {
+    const visit = makeVisit({ sucesso: "Sim", valorRecebidoUnetvale: 0 });
+    const rule = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 120 } });
+    const r = buildPayoutUpsert(
+      visit,
+      [rule],
+      [],
+      LPU_ID,
+      TENANT_ID,
+      undefined,
+      undefined,
+      undefined,
+      true, // manualDecisionExists
+    );
+    expect(r.valorCalculado).toBe(120);
+  });
+
+  it("sucesso com Unetvale null (receita desconhecida) → NÃO trata como zero", () => {
+    const visit = makeVisit({ sucesso: "Sim", valorRecebidoUnetvale: null });
+    const rule = makeRule({ conditions: { sucesso: "Sim" }, payout: { type: "fixed", value: 120 } });
+    const r = buildPayoutUpsert(visit, [rule], [], LPU_ID, TENANT_ID);
+    expect(r.valorCalculado).toBe(120);
+    expect(r.lpuRuleId).toBe("rule-1");
+  });
+});
+
 // ADR-009: Cabeamento/Condomínio pagam pela classificação do gestor (explicacao_valor), não pela LPU.
 describe("buildPayoutUpsert — classificação de Cabeamento (ADR-009)", () => {
   const classification = {

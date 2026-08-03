@@ -114,19 +114,21 @@ detalhe de implementação. Mudá-la muda o valor pago.
 | 0 | Payout travado (`approved`/`paid`/`contestado`/`override_by`) | **Não recalcula** (nem chega aqui) | Invariante Sprint 4 + ADR-013 |
 | 1 | Sem sucesso **e** Unetvale = R$ 15,98 **e** técnico mapeado | R$ 15,00, já `approved`, fora da fila | Improdutiva padrão |
 | 2 | Sem sucesso **e** Unetvale = R$ 0,00 | R$ 0,00, fora da fila, preserva "deixado na mesa" | Improdutiva sem reembolso |
-| 3 | Com sucesso **e** Unetvale = R$ 29,30 | R$ 0,00 (roteador agregado — não paga) | [ADR-016](../architecture/ADR-016-ajustes-coluna-z.md) |
-| 4 | Com sucesso **e** coluna Z começa com "Homologa…" | Repasse fixo pelo mapa de homologação; valor não cadastrado → `no_rule_match` | [ADR-015](../architecture/ADR-015-homologacao-repasse.md) |
-| 5 | Com sucesso **e** finalidade = "Venda Produto Externo" | Valor-base pela coluna Z; não reconhecido → `no_rule_match` | ADR-016 |
-| 6 | Com sucesso **e** finalidade do grupo Cabeamento/Condomínio | Valor da **classificação do gestor** (`/cabeamento`); sem classificação → `no_rule_match` | [ADR-009](../architecture/ADR-009-cabeamento-classificacao.md) |
-| 7 | Demais casos | **Motor de LPU** (match engine) + política do motivo | [ADR-004](../architecture/ADR-004-lpu-rule-engine.md) |
+| 3 | **Com sucesso e Unetvale = R$ 0,00** | **R$ 0,00 — sem repasse automático; o técnico contesta pelo app se discordar** | [ADR-020](../architecture/ADR-020-receita-zerada-sem-repasse.md) |
+| 4 | Com sucesso **e** Unetvale = R$ 29,30 | R$ 0,00 (roteador agregado — não paga) | [ADR-016](../architecture/ADR-016-ajustes-coluna-z.md) |
+| 5 | Com sucesso **e** coluna Z começa com "Homologa…" | Repasse fixo pelo mapa de homologação; valor não cadastrado → `no_rule_match` | [ADR-015](../architecture/ADR-015-homologacao-repasse.md) |
+| 6 | Com sucesso **e** finalidade = "Venda Produto Externo" | Valor-base pela coluna Z; não reconhecido → `no_rule_match` | ADR-016 |
+| 7 | Com sucesso **e** finalidade do grupo Cabeamento/Condomínio | Valor da **classificação do gestor** (`/cabeamento`); sem classificação → `no_rule_match` | [ADR-009](../architecture/ADR-009-cabeamento-classificacao.md) |
+| 8 | Demais casos | **Motor de LPU** (match engine) + política do motivo | [ADR-004](../architecture/ADR-004-lpu-rule-engine.md) |
 
 Sobre o valor-base resolvido acima incidem, nesta ordem, dois modificadores:
 
 1. **Ponto adicional** (coluna Z, `(+73 * N ponto(s) adicional(is))`): `+R$ 36 por ponto`, aplicado
-   nos caminhos 5, 6 e 7. **Homologação (4) não passa por aqui** — o repasse com ponto já vem do
+   nos caminhos 6, 7 e 8. **Homologação (5) não passa por aqui** — o repasse com ponto já vem do
    próprio mapa. Improdutiva não tem ponto na coluna Z. — ADR-016
 2. **Acréscimo de domingo/feriado**: `× 1,15` sobre base + ponto, **apenas em execução com
-   sucesso**, nos caminhos 4, 5, 6 e 7. Improdutiva nunca recebe. —
+   sucesso**, nos caminhos 5, 6, 7 e 8. Improdutiva nunca recebe, e o caminho 3 (receita zerada)
+   também não — não há base sobre a qual incidir. —
    [ADR-011](../architecture/ADR-011-acrescimo-domingo-feriado.md)
 
 E, transversalmente, a **LPU aplicável é resolvida por técnico**: um técnico vinculado a uma LPU
@@ -155,6 +157,28 @@ Detalhes:
 - **0,00 → 0,00**: decisão automática de não pagar; sai da fila mas **não trava** (não é `approved`), então o recálculo reavalia — se a receita mudar para 15,98 num re-upload, passa a 15,00. `null` (receita desconhecida) **não** conta como zero: segue o fluxo normal.
 - **Decisão manual do gestor prevalece**: quando existe `override_by` (rejeição manual) — ou o payout está `approved`/`paid` (aprovação manual, já travado) — as regras automáticas **não** se aplicam.
 - Valores fixos no código (`src/lib/payouts/calculate.ts`): `UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598`, `PAYOUT_IMPRODUTIVA_PADRAO = 15,00`. Comparação em centavos (evita drift de float). Tornar configurável por tenant exige ADR.
+
+---
+
+### Sucesso com receita zerada — sem repasse automático (ADR-020)
+
+**Sem receita da Unetvale, não há repasse automático.** Visita **com sucesso** e
+`valor_recebido_unetvale = R$ 0,00` sai com payout **R$ 0,00**, `status = pending_review` e
+`lpu_rule_id = null` — independente da finalidade, da coluna Z e da LPU do técnico.
+
+O caso típico é a OS ter sido **fechada por outro técnico**: a receita vai para a linha de quem
+fechou e a linha do outro técnico fica zerada, embora a coluna Z continue descrevendo o serviço da
+OS ("Instalação nova | 160 (aéreo)", "Cabeamento | 88"). Antes desta regra, o motor pagava pelo
+serviço descrito e a Wave repassava do próprio bolso um serviço que não faturou.
+
+- **Quem discorda contesta.** O técnico que entender que deve receber contesta a OS pelo aplicativo
+  ([ADR-013](../architecture/ADR-013-aprovacao-contestacao-tecnico.md)) e a Wave decide caso a
+  caso. As duas telas explicam o R$ 0,00 (app do técnico e detalhe da visita no painel).
+- **Precede** homologação, coluna Z, cabeamento e LPU — todos pagariam pelo serviço descrito.
+- **Não incide** ponto adicional nem acréscimo de domingo/feriado.
+- **"Deixado na mesa" = 0** — houve sucesso, nada foi perdido por falha do técnico.
+- **`null` não é zero:** receita desconhecida segue o fluxo normal. Só R$ 0,00 exato dispara.
+- **Não trava:** se um re-upload trouxer receita, o recálculo volta a pagar normalmente.
 
 ---
 

@@ -202,7 +202,7 @@ export async function minhaAction(id: string): Promise<void> {
 ```
 Também: `redirect` deve ser importado estaticamente no topo do arquivo (`import { redirect } from 'next/navigation'`), nunca dentro da função.
 
-❌ **Não alterar a ordem de precedência de `buildPayoutUpsert` sem ADR.** A função tem saídas antecipadas (improdutiva por receita → 29,30 → homologação → Venda Produto Externo → cabeamento → LPU) e a ordem **é** a decisão de domínio: homologação precede a LPU porque a finalidade da Unetvale ("Instalação - Fibra") casaria instalação real e pagaria 3x o correto. A ordem está documentada em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md#ordem-de-precedência-do-cálculo) — leia antes de inserir qualquer regra nova.
+❌ **Não alterar a ordem de precedência de `buildPayoutUpsert` sem ADR.** A função tem saídas antecipadas (improdutiva por receita → receita zerada com sucesso (ADR-020) → 29,30 → homologação → Venda Produto Externo → cabeamento → LPU) e a ordem **é** a decisão de domínio: homologação precede a LPU porque a finalidade da Unetvale ("Instalação - Fibra") casaria instalação real e pagaria 3x o correto. A ordem está documentada em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md#ordem-de-precedência-do-cálculo) — leia antes de inserir qualquer regra nova.
 
 ❌ **Não destravar payouts no recálculo.** `recalculate-batch.ts` pula `approved`, `paid`, `contestado` e qualquer payout com `override_by`. Reprocessar um `contestado` apaga o status enquanto a contestação segue aberta em `payout_contestacoes` — inconsistência silenciosa. Ver [ADR-013](./docs/architecture/ADR-013-aprovacao-contestacao-tecnico.md).
 
@@ -269,7 +269,7 @@ Uma OS pode ter **N visitas**. Cada linha da planilha = uma visita. Chave natura
 ### Cálculo de payout
 Apenas o técnico da última visita com sucesso recebe o valor de serviço. Improdutivas pagam conforme política do motivo. "Deixado na mesa" só conta motivos categorizados como `falha_tecnico`.
 
-**A LPU não é o único caminho.** `buildPayoutUpsert` decide por saídas antecipadas — improdutiva por receita da Unetvale, R$ 29,30, homologação (ADR-015), Venda Produto Externo e cabeamento (ADR-009) precedem o motor de LPU; depois incidem pontos adicionais (ADR-016) e o acréscimo de domingo/feriado (ADR-011). A LPU aplicável ainda é resolvida por técnico (ADR-014). A ordem completa está em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md#ordem-de-precedência-do-cálculo) — **leia antes de tocar em qualquer regra financeira**.
+**A LPU não é o único caminho.** `buildPayoutUpsert` decide por saídas antecipadas — improdutiva por receita da Unetvale, receita zerada com sucesso (ADR-020), R$ 29,30, homologação (ADR-015), Venda Produto Externo e cabeamento (ADR-009) precedem o motor de LPU; depois incidem pontos adicionais (ADR-016) e o acréscimo de domingo/feriado (ADR-011). A LPU aplicável ainda é resolvida por técnico (ADR-014). A ordem completa está em [`docs/domain/03-payout.md`](./docs/domain/03-payout.md#ordem-de-precedência-do-cálculo) — **leia antes de tocar em qualquer regra financeira**.
 
 ### Conferência e contestação do técnico
 Entre "Solicitar aprovação" e a aprovação da Wave, cada técnico aprova ou contesta seu período. Contestação aberta trava o payout (`contestado`) e bloqueia a aprovação do fechamento. Detalhes em [`ADR-013`](./docs/architecture/ADR-013-aprovacao-contestacao-tecnico.md).

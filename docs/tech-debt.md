@@ -181,7 +181,11 @@ tenant, a sineta do Tallpa vira ruído — notificação de todos os tenants mis
 **Esforço estimado:** S — filtro por tenant de interesse, ou agrupamento por tenant na sineta.
 **Quando idealmente resolver:** antes do segundo tenant entrar.
 
-### 020 — Payouts pagos sobre visitas com receita Unetvale R$ 0,00 (sucesso)
+### 020 — Payouts pagos sobre visitas com receita Unetvale R$ 0,00 (sucesso) — RESOLVIDO 03/08
+**Resolvido por:** [ADR-020](./architecture/ADR-020-receita-zerada-sem-repasse.md) — a decisão da
+Wave (03/08/2026) foi "sem receita, sem repasse automático": sucesso com receita R$ 0,00 paga
+R$ 0,00 e o técnico contesta pelo app. Mover para "Itens resolvidos" quando verificado em produção.
+
 **Identificado em:** 2026-07-30, na investigação do suporte externo sem troca de drop
 **Onde:** LPU ativa da Wave + `src/lib/payouts/calculate.ts`
 **Por quê:** o corte por receita da Unetvale (ADR-015/016 e o threshold de suporte) trata R$ 0,00
@@ -208,6 +212,55 @@ A falha é silenciosa: a OS não some da listagem, mas também não paga nada.
 M para a tela de gestão da lista pelo gestor.
 **Quando idealmente resolver:** junto do onboarding da Wave — o alerta no upload sozinho já
 elimina a descoberta tardia, e é o pedaço barato.
+
+### 022 — Fechamento "pago" com a maioria dos payouts destravada
+**Identificado em:** 2026-08-03, ao medir o alcance do ADR-020 e do vazamento entre LPUs
+**Onde:** `monthly_closings` × `payouts.status`, `src/app/(manager)/fechamento/actions.ts`
+**Por quê:** maio/2026 está com `monthly_closings.status = 'pago'`, mas dos seus payouts
+**644 estão em `pending_review` e só 123 em `approved`** — e **nenhum payout no sistema inteiro
+está `paid`**. `aprovarFechamento` marca `approved` só os payouts que existiam no momento da
+aprovação, e `marcarComoPago` só promove a `paid` os que têm `closing_id` + `approved`. Visitas
+que chegaram depois (re-upload) ficam de fora e nunca travam.
+**Impacto se não resolver:** todo recálculo global reprocessa um período já pago e pode mudar o
+valor do que a Wave já quitou, sem nenhum aviso — a divergência só aparece se alguém comparar o
+relatório com o extrato. O botão "Recalcular pendentes" (`recalculatePendingPayoutsChunk`) varre o
+tenant inteiro, sem filtro de período.
+**Decisão de 03/08:** não travar por período; a proteção continua sendo por payout (contestado,
+override do gestor, aprovado, pago). O item fica registrado porque a causa — payout novo em
+período fechado — não foi resolvida.
+**Esforço estimado:** S para reconciliar (promover a `approved`/`paid` os payouts órfãos de um
+fechamento fechado); M para o fechamento passar a "adotar" visitas que chegam depois.
+**Quando idealmente resolver:** antes do próximo fechamento mensal.
+
+### 023 — Classificações de cabeamento com ponto adicional na chave são linhas mortas
+**Identificado em:** 2026-08-03, ao mapear as chaves usadas pelos técnicos da SEM AUXILIAR
+**Onde:** `cabeamento_classifications` (tenant Wave), 3 linhas
+**Por quê:** desde o ADR-016 o `normalizeExplicacao` **remove** o modificador de pontos da chave
+(o ponto virou acréscimo separado). As linhas `Cabeamento (+73 * 1 ponto(s) adicional(is))` = 76,
+`Cabeamento (+73 * 2 ponto(s) adicional(is))` = 106 e `Cabeamento agregado (+73 * 1 ponto(s)
+adicional(is))` = 76 nunca mais podem casar nenhuma visita. A migration 0026 foi criada para
+apagá-las, mas elas continuam na base.
+**Impacto se não resolver:** baixo hoje — chave morta não paga errado, só polui. O risco é de
+leitura: quem abre `/cabeamento` vê valores de ponto que não valem mais e pode reeditar por cima
+achando que estão em uso.
+**Esforço estimado:** XS (um DELETE, com conferência de que nenhuma visita normaliza para essas
+chaves — já verificado em 03/08).
+**Quando idealmente resolver:** junto da próxima migration que tocar classificações.
+
+### 024 — "Configuração de Roteador Externo" paga R$ 0 na tabela padrão
+**Identificado em:** 2026-08-03, ao corrigir a OS 572037 (migration 0039)
+**Onde:** regra "Configuração de Roteador (não repassada ao técnico)" da LPU Wave 2026 — Revisada
+**Por quê:** a regra vem do seed e diz R$ 0. Mas o mesmo serviço, quando chega pela finalidade
+"Venda Produto Externo" com a coluna Z `Roteador | 50 ...`, paga **R$ 30** desde o ADR-016 — que
+é posterior ao seed e resolve o roteador antes da LPU. Ou seja: o mesmo trabalho tem dois valores
+na tabela padrão, conforme a finalidade que a Unetvale escolher emitir. A SEM AUXILIAR passou a
+pagar R$ 30 (0039) por decisão explícita da Wave; a padrão ficou como estava.
+**Impacto se não resolver:** **zero hoje** — não existe nenhuma visita com essa finalidade de
+técnico da tabela padrão (verificado em 03/08: 1 visita na base inteira, e é da SEM AUXILIAR).
+Vira problema na primeira que aparecer, e vai aparecer como "técnico não recebeu", não como erro.
+**Esforço estimado:** XS (uma linha de migration) — o custo é a decisão da Wave sobre o valor.
+**Quando idealmente resolver:** na próxima revisão de LPU com o gestor, ou assim que surgir a
+primeira visita dessas num técnico da padrão.
 
 ### Template
 

@@ -34,6 +34,8 @@ export type HomologacaoCtx = {
 //     payout já sai APROVADO, sem depender da classificação do motivo. Não entra na fila.
 //   - Unetvale = R$ 0,00 → a Unetvale não reembolsou (típico de falha do técnico): payout
 //     R$ 0,00 e sai da fila automaticamente (decisão de não pagar). Preserva o "deixado na mesa".
+//     ADR-020: receita zerada também zera o repasse quando a visita teve SUCESSO — a regra é
+//     "sem receita, sem repasse automático", e o técnico contesta pelo app se discordar.
 //   - Qualquer outra receita → fluxo normal, entra na fila de validação por motivo.
 // Comparações em centavos para evitar drift de float.
 const UNETVALE_IMPRODUTIVA_PADRAO_CENTAVOS = 1598;
@@ -168,6 +170,28 @@ export function buildPayoutUpsert(
       valorDeixadoNaMesa: deixadoNaMesa,
       status: "pending_review",
       improdutivaAprovada: false,
+      acrescimoDomFeriado: null,
+    };
+  }
+
+  // ADR-020: sucesso com Unetvale = R$ 0,00 → sem repasse automático. A Unetvale não faturou
+  // esta linha (o caso típico é a OS ter sido fechada por outro técnico, e a receita ter ido
+  // para a linha dele). Sem receita, a Wave não repassa por conta própria: o payout sai R$ 0,00
+  // e o técnico contesta pelo app se entender que deve receber (ADR-013). Precede homologação,
+  // coluna Z, cabeamento e LPU — todos pagariam pelo serviço descrito, ignorando a receita zero.
+  // "Deixado na mesa" é 0: houve sucesso, nada foi perdido por falha do técnico.
+  if (isSucesso && !manualDecisionExists && isUnetvaleZero(visit.valorRecebidoUnetvale)) {
+    return {
+      tenantId,
+      visitId: visit.id,
+      technicianId: visit.tecnicoId,
+      lpuId,
+      lpuRuleId: null,
+      reasonId: visit.reasonId,
+      valorCalculado: 0,
+      valorDeixadoNaMesa: 0,
+      status: "pending_review",
+      improdutivaAprovada: null,
       acrescimoDomFeriado: null,
     };
   }

@@ -23,6 +23,88 @@ Detalhes: [`docs/domain/05-regras-especiais.md`](../domain/05-regras-especiais.m
 adendos no [ADR-008](../architecture/ADR-008-exclusao-finalidades-infra.md) e
 [ADR-013](../architecture/ADR-013-aprovacao-contestacao-tecnico.md) · tech-debt 020 e 021.
 
+### 0.4 — Receita zerada da Unetvale não gera repasse (03/08)
+
+Mesma frente de precisão, aberta pela OS 575303: a Unetvale zerou a receita ("Pagamento zerado
+devido o técnico RM - Matheus Deiss Silva ter realizado o fechamento desta OS") e o sistema
+repassou R$ 30,00 assim mesmo. **Decisão:** sucesso com `valor_recebido_unetvale = R$ 0,00` passa a
+pagar R$ 0,00, e quem discordar contesta pelo app —
+[ADR-020](../architecture/ADR-020-receita-zerada-sem-repasse.md).
+
+Sem migration (regra de cálculo em `buildPayoutUpsert`); aplica pelo recálculo de pendentes.
+
+**Levantamento em produção (03/08, consulta direta ao banco):** 186 visitas com sucesso e receita
+R$ 0,00, das quais **51 serão zeradas, somando R$ 3.950,50** (maio 18 · R$ 1.539,50 | junho 13 ·
+R$ 970,00 | julho 20 · R$ 1.441,00). A OS 574142 fica de fora — tem override do gestor vindo de
+contestação resolvida. Parte das 51 é trabalho real (troca de drop, instalação nova) e deve gerar
+contestação: é o caminho previsto.
+
+### 0.5 — Vazamento entre tabelas de preço (03/08)
+
+Aberto pela OS 573312: cabeamento pagando **R$ 30 (SEM AUXILIAR) em vez de R$ 44** para um técnico
+da tabela padrão. `loadRecalcContext` carregava as classificações do tenant filtrando só por
+`tenant_id` — e as classificações próprias de uma LPU alternativa carregam o **mesmo** `tenant_id`
+(migration 0036). As duas coleções caíam no mesmo mapa e a chave da LPU alternativa sobrescrevia a
+do tenant (`new Map` mantém a última linha), **para todos os técnicos**. Como a ordem das linhas
+não é garantida, o valor pago nem era estável.
+
+| Onde | O que era | Correção |
+|---|---|---|
+| `loadRecalcContext` (cabeamento e homologação) | `.eq('tenant_id')` sem `lpu_id IS NULL` | filtro adicionado + teste de regressão `recalc-context.test.ts` |
+| `/cabeamento` e `/homologacao` (telas) | mesma query, gestor via valores misturados | filtro adicionado |
+| `classifyCabeamento` / `classifyHomologacao` | `onConflict` num UNIQUE que a 0035 trocou por índice **parcial** → `42P10`, salvar quebrado desde então | update-or-insert explícito, escopado a `lpu_id IS NULL` |
+
+**Alcance medido (03/08, consulta paginada):** 68 visitas pagando a menos — 46 de cabeamento
+(R$ 640,00) e 22 de homologação (R$ 110,00), **R$ 750,00** no total (maio 31 · junho 13 · julho 24).
+Nenhuma travada: todas voltam ao valor correto no recálculo. Sem migration.
+
+### 0.6 — Cabeamento de fibra da SEM AUXILIAR nunca foi cadastrado (03/08)
+
+Aberto pela OS 569827, pagando R$ 120 em vez de R$ 100. **Não é bug do motor** — é o oposto do
+0.5: a chave existe no tenant e **falta** na LPU alternativa, então a herança por chave
+(ADR-019, decisão 3) faz o técnico da SEM AUXILIAR receber o valor da tabela padrão.
+
+A 0036 cadastrou só as chaves-base ("Cabeamento" e "Cabeamento agregado"); "Cabeamento fibra
+aérea" (tenant R$ 120) e "Cabeamento fibra subterrênea" (tenant R$ 135) ficaram de fora.
+**Decisão do usuário (03/08): as duas valem R$ 100** — a distinção aéreo/subterrâneo da padrão
+não existe na SEM AUXILIAR, onde instalação e suporte pagam 100 nos dois meios.
+
+Migration [0038](../../supabase/migrations/0038_lpu_sem_auxiliar_cabeamento_fibra.sql).
+**Alcance:** 8 visitas dos 3 técnicos da tabela nova (4 aéreas em 120, 4 subterrâneas em 135),
+todas `pending_review`, nenhuma com ajuste manual → **−R$ 220** no recálculo.
+
+Chaves que a SEM AUXILIAR continua herdando **de propósito**, conferidas na mesma consulta:
+"Retirada condomínio" (R$ 20, igual na planilha) e "Outros motivos sem contrato atrelado,
+pagamento zerado" (R$ 0).
+
+> ⚠️ **Padrão a lembrar:** valor que a planilha da tabela alternativa tem mas que ninguém
+> cadastrou **não** aparece como erro — paga o valor da padrão em silêncio. Ao criar uma LPU
+> alternativa, conferir serviço a serviço em `/cabeamento` e `/homologacao`.
+
+### 0.7 — "Configuração de Roteador Externo" sem regra na SEM AUXILIAR (03/08)
+
+Aberto pela OS 572037, em "Sem regra de LPU". A finalidade existe na tabela padrão como regra
+explícita de R$ 0 (vinda do seed), e a SEM AUXILIAR nunca a declarou. **Regra de LPU não tem
+herança entre tabelas** — só as classificações de cabeamento/homologação têm (ADR-019). Sem regra
+que case, o payout fica `no_rule_match`: não paga **e** trava o fechamento.
+
+**Decisão do usuário (03/08): R$ 30 na SEM AUXILIAR** — o mesmo do suporte interno da tabela nova,
+e o mesmo que o ADR-016 já repassa quando o roteador chega como "Venda Produto Externo".
+Migration [0039](../../supabase/migrations/0039_lpu_sem_auxiliar_config_roteador.sql).
+
+**Alcance:** 1 visita (a única com essa finalidade em toda a base), sem ajuste manual. A tabela
+padrão segue em R$ 0 — nenhuma visita dela tem essa finalidade hoje; registrado em tech-debt 024.
+
+### Efeito colateral bom: a fila "Sem regra" quase esvazia
+
+Os 7 `no_rule_match` de hoje, conferidos um a um em 03/08:
+
+| OS | Causa | Depois deste PR |
+|---|---|---|
+| 573797, 576398, 574298, 575683, 575110 | receita R$ 0,00 (suporte e homologação) | R$ 0,00 `pending_review` pelo ADR-020 — saem da fila |
+| 572037 | finalidade sem regra na SEM AUXILIAR | R$ 30 pela 0039 |
+| 572737 | homologação com receita R$ 3,96, valor não cadastrado no mapa | **continua na fila** — a Wave precisa decidir o repasse dessa receita |
+
 ---
 
 ## Fase 1 — LPU "SEM AUXILIAR" (PRIORIDADE)
@@ -294,6 +376,30 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
 - **30/07 — 0033 e 0034 aplicadas** pelo usuário; PR mergeado.
 - **30/07 — Fase 1 levantada:** mecanismo do ADR-014 confirmado pronto (coluna, motor, UI);
   **13 técnicos ativos, 0 com LPU atribuída**; a LPU SEM AUXILIAR nunca foi cadastrada.
+- **03/08 — Fase 0.4:** 186 visitas com sucesso e receita R$ 0,00 no tenant Wave; 51 serão zeradas
+  (R$ 3.950,50, maio a julho) e 1 fica protegida por override de contestação resolvida.
+- **03/08 — Fase 0.5:** vazamento das classificações da SEM AUXILIAR para a tabela padrão
+  confirmado no banco (tenant `Cabeamento` = 44, SEM AUXILIAR = 30, payout gravado = 30 com
+  `lpu_id` da padrão). 68 visitas afetadas, R$ 750,00. O salvar das telas `/cabeamento` e
+  `/homologacao` estava quebrado desde a 0035 — sondado e confirmado (`42P10`).
+- **03/08 — Estado dos travados (verificado):** 14 contestações, todas resolvidas e **todas com
+  `override_by`** → protegidas. 421 payouts `approved`, 17 com override do gestor, 0 `paid`.
+  ⚠️ **Maio está com `monthly_closings.status = 'pago'` mas tem 644 payouts em `pending_review`**
+  (só 123 `approved`) — um recálculo global reprocessa maio. Decisão do usuário (03/08): **não
+  travar por período**; a proteção é contestação do técnico + alteração do gestor + aprovado/pago,
+  que é o que `recalculate-batch` já aplica por payout.
+- **03/08 — Fase 0.6:** 8 visitas de cabeamento de fibra dos técnicos da SEM AUXILIAR (4 em
+  R$ 120, 4 em R$ 135), todas `pending_review` e sem ajuste manual → R$ 100 pela migration 0038.
+- **03/08 — Fase 0.7:** 1 visita (OS 572037), única com a finalidade "Configuração de Roteador
+  Externo" na base inteira, em `no_rule_match` → R$ 30 pela migration 0039.
+- **03/08 — 0038 aplicada em produção** pelo usuário; classificações conferidas no banco (tenant
+  120/135 intactos, SEM AUXILIAR 100/100). Payouts ainda em 120/135 — mudam só no recálculo.
+- Código, migrations e testes prontos na branch `fix/receita-zerada-sem-repasse`.
+  ⚠️ **Ordem obrigatória: merge → deploy → aplicar 0039 → "Recalcular pendentes".** Recalcular
+  antes do deploy propaga o vazamento da 0.5 para as chaves novas da 0038 (9 visitas de
+  cabeamento de fibra de técnicos da padrão cairiam de 120/135 para 100, −R$ 255).
+  **Conferir depois:** OS 573312 → R$ 44 · OS 575303 → R$ 0 · OS 569827 → R$ 100 ·
+  OS 572037 → R$ 30.
 - **30/07 — Fase 2:** secret do Supabase corrigido (o `Invalid API key` sumiu); a coleta agora falha
   com timeout de 15s em todos os 12 fetches ao endpoint do IQI. Hipótese principal: sessão inválida
   na Unetvale (login validado de forma frouxa + senha regravada em 23/07).

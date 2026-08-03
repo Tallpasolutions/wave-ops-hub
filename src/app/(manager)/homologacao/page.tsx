@@ -44,10 +44,13 @@ export default async function HomologacaoPage() {
         .order('os_num')
         .range(from, to),
     ),
+    // ADR-019: só os repasses do tenant — os próprios de uma LPU alternativa carregam o mesmo
+    // tenant_id e apareceriam misturados com os da tabela padrão.
     supabase
       .from('homologacao_classifications')
       .select('valor_unetvale, valor_repasse')
-      .eq('tenant_id', user.tenantId),
+      .eq('tenant_id', user.tenantId)
+      .is('lpu_id', null),
   ])
 
   // Mapa valor Unetvale (centavos) → repasse cadastrado.

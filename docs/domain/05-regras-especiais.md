@@ -99,8 +99,12 @@ bug não voltar pela porta da venda atrelada.
   retenção sem troca de drop (106,54) · troca de equipamento de local (109,87)
 - **Fora:** troca de drop aéreo (206,26 / 247,51 / 412,52) e subterrâneo (232,04 / 278,45) ·
   improdutivas (15,98 e 0,00 — já resolvidas antes do motor de LPU)
-- **O piso de R$ 40 é deliberado:** preserva o comportamento das 19 visitas externas *com* troca
-  de drop cuja receita veio R$ 0,00. Esse é um caso separado, ainda não decidido.
+- **O piso de R$ 40 é deliberado:** deixa fora as visitas externas *com* troca de drop cuja receita
+  veio R$ 0,00. **Esse caso foi decidido em 03/08/2026 pelo
+  [ADR-020](../architecture/ADR-020-receita-zerada-sem-repasse.md):** receita R$ 0,00 com sucesso
+  não gera repasse automático — o payout sai R$ 0,00 antes mesmo de chegar ao motor de LPU, e o
+  técnico contesta pelo app se discordar. O piso continua fazendo sentido no motor (mantém a regra
+  de threshold coerente), mas na prática nenhuma visita de receita zerada chega até ele.
 
 Migration: [`supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql`](../../supabase/migrations/0032_lpu_suporte_externo_sem_troca_drop.sql).
 Testes de regressão em `src/lib/lpu/__tests__/match-engine.test.ts`.

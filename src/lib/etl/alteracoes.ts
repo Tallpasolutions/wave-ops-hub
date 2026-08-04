@@ -253,9 +253,18 @@ export async function finalizarAlteracoes(
   return out
 }
 
-/** O pagamento do técnico mudou de fato? É o que decide se ele é notificado. */
+/**
+ * O pagamento do técnico mudou de fato? É o que decide se ele é notificado — e o que a tela do
+ * gestor usa para marcar a linha.
+ *
+ * `payoutNovo` nulo com `payoutAnterior` preenchido significa **não avaliado**, não "virou nada":
+ * é o caso dos registros retroativos do backfill da 0041, que nunca passaram por
+ * `finalizarAlteracoes`. Tratar isso como mudança dispararia alarme falso para o técnico ("seus
+ * pontos mudaram") num pagamento que ficou igual. O caminho oposto — não tinha payout e passou a
+ * ter — é mudança de verdade.
+ */
 export function payoutMudou(a: AlteracaoFinalizada): boolean {
-  const antes = a.payoutAnterior === null ? null : Math.round(a.payoutAnterior * 100)
-  const depois = a.payoutNovo === null ? null : Math.round(a.payoutNovo * 100)
-  return antes !== depois
+  if (a.payoutNovo === null) return false
+  if (a.payoutAnterior === null) return true
+  return Math.round(a.payoutAnterior * 100) !== Math.round(a.payoutNovo * 100)
 }

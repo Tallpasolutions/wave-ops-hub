@@ -105,4 +105,10 @@ describe('payoutMudou', () => {
     expect(payoutMudou({ ...base, payoutAnterior: null, payoutNovo: 30 })).toBe(true)
     expect(payoutMudou({ ...base, payoutAnterior: null, payoutNovo: null })).toBe(false)
   })
+
+  // Registro retroativo do backfill da 0041: nunca passou por finalizarAlteracoes, então
+  // payout_novo é nulo. Isso é "não avaliado" — tratar como mudança dava alarme falso ao técnico.
+  it('payout_novo nulo é "não avaliado", não mudança', () => {
+    expect(payoutMudou({ ...base, payoutAnterior: 100, payoutNovo: null })).toBe(false)
+  })
 })

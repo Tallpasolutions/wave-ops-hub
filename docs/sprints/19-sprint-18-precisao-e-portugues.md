@@ -1,7 +1,9 @@
 # Sprint 18 — LPU "SEM AUXILIAR", precisão de pagamento, IQI e português integral
 
 **Período:** 2026-07-30 em diante
-**Status:** 🟡 Fase 0 concluída e em produção · Fase 1 (LPU) é a prioridade · Fases 2–4 planejadas
+**Status (03/08):** 🟢 Fases 0, 1, 3 e 4 **concluídas e verificadas em produção** · 🔴 **Fase 2
+(IQI) é a única aberta** — a coleta segue parada. A Fase 0 cresceu de 3 para 10 itens ao longo da
+sprint, todos nascidos de OSs que o gestor estranhou na tela.
 **Origem:** Auditoria de uma OS de suporte que pagava R$ 120 (30/07), que abriu quatro frentes —
 precisão do cálculo, a segunda tabela de preços da Wave, coleta do IQI parada e linguagem técnica
 vazando para a tela.
@@ -493,10 +495,17 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
   **Fila "Sem regra de LPU": 7 → 1** (só a OS 572737, da Fase 0.8, que depende de decisão da Wave).
 - **03/08 — Fase 0.8:** OS 572737 investigada — glosa da Unetvale por abertura de OS de garantia.
   Sem código a mudar; resolve cadastrando o repasse de R$ 3,96 em `/homologacao`.
-- **03/08 — Fase 0.10:** 3.554 linhas de `service_visits_audit` analisadas; 21 alterações reais da
-  Unetvale, 4 delas por garantia (−R$ 60,50 cada). Campo `garantia` da planilha vazio em 100% das
-  2.345 visitas. Código e migration 0041 prontos na branch `feat/alteracoes-unetvale-garantia`;
-  **falta aplicar a 0041 e conferir o backfill (esperado: exatamente 4 registros).**
+- **03/08 — Fase 0.10 VERIFICADA EM PRODUÇÃO.** PR #54 mergeado e 0041 aplicada. Backfill conferido
+  no banco: **exatamente 4 registros** (OSs 571722, 572737, 573851 e 574908), **todos com variação
+  de −R$ 60,50**, nenhum de "outro técnico fechou" ou "improdutiva invalidada" — o predicado está
+  no ponto. Campo `garantia` da planilha vazio em 100% das 2.345 visitas (tech-debt 026).
+  - **Correção logo em seguida (PR de fix):** os registros retroativos entram com `payout_novo`
+    nulo, e a comparação inicial lia isso como mudança — o gestor via "R$ 100,00 → —" e o técnico
+    via "seus pontos mudaram" num pagamento que ficou igual. `payout_novo` nulo passou a
+    significar **não avaliado**; sem migration, só código. Adendo no ADR-021.
+- **03/08 — Busca de OS no app do técnico** (pedido do gestor, no mesmo PR do fix acima): campo no
+  topo de `/visitas` que filtra por trecho do número da OS. A busca ignora o mês e varre **todo o
+  histórico do técnico** — quem procura pelo número não lembra a competência. Sem migration.
 - **03/08 — Fase 0.9:** varredura completa das 2.348 visitas do tenant: **3 duplicatas por
   reemissão**, todas do upload de 03/08 (`lista-os-julho-2026-completa.xlsx`), todas
   `pending_review` e sem ajuste manual. Migration 0040 escrita; **falta aplicar**. A OS 568170

@@ -9,6 +9,8 @@ export const metadata: Metadata = { title: 'Minhas Visitas' }
 import { parsePeriod, buildPeriodOptions } from '../_lib/period'
 import { PeriodSelector } from '../_components/PeriodSelector'
 import { ContestarOs, type Contestacao } from './_components/ContestarOs'
+import { OsSearchInput } from '../_components/OsSearchInput'
+import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { Suspense } from 'react'
 
 // Payouts nestes estados são finais/fechados — não dá pra contestar.
@@ -17,7 +19,7 @@ const NAO_CONTESTAVEL = new Set(['approved', 'paid'])
 export const dynamic = 'force-dynamic'
 
 interface PageProps {
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{ mes?: string; os?: string }>
 }
 
 const fmtPts = (n: number) =>
@@ -42,22 +44,39 @@ export default async function VisitasPage({ searchParams }: PageProps) {
   if (!user) redirect('/login')
   if (!user.technicianId || !user.tenantId) redirect('/profile')
 
-  const { mes } = await searchParams
+  const { mes, os } = await searchParams
   const { start, end, label: periodLabel } = parsePeriod(mes)
   const periodOptions = buildPeriodOptions()
   const currentMes = mes ?? periodOptions[0].value
+  const busca = (os ?? '').trim()
+  const buscando = busca.length > 0
 
   const supabase = await createSupabaseServerClient()
 
+  const VISIT_COLS =
+    'id, os_num, data_execucao, finalidade, sucesso, improdutiva, valor_recebido_unetvale, reason_id'
+
+  // Buscando por OS, a varredura ignora o mês: quem procura pelo número raramente lembra em que
+  // competência a OS caiu. Sem busca, mantém o recorte do período selecionado.
   const [visitsRes, reasonsRes] = await Promise.all([
-    supabase
-      .from('service_visits')
-      .select('id, os_num, data_execucao, finalidade, sucesso, improdutiva, valor_recebido_unetvale, reason_id')
-      .eq('tenant_id', user.tenantId)
-      .eq('tecnico_id', user.technicianId)
-      .gte('data_execucao', start)
-      .lt('data_execucao', end)
-      .order('data_execucao', { ascending: false }),
+    buscando
+      ? fetchAllPages<Record<string, unknown>>((from, to) =>
+          supabase
+            .from('service_visits')
+            .select(VISIT_COLS)
+            .eq('tenant_id', user.tenantId!)
+            .eq('tecnico_id', user.technicianId!)
+            .order('data_execucao', { ascending: false })
+            .range(from, to),
+        ).then(({ rows, error }) => ({ data: rows, error }))
+      : supabase
+          .from('service_visits')
+          .select(VISIT_COLS)
+          .eq('tenant_id', user.tenantId)
+          .eq('tecnico_id', user.technicianId)
+          .gte('data_execucao', start)
+          .lt('data_execucao', end)
+          .order('data_execucao', { ascending: false }),
 
     supabase
       .from('reasons')
@@ -65,7 +84,11 @@ export default async function VisitasPage({ searchParams }: PageProps) {
       .eq('tenant_id', user.tenantId),
   ])
 
-  const visits = visitsRes.data ?? []
+  // Filtro por trecho do número (não só igualdade): o técnico costuma lembrar os últimos dígitos.
+  const todasAsVisitas = visitsRes.data ?? []
+  const visits = buscando
+    ? todasAsVisitas.filter((v) => String(v.os_num).includes(busca))
+    : todasAsVisitas
   const reasons = reasonsRes.data ?? []
 
   const reasonMap = new Map(reasons.map((r) => [r.id as string, r.motivo_normalizado as string]))
@@ -80,8 +103,11 @@ export default async function VisitasPage({ searchParams }: PageProps) {
       .select('visit_id, payout_anterior, payout_novo')
       .in('visit_id', visitIds)
     for (const a of alts ?? []) {
+      // `payout_novo` nulo = não avaliado (registro retroativo do backfill da 0041), não "virou
+      // nada". Avisar o técnico nesse caso é alarme falso — o pagamento dele ficou igual.
+      if (a.payout_novo === null) continue
       const antes = a.payout_anterior === null ? null : Math.round(Number(a.payout_anterior) * 100)
-      const depois = a.payout_novo === null ? null : Math.round(Number(a.payout_novo) * 100)
+      const depois = Math.round(Number(a.payout_novo) * 100)
       if (antes !== depois) alteradasComMudancaDePontos.add(a.visit_id as string)
     }
   }
@@ -121,22 +147,45 @@ export default async function VisitasPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-md px-4 py-5">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-bold text-[var(--text)]">Minhas Visitas</h1>
-          <p className="mt-0.5 text-[12px] capitalize text-[var(--text-2)]">{periodLabel}</p>
+          <p className="mt-0.5 text-[12px] capitalize text-[var(--text-2)]">
+            {buscando ? `Busca por "${busca}" · todos os meses` : periodLabel}
+          </p>
         </div>
+        {/* Durante a busca o seletor de mês sai: a varredura é de todo o histórico, e deixá-lo
+            à vista sugeriria um recorte que não está sendo aplicado. */}
+        {!buscando && (
+          <Suspense>
+            <PeriodSelector options={periodOptions} selected={currentMes} />
+          </Suspense>
+        )}
+      </div>
+
+      <div className="mb-5">
         <Suspense>
-          <PeriodSelector options={periodOptions} selected={currentMes} />
+          <OsSearchInput initial={busca} />
         </Suspense>
+        {buscando && (
+          <p className="mt-2 text-[11px] text-[var(--text-3)]">
+            {visits.length === 0
+              ? 'Nenhuma OS encontrada com esse número.'
+              : `${visits.length} ${visits.length === 1 ? 'visita encontrada' : 'visitas encontradas'} em todo o seu histórico.`}
+          </p>
+        )}
       </div>
 
       {visits.length === 0 ? (
         <EmptyState
           variant="card"
           icon={Clock}
-          title={`Nenhuma visita em ${periodLabel}`}
-          description="Suas execuções do período aparecerão aqui."
+          title={buscando ? `Nada encontrado para "${busca}"` : `Nenhuma visita em ${periodLabel}`}
+          description={
+            buscando
+              ? 'Confira o número da OS. A busca procura em todas as suas visitas, de qualquer mês.'
+              : 'Suas execuções do período aparecerão aqui.'
+          }
         />
       ) : (
         <div className="space-y-3">

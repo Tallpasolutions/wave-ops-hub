@@ -23,6 +23,8 @@ Os valores aparecem para o técnico em **pontos** (ex.: "135 pts"). É o mesmo n
 
 Lista as visitas do período com data, número da OS, finalidade, cidade, status do payout e a pontuação.
 
+**Buscar uma OS:** o campo no topo da lista procura pelo número da OS. Basta um trecho — digitar os últimos dígitos já filtra. Durante a busca a varredura passa por **todas as visitas do técnico, de qualquer mês**, e não só pelo período selecionado: quem procura uma OS pelo número raramente lembra em que competência ela caiu. O seletor de mês some enquanto a busca está ativa, para não sugerir um recorte que não está sendo aplicado; limpar a busca traz o mês de volta.
+
 **Contestar uma OS:** o técnico pode discordar da pontuação de qualquer OS **a qualquer momento**, direto desta lista — não precisa esperar o fechamento. Basta abrir a OS, escrever o motivo e enviar.
 
 - Enquanto a contestação está aberta, a OS fica marcada como contestada e a Wave é notificada.

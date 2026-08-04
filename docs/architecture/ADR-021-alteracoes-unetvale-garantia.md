@@ -117,6 +117,23 @@ Não altera payout. Quem decide mudar o valor do técnico é a Wave, pelo ajuste
 `/pagamentos`; o técnico discorda pelo app (ADR-013). "Ciente" é só reconhecimento — tira a linha
 da fila, não muda dinheiro nem status de fechamento.
 
+## Adendo — `payout_novo` nulo é "não avaliado" (03/08/2026, na verificação em produção)
+
+Os 4 registros do backfill entram com `payout_novo` **nulo**: são retroativos, nunca passaram por
+`finalizarAlteracoes`. A primeira versão comparava `payout_anterior` com `payout_novo` usando
+`?? 0` dos dois lados, o que lia `R$ 100 → null` como **mudança** — e produzia dois erros na tela
+já em produção: o gestor via "R$ 100,00 → —" em destaque, e o técnico via *"seus pontos mudaram"*
+num pagamento que ficou exatamente igual. Alarme falso no lugar mais sensível do produto.
+
+A semântica correta, agora em `payoutMudou` e nas duas telas: **`payout_novo` nulo significa "não
+avaliado", não "virou nada"** — nunca afirma mudança. O caminho oposto (não tinha payout e passou
+a ter) continua sendo mudança de verdade. A tela do gestor marca essas linhas como
+"registro retroativo".
+
+Optamos por **não** preencher `payout_novo` com o valor anterior numa migration de correção: o
+nulo é o marcador honesto de que aquele registro nunca foi avaliado, e preenchê-lo tornaria um
+registro retroativo indistinguível de um avaliado de verdade.
+
 ## Considerados e rejeitados
 
 - **Detectar pelo campo `garantia` da planilha.** É o caminho óbvio e não funciona: a coluna vem

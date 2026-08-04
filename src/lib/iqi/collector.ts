@@ -14,13 +14,19 @@ const LOOKBACK = '30'
 const TENANT_SLUG = 'wave'
 
 // Timeout por requisição à Unetvale. Sem isso, um fetch que pendura trava a coleta
-// inteira: o loop sequencial estourava o maxDuration da função (504
-// FUNCTION_INVOCATION_TIMEOUT no cron, spinner infinito no botão).
-const REQUEST_TIMEOUT_MS = 15_000
-// Técnicos coletados em paralelo por vez. A coleta era sequencial (~1 login + N
-// técnicos em série); com a Unetvale mais lenta o total passava de 60s. Paralelizar
-// com concorrência limitada mantém o tempo total bem abaixo do limite sem martelar
-// o servidor de origem.
+// inteira.
+//
+// O valor anterior (15s) vinha do maxDuration da função Vercel, e desde a mudança
+// para o runner (ADR-012) não protege mais nada — a coleta só roda em
+// scripts/collect-iqi.ts, onde o orçamento é o do job do Actions. Enquanto isso o
+// /index/iqi degradou para 23-37s por resposta (medido 2026-08-04; o login segue em
+// <0,4s, por isso o cron autenticava e falhava só na coleta, com os 12 técnicos
+// abortando em 15s). A margem cobre essa faixa com folga sem deixar um fetch
+// pendurado para sempre.
+const REQUEST_TIMEOUT_MS = 90_000
+// Técnicos coletados em paralelo por vez. O /index/iqi responde no mesmo tempo para
+// 1 ou para 5 requisições simultâneas (o custo é do lado da Unetvale, não da banda),
+// então o lote corta o total sem martelar o servidor de origem.
 const FETCH_CONCURRENCY = 5
 
 // fetch com AbortController: aborta a requisição após REQUEST_TIMEOUT_MS.

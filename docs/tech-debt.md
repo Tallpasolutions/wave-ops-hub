@@ -319,6 +319,19 @@ pagaria errado. Antes de codar, mapear com o gestor o que a Wave chama de "OS em
 e o custo real é a definição de domínio, não o código.
 **Quando idealmente resolver:** na próxima revisão de LPU com o gestor.
 
+### 027 — Actions do `iqi-cron.yml` ainda em Node 20 (o runner já força Node 24)
+**Identificado em:** 2026-08-04, ao investigar as falhas do cron do IQI
+**Onde:** `.github/workflows/iqi-cron.yml` — `actions/checkout@v4`, `actions/setup-node@v4`,
+`pnpm/action-setup@v3`
+**Por quê:** as três actions declaram runtime Node 20, que o GitHub depreciou. Hoje o runner as
+força a rodar em Node 24 e emite só um warning por execução — não foi a causa das falhas do cron
+(essa era o timeout do endpoint da Unetvale), e subir as versões junto teria misturado escopos.
+**Impacto se não resolver:** quando o GitHub remover o fallback, as três actions param de rodar e
+o cron do IQI quebra de novo — desta vez sem nem chegar ao script.
+**Esforço estimado pra resolver:** XS — subir para `checkout@v5`, `setup-node@v5`,
+`action-setup@v4` e disparar o workflow uma vez para conferir.
+**Quando idealmente resolver:** na próxima manutenção de CI, antes que o warning vire erro.
+
 ### Template
 
 ```

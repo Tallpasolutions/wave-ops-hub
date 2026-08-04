@@ -503,6 +503,9 @@ A formatação de uma regra é lógica de domínio: entra em `src/lib/lpu/format
     nulo, e a comparação inicial lia isso como mudança — o gestor via "R$ 100,00 → —" e o técnico
     via "seus pontos mudaram" num pagamento que ficou igual. `payout_novo` nulo passou a
     significar **não avaliado**; sem migration, só código. Adendo no ADR-021.
+- **03/08 — Busca de OS no app do técnico** (pedido do gestor, no mesmo PR do fix acima): campo no
+  topo de `/visitas` que filtra por trecho do número da OS. A busca ignora o mês e varre **todo o
+  histórico do técnico** — quem procura pelo número não lembra a competência. Sem migration.
 - **03/08 — Fase 0.9:** varredura completa das 2.348 visitas do tenant: **3 duplicatas por
   reemissão**, todas do upload de 03/08 (`lista-os-julho-2026-completa.xlsx`), todas
   `pending_review` e sem ajuste manual. Migration 0040 escrita; **falta aplicar**. A OS 568170

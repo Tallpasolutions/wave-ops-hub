@@ -145,19 +145,29 @@ Junho tinha ~602 visitas; o volume só cresce, então isso vira bug de dado sile
 **Esforço estimado:** XS — trocar a query por `fetchAllPages`, como já feito nas outras telas.
 **Quando idealmente resolver:** próxima sprint. É o item de maior risco/menor esforço da lista.
 
-### 017 — Ajuda in-app (`/ajuda`) não cobre as telas das Sprints 15–16
-**Identificado em:** Sprint 16 (revisão documental de 24/07)
-**Onde:** `src/app/(manager)/ajuda/*` — seis guias (primeiros passos, upload, LPU, motivos,
-fechamento, portal do técnico) + FAQ, escritos à mão em TSX
-**Por quê:** as telas novas entraram sob pressão do fechamento de julho; a ajuda ficou para depois.
-Faltam: Produtividade/IQI, Homologação, Cabeamento, e a conferência/contestação do técnico —
-esta última é a mais sensível, porque é fluxo **novo para o técnico**, que não tem canal de ajuda.
-**Nota:** o conteúdo de `/ajuda` **duplica** `docs/user-guide/` em TSX (não é gerado do markdown).
-Os dois precisam ser atualizados juntos, ou a duplicação vira divergência.
-**Impacto se não resolver:** técnico e gestor descobrem os fluxos novos por tentativa e erro, e o
-suporte volta para o gestor via WhatsApp.
-**Esforço estimado:** S (copy) — M se for eliminar a duplicação renderizando o markdown.
-**Quando idealmente resolver:** junto do onboarding da Wave (candidato a Sprint 17).
+### 017 — Ajuda in-app (`/ajuda`) está dois guias atrás da documentação
+**Identificado em:** Sprint 16 (24/07) · **reconfirmado e ampliado em 03/08/2026**
+**Onde:** `src/app/(manager)/ajuda/*` — sete páginas em TSX, escritas à mão
+**Por quê:** `/ajuda` **duplica** `docs/user-guide/` em TSX (não é gerado do markdown), e só o
+markdown vem sendo atualizado. Em 03/08 o repositório tem **9 guias** e a ajuda in-app tem **7**:
+
+| Guia em `docs/user-guide/` | Existe em `/ajuda`? |
+|---|---|
+| 01 a 07 (primeiros passos, upload, LPU, motivos, fechamento, portal do técnico, FAQ) | ✅ |
+| **08 — Produtividade e IQI** | ❌ |
+| **09 — Valores especiais** | ❌ |
+
+O 09 é o mais caro de faltar: é onde estão a ordem de precedência do cálculo, a regra de
+**receita zerada** (ADR-020), as **alterações da Unetvale por OS de garantia** (ADR-021) e a
+herança da LPU alternativa — tudo entregue entre 30/07 e 03/08. Somam-se as telas sem guia nenhum:
+Homologação, Cabeamento, `/alteracoes` e a conferência/contestação do técnico.
+**Impacto se não resolver:** o gestor não lê o repositório — ele lê `/ajuda`. Na prática, as
+regras que mais geram dúvida de pagamento **não estão documentadas onde ele procura**, e o suporte
+volta para o WhatsApp. Vale também para o técnico, que não tem canal de ajuda nenhum.
+**Esforço estimado:** S para copiar os dois guias que faltam; M para eliminar a duplicação
+renderizando o markdown (o que impede a divergência de voltar).
+**Quando idealmente resolver:** junto do onboarding da Wave. É o maior débito de documentação
+aberto hoje.
 
 ### 018 — Valores financeiros fixos no código (exigem deploy para mudar)
 **Identificado em:** Sprint 16

@@ -263,9 +263,20 @@ do escopo.
 
 **Sprint 18 — EM ANDAMENTO** (ver [Sprint 18](./19-sprint-18-precisao-e-portugues.md)):
 precisão de pagamento, IQI e português integral. Nasceu da auditoria de uma OS de suporte em
-30/07. Fase 0 (suporte sem troca de drop, Troca de Poste, trava de contestação) concluída — 0.1 já
-verificada em produção. Fases 1–3 planejadas: coleta do IQI parada desde 21/07 (secret inválido no
-GitHub Actions), termos em inglês na interface e blocos de JSON nas telas do gestor.
+30/07 e virou a sprint mais longa de correção fina de pagamento do projeto.
+
+**Situação em 03/08:** LPU "SEM AUXILIAR" no ar e atribuída a 3 técnicos; português integral e
+remoção de JSON das telas entregues; e a Fase 0 cresceu de 3 para **10 itens**, todos nascidos de
+uma OS que o gestor estranhou na tela — receita zerada sem repasse (ADR-020), vazamento de
+classificação entre tabelas de preço, cabeamento de fibra e roteador da tabela nova, visitas
+duplicadas por reemissão da Unetvale e o registro de alterações por OS de garantia (ADR-021).
+Todas verificadas em produção. **A Fase 2 (IQI) é a única aberta** — a coleta segue parada desde
+21/07.
+
+> **O padrão que essa sprint deixou:** todo item da Fase 0 nasceu de o gestor olhar um número na
+> tela e estranhar. Nenhum apareceu em teste, log ou fila de erro — os bugs de pagamento deste
+> domínio **falham em silêncio**, pagando um valor plausível. É o argumento mais forte para as
+> conferências pós-deploy virarem rotina, e não gesto pontual.
 
 **Candidatos seguintes (a priorizar com o gestor):**
 

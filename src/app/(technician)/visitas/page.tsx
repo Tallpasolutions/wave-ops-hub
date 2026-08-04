@@ -80,8 +80,11 @@ export default async function VisitasPage({ searchParams }: PageProps) {
       .select('visit_id, payout_anterior, payout_novo')
       .in('visit_id', visitIds)
     for (const a of alts ?? []) {
+      // `payout_novo` nulo = não avaliado (registro retroativo do backfill da 0041), não "virou
+      // nada". Avisar o técnico nesse caso é alarme falso — o pagamento dele ficou igual.
+      if (a.payout_novo === null) continue
       const antes = a.payout_anterior === null ? null : Math.round(Number(a.payout_anterior) * 100)
-      const depois = a.payout_novo === null ? null : Math.round(Number(a.payout_novo) * 100)
+      const depois = Math.round(Number(a.payout_novo) * 100)
       if (antes !== depois) alteradasComMudancaDePontos.add(a.visit_id as string)
     }
   }

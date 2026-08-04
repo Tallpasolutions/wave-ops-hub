@@ -142,9 +142,13 @@ export default async function AlteracoesPage({ searchParams }: PageProps) {
               </thead>
               <tbody>
                 {rows.map((r) => {
+                  // `payout_novo` nulo = não avaliado (registro retroativo do backfill da 0041),
+                  // não "virou nada" — ver payoutMudou em src/lib/etl/alteracoes.ts.
+                  const pagamentoAvaliado = r.payout_novo !== null
                   const pagamentoMudou =
+                    pagamentoAvaliado &&
                     Math.round(Number(r.payout_anterior ?? 0) * 100) !==
-                    Math.round(Number(r.payout_novo ?? 0) * 100)
+                      Math.round(Number(r.payout_novo) * 100)
                   return (
                     <tr
                       key={r.id}
@@ -188,6 +192,11 @@ export default async function AlteracoesPage({ searchParams }: PageProps) {
                           <span className="text-[var(--text-3)]">
                             {brl(r.payout_anterior)} · não mudou
                           </span>
+                        )}
+                        {!pagamentoAvaliado && r.payout_anterior !== null && (
+                          <p className="mt-0.5 text-[10px] text-[var(--text-3)]">
+                            registro retroativo
+                          </p>
                         )}
                       </td>
                       <td className="max-w-md px-4 py-3 text-xs text-[var(--text-3)]">

@@ -157,6 +157,15 @@ Indicador **da Unetvale**, não calculado por nós: percentual de contratos que 
 `/produtividade`; o técnico vê só o próprio em `/iqi`.
 Ver [ADR-012](./architecture/ADR-012-iqi-ingestao-scraping.md).
 
+### Receita zerada (sem repasse automático)
+Visita **com sucesso** cuja receita da Unetvale veio **R$ 0,00**: a Unetvale não faturou aquela
+linha — o caso típico é a OS ter sido fechada por outro técnico, e a receita ter ido para a linha
+dele. Desde 03/08/2026 isso **não gera repasse automático**: o payout sai R$ 0,00 e o técnico
+contesta pelo app se entender que deve receber. A regra precede homologação, coluna Z, cabeamento
+e LPU — todas pagariam pelo serviço descrito, ignorando a receita. `null` (receita desconhecida)
+**não** é zero. Ver [ADR-020](./architecture/ADR-020-receita-zerada-sem-repasse.md) e a
+[ordem de precedência](./domain/03-payout.md#ordem-de-precedência-do-cálculo).
+
 ### Alteração da Unetvale (glosa)
 Mudança de valor que a Unetvale faz **depois** de já ter informado outro para a mesma OS. A causa
 que o sistema registra é a **abertura de OS de garantia**, em que a Unetvale reduz o que paga por

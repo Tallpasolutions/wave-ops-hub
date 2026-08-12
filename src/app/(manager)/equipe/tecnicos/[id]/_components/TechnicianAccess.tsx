@@ -3,21 +3,23 @@ import { useActionState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { SetPasswordDialog } from '@/app/(manager)/_components/SetPasswordDialog'
 import {
   createTechnicianLogin,
   setTechnicianUserAtivo,
-  resetTechnicianPassword,
+  setTechnicianPassword,
 } from '../../actions'
 
 type LinkedUser = { id: string; email: string; ativo: boolean } | null
 
 type Props = {
   technicianId: string
+  nomeCompleto: string
   email: string
   user: LinkedUser
 }
 
-export function TechnicianAccess({ technicianId, email, user }: Props) {
+export function TechnicianAccess({ technicianId, nomeCompleto, email, user }: Props) {
   const [state, formAction, isPending] = useActionState(
     createTechnicianLogin.bind(null, technicianId),
     { error: null as string | null },
@@ -48,14 +50,11 @@ export function TechnicianAccess({ technicianId, email, user }: Props) {
             Login: <span className="font-mono text-[var(--text)]">{user.email}</span>
           </p>
           <div className="flex items-center gap-3">
-            <form action={resetTechnicianPassword.bind(null, user.email, technicianId)}>
-              <button
-                type="submit"
-                className="text-xs text-[var(--cyan)] transition-colors hover:text-[var(--cyan)]/80"
-              >
-                Resetar senha
-              </button>
-            </form>
+            <SetPasswordDialog
+              nome={nomeCompleto}
+              email={user.email}
+              action={setTechnicianPassword.bind(null, user.id, technicianId)}
+            />
             <form action={setTechnicianUserAtivo.bind(null, user.id, !user.ativo, technicianId)}>
               <button
                 type="submit"

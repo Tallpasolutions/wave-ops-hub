@@ -1,9 +1,9 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { headers } from 'next/headers'
 import { z } from 'zod'
 import { requireRole } from '@/lib/auth'
+import { adminSetUserPassword } from '@/lib/auth/set-password'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
 const createManagerUserSchema = z.object({
@@ -80,25 +80,24 @@ export async function toggleUserAtivo(id: string, ativo: boolean): Promise<void>
   revalidatePath('/equipe')
 }
 
-export async function sendPasswordResetManager(email: string): Promise<void> {
-  await requireRole(['tenant_owner'])
+// Define a nova senha do gestor na própria tela, sem passar por e-mail de recuperação.
+export async function setManagerUserPassword(
+  userId: string,
+  _prevState: { error: string | null; success: boolean },
+  formData: FormData,
+): Promise<{ error: string | null; success: boolean }> {
+  const currentUser = await requireRole(['tenant_owner'])
 
-  const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost'
-  const isLocal = ROOT === 'localhost'
-  const scheme = isLocal ? 'http' : 'https'
-  const port = isLocal ? ':3000' : ''
-
-  const headerStore = await headers()
-  const subdomain = headerStore.get('x-subdomain') ?? 'wave'
-
-  const adminClient = createSupabaseAdminClient()
-  await adminClient.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: `${scheme}://${subdomain}.${ROOT}${port}/reset-password`,
-    },
+  const { error } = await adminSetUserPassword({
+    userId,
+    tenantId: currentUser.tenantId!,
+    allowedRoles: ['tenant_owner', 'tenant_manager'],
+    novaSenha: formData.get('novaSenha'),
+    confirmarSenha: formData.get('confirmarSenha'),
   })
 
+  if (error) return { error, success: false }
+
   revalidatePath('/equipe')
+  return { error: null, success: true }
 }

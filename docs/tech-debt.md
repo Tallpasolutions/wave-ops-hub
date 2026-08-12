@@ -332,6 +332,19 @@ o cron do IQI quebra de novo — desta vez sem nem chegar ao script.
 `action-setup@v4` e disparar o workflow uma vez para conferir.
 **Quando idealmente resolver:** na próxima manutenção de CI, antes que o warning vire erro.
 
+### 028 — "Reset senha" do `/admin/users` (Tallpa) ainda usa `generateLink` e não faz nada
+**Identificado em:** 2026-08-12, ao corrigir o mesmo botão na aba Equipe
+**Onde:** `src/app/(admin)/admin/users/actions.ts` — `sendPasswordReset`
+**Por quê:** `auth.admin.generateLink` **gera** o link de recuperação e o devolve na resposta, mas
+não dispara e-mail nenhum. O retorno é descartado, então o clique não produz efeito visível algum.
+A aba Equipe (gestores e técnicos) migrou para definição de senha na própria tela; o painel Tallpa
+ficou de fora por ser outra área e outro público (`tallpa_owner`).
+**Impacto se não resolver:** o Tallpa owner segue com um botão que aparenta funcionar e não
+funciona — e não tem como devolver acesso a um gestor travado sem ir ao painel do Supabase.
+**Esforço estimado pra resolver:** XS — reusar `adminSetUserPassword` (`src/lib/auth/set-password.ts`)
+e o `SetPasswordDialog`, ajustando o escopo de tenant (o painel admin é cross-tenant).
+**Quando idealmente resolver:** na próxima passada pelo painel Tallpa.
+
 ### Template
 
 ```

@@ -1,9 +1,9 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { headers } from 'next/headers'
 import { z } from 'zod'
 import { requireRole } from '@/lib/auth'
+import { adminSetUserPassword } from '@/lib/auth/set-password'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
@@ -202,23 +202,25 @@ export async function setTechnicianUserAtivo(
   revalidatePath(`/equipe/tecnicos/${technicianId}`)
 }
 
-export async function resetTechnicianPassword(
-  email: string,
+// Define a nova senha do login do técnico na própria tela, sem e-mail de recuperação.
+export async function setTechnicianPassword(
+  userId: string,
   technicianId: string,
-): Promise<void> {
-  await requireRole(['tenant_owner', 'tenant_manager'])
+  _prevState: { error: string | null; success: boolean },
+  formData: FormData,
+): Promise<{ error: string | null; success: boolean }> {
+  const currentUser = await requireRole(['tenant_owner', 'tenant_manager'])
 
-  const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost'
-  const isLocal = ROOT === 'localhost'
-  const scheme = isLocal ? 'http' : 'https'
-  const port = isLocal ? ':3000' : ''
-  const subdomain = (await headers()).get('x-subdomain') ?? 'wave'
-
-  const adminClient = createSupabaseAdminClient()
-  await adminClient.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: { redirectTo: `${scheme}://${subdomain}.${ROOT}${port}/reset-password` },
+  const { error } = await adminSetUserPassword({
+    userId,
+    tenantId: currentUser.tenantId!,
+    allowedRoles: ['tenant_technician'],
+    novaSenha: formData.get('novaSenha'),
+    confirmarSenha: formData.get('confirmarSenha'),
   })
+
+  if (error) return { error, success: false }
+
   revalidatePath(`/equipe/tecnicos/${technicianId}`)
+  return { error: null, success: true }
 }

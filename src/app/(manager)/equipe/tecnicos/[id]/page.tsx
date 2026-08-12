@@ -202,6 +202,7 @@ export default async function TechnicianProfilePage({ params, searchParams }: Pr
       {canManageTechnicians(user) && (
         <TechnicianAccess
           technicianId={tech.id}
+          nomeCompleto={tech.nome_completo}
           email={tech.email}
           user={loginUser ?? null}
         />

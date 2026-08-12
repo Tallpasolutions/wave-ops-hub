@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { toggleUserAtivo, sendPasswordResetManager } from './actions'
+import { toggleUserAtivo, setManagerUserPassword } from './actions'
+import { SetPasswordDialog } from '../_components/SetPasswordDialog'
 import type { AppRole } from '@/lib/auth/types'
 
 export const dynamic = 'force-dynamic'
@@ -97,7 +98,7 @@ export default async function EquipePage() {
           <TableBody>
             {(users as UserRow[] | null)?.map((u) => {
               const toggleAction = toggleUserAtivo.bind(null, u.id, !u.ativo)
-              const resetAction = sendPasswordResetManager.bind(null, u.email)
+              const setPasswordAction = setManagerUserPassword.bind(null, u.id)
               return (
                 <TableRow key={u.id} className="border-[var(--line)]">
                   <TableCell>
@@ -116,14 +117,11 @@ export default async function EquipePage() {
                   {canCreate && (
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <form action={resetAction}>
-                          <button
-                            type="submit"
-                            className="text-xs text-[var(--cyan)] transition-colors hover:text-[var(--cyan)]/80"
-                          >
-                            Reset senha
-                          </button>
-                        </form>
+                        <SetPasswordDialog
+                          nome={u.nome_completo}
+                          email={u.email}
+                          action={setPasswordAction}
+                        />
                         <form action={toggleAction}>
                           <button
                             type="submit"

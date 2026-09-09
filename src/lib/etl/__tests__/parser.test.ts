@@ -11,6 +11,23 @@ function makeXlsxBuffer(rows: SheetRow[]): Buffer {
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as ArrayBuffer)
 }
 
+// Reproduz uma célula de data real da Unetvale: o valor é um Date e o formato de
+// exibição (`z`) decide a string que o SheetJS devolve com raw:false — "01/09/2026 07:49"
+// nas exportações de setembro, "9/1/26 7:49" nas anteriores.
+function makeXlsxComDatas(datas: Array<{ Data: Date; Inicio: Date }>, formato: string): Buffer {
+  const rows = datas.map((d) => ({ ...BASE_ROW, ...d }))
+  const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true })
+  for (let i = 0; i < rows.length; i++) {
+    for (const col of ['A', 'B']) {
+      const cell = ws[`${col}${i + 2}`] as XLSX.CellObject
+      cell.z = formato
+    }
+  }
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
+  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellDates: true }) as ArrayBuffer)
+}
+
 const BASE_ROW: SheetRow = {
   Data: '2026-04-01',
   Inicio: '2026-04-01',
@@ -70,6 +87,41 @@ describe('parseXlsx', () => {
     expect(parsed).toHaveLength(2) // linha 1 e 3
     expect(errors).toHaveLength(1)
     expect(errors[0].row).toBe(3) // linha 2 da planilha = index 1 + 2
+  })
+
+  it('lê data de célula formatada em BR sem trocar dia e mês (regressão Setembro/2026)', () => {
+    const buf = makeXlsxComDatas(
+      [{ Data: new Date(2026, 8, 1, 7, 49), Inicio: new Date(2026, 7, 31, 10, 4) }],
+      'dd/mm/yyyy hh:mm',
+    )
+    const { rows, errors } = parseXlsx(buf)
+    expect(errors).toHaveLength(0)
+    expect(rows[0].Data).toEqual(new Date(2026, 8, 1, 7, 49))
+    // 31/08 estourava o parse MM/DD e rejeitava a linha inteira com "Invalid date".
+    expect(rows[0].Inicio).toEqual(new Date(2026, 7, 31, 10, 4))
+  })
+
+  it('lê a mesma data de célula formatada em US (planilhas até Agosto/2026)', () => {
+    const buf = makeXlsxComDatas(
+      [{ Data: new Date(2026, 8, 1, 7, 49), Inicio: new Date(2026, 7, 31, 10, 4) }],
+      'm/d/yy h:mm',
+    )
+    const { rows, errors } = parseXlsx(buf)
+    expect(errors).toHaveLength(0)
+    expect(rows[0].Data).toEqual(new Date(2026, 8, 1, 7, 49))
+    expect(rows[0].Inicio).toEqual(new Date(2026, 7, 31, 10, 4))
+  })
+
+  it('reporta um erro único para linha sem dados da OS', () => {
+    const buf = makeXlsxBuffer([
+      BASE_ROW,
+      { Data: '2026-04-02', Inicio: '2026-04-02' }, // exportação truncada
+    ])
+    const { rows, errors } = parseXlsx(buf)
+    expect(rows).toHaveLength(1)
+    expect(errors).toHaveLength(1)
+    expect(errors[0].row).toBe(3)
+    expect(errors[0].message).toContain('exportação da planilha veio incompleta')
   })
 
   it('lança erro fatal se planilha sem coluna OS ou Data', () => {

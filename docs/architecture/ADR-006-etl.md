@@ -446,6 +446,52 @@ em locale que não controlamos. Qualquer campo numérico novo passa por `parseBr
 
 ---
 
+## Adendos (2026-09-09 — parse de data sensível ao formato de exibição)
+
+### Bug de produção: mês e dia trocados, e 80% das linhas rejeitadas
+
+Mesma raiz do adendo anterior, agora nas colunas `Data` e `Inicio`. Com `raw: false`, uma célula
+de data também não chega como `Date` — chega como a string já formatada pelo SheetJS, **seguindo o
+formato de exibição gravado no arquivo**. Até agosto/2026 a Unetvale exportava em formato US
+(`"7/1/26 8:35"`) e o `z.coerce.date()`, que cai em `new Date(string)` e interpreta MM/DD, acertava
+por coincidência. A exportação de setembro/2026 passou a vir em formato BR (`"01/09/2026 07:49"`)
+e a mesma interpretação quebrou de dois jeitos, os dois silenciosos:
+
+- dia > 12 (`"31/08/2026"`) → `Invalid Date` → **linha rejeitada** (63 de 194 no upload de 01–08/09)
+- dia ≤ 12 (`"01/09/2026"`) → **9 de janeiro** — mês e dia trocados, sem nenhum erro visível
+  (o upload de setembro gravou 131 visitas com `data_execucao` em janeiro e período `09/01–09/08`)
+
+**Decisão:** para as colunas de data o parser passa a usar o **valor cru da célula** (o `Date` que o
+SheetJS já resolveu), não a string formatada — o mesmo instante nos dois formatos, sem ambiguidade
+de locale. `src/lib/etl/date.ts` concentra a interpretação e cobre também os casos em que a célula
+não é uma data: texto em `DD/MM/AAAA` (planilhas re-salvas pelo usuário), ISO e serial do Excel.
+
+Segundos e milissegundos são **zerados**: a string formatada nunca os trouxe, e `data_execucao`
+compõe a chave natural da visita (`tenant_id, os_num, data_execucao, tecnico_id`) — preservá-los
+faria um re-upload de planilha antiga gerar chave diferente da já gravada e **duplicar** a visita.
+Verificado contra as planilhas de junho e julho/2026: datas idênticas às já ingeridas.
+
+**Consequência operacional:** igual ao adendo de julho — a correção vale na ingestão. **Visitas
+ingeridas antes da correção mantêm a data errada no banco.** O upload de 01–08/09/2026 precisa ser
+excluído e refeito; não há backfill possível, porque a troca MM/DD é ambígua para dia ≤ 12.
+
+**Lição para o futuro:** com `raw: false`, nem número nem data da planilha chegam tipados — chegam
+como texto em um locale que não controlamos. Campo novo de data passa por `parseSheetDate`, nunca
+por `new Date()` ou `z.coerce.date()`.
+
+### A planilha de setembro também veio quebrada
+
+Independente do bug acima, duas das exportações enviadas pela Unetvale estavam corrompidas na
+origem e **isso é problema da planilha, não do sistema**:
+
+- uma trazia 194 linhas completas e **1.448 linhas com apenas `Data` e `Inicio` preenchidos** —
+  exportação truncada. O parser agora reporta uma mensagem única por linha
+  ("exportação da planilha veio incompleta") em vez de quatro erros de tipo.
+- outra trazia as datas como o texto `"##########"` (coluna estreita salva como texto): o dado se
+  perdeu na exportação e não é recuperável — cada linha é rejeitada com "data inválida".
+
+---
+
 ## Considerados e rejeitados
 
 ### Edge Function como gatilho automático no upload do Storage

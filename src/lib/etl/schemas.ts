@@ -1,9 +1,17 @@
 import { z } from 'zod'
 import { parseBrNumber } from './number'
+import { parseSheetDate } from './date'
+
+const SheetDate = z.preprocess(
+  (v) => parseSheetDate(v) ?? v,
+  z.date({ invalid_type_error: 'data inválida — esperado DD/MM/AAAA' }),
+)
 
 export const RawRowSchema = z.object({
-  Data: z.coerce.date(),
-  Inicio: z.coerce.date(),
+  // Não usar z.coerce.date(): ele cai em new Date(string), que interpreta MM/DD e
+  // quebra silenciosamente quando a planilha vem formatada em DD/MM. Ver date.ts.
+  Data: SheetDate,
+  Inicio: SheetDate,
   OS: z.coerce.number().int().positive(),
   Usuario: z.string().nullable().optional(),
   Contrato: z.string().nullable().optional(),

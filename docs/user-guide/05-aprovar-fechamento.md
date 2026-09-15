@@ -12,7 +12,7 @@ Cada etapa é uma confirmação formal de que os dados estão corretos.
 
 ## 1. Verificar o fechamento
 
-1. No menu lateral, clique em **Fechamento**
+1. No menu lateral, abra **Financeiro** → clique em **Fechamento**
 2. Localize o card do mês desejado (ex: "Abril 2026")
 3. Clique no card para abrir o detalhe
 4. Revise os KPIs: total a pagar, número de técnicos, visitas com e sem regra

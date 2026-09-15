@@ -20,7 +20,7 @@ A categoria do motivo determina:
 
 ## Passo a passo para classificar
 
-1. No menu lateral, clique em **Motivos**
+1. No menu lateral, abra **Regras** → clique em **Improdutivas**
 2. Clique no chip **Pendente** para filtrar só os não classificados
 3. Clique em **Editar** no motivo que deseja classificar
 4. Selecione a categoria adequada

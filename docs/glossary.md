@@ -41,6 +41,7 @@ Conta de acesso ao sistema, com `email + senha`, vinculada a um tenant (exceto s
 | `tenant_owner` | Donos da empresa cliente | Admin completo do tenant |
 | `tenant_manager` | Gestores operacionais | Sobe planilha, configura LPU, aprova fechamento |
 | `tenant_technician` | Técnicos | Vê apenas seus próprios dados |
+| `tenant_supervisor` | Líder de equipe (técnico promovido) | Entra pelo portal do técnico; vê KPIs da equipe supervisionada e executa as supervisões de campo atribuídas a ele |
 
 ---
 
@@ -216,6 +217,55 @@ Registro de uma submissão de planilha. Cada upload tem `arquivo_original`, `fil
 
 ---
 
+## Supervisão de campo
+
+> Módulo isolado do cálculo. **Nada aqui entra em payout, LPU, ETL, dashboard, ranking,
+> contagem ou fechamento.** Ver [ADR-022](./architecture/ADR-022-supervisao-de-campo.md).
+
+### Supervisão de campo
+Acompanhamento presencial de um técnico por um supervisor, **agendado pelo gestor**
+(técnico + data + supervisor responsável) e executado em campo pelo celular. Percorre os
+ciclos `agendada → em_execucao → concluida`, ou `cancelada` a partir de qualquer um dos
+dois primeiros. É **independente da OS**: não é uma visita, não tem `os_num` próprio e não
+aparece em nenhum indicador operacional. O técnico supervisionado **não** vê a supervisão
+dele nem é notificado sobre ela.
+
+### Checklist
+Conjunto de itens de verificação que o supervisor responde em campo. O **template** é
+configurado pelo gestor por tenant (`supervision_checklist_items`) e pode mudar a qualquer
+momento; a supervisão carrega uma **cópia congelada** dele, feita no agendamento
+(`supervision_answers`). Editar o template nunca altera supervisão já agendada.
+
+### Item de checklist
+Uma linha do template: título, descrição opcional, categoria agrupadora, `ordem` e `peso`
+(padrão 1). Itens **nunca são apagados** — desativar é `ativo = false`, o que preserva o
+histórico. O peso existe para o gestor marcar um item como crítico sem mudar a fórmula da
+nota.
+
+### Conforme / Não conforme / Não se aplica
+As três respostas possíveis a um item. **`nao_se_aplica` fica fora do numerador e do
+denominador** da nota — "não avaliado" não é "reprovado". Resposta ausente (`null`) é um
+item **pendente**, e concluir a supervisão exige zero pendentes.
+
+### Nota (da supervisão)
+Número de 0 a 100 calculado na conclusão: `100 × (peso dos conformes) / (peso dos conformes
++ não conformes)`. É **gravada** em `field_supervisions.nota`, nunca recalculada em leitura
+— mesmo princípio de `payouts.valor_calculado`. Sem nenhum item avaliável, a nota é `null`
+e a tela mostra "—", **nunca `0`**. Não se confunde com **pontos (`pts`)**, que são payout.
+
+### Parecer
+Julgamento final do supervisor, independente da nota: `aprovado`,
+`aprovado_com_ressalvas`, `reprovado` ou `reciclagem_recomendada`. A nota mede o checklist;
+o parecer é a avaliação de quem esteve lá. Uma supervisão pode ter nota alta e parecer com
+ressalva.
+
+### OS mencionada (`os_num_referencia`)
+Número de OS que o supervisor anota para registrar o que o técnico estava executando
+durante a supervisão. É **anotação de contexto, sem chave estrangeira**: não vincula a
+supervisão à OS, não entra na consolidação e não afeta `total_visitas`.
+
+---
+
 ## Ações do sistema
 
 ### Ingestão
@@ -246,6 +296,9 @@ Ação que muda todos os payouts pendentes de um período pra `aprovado`. Apenas
 | Motivo | `reason`, `reasons` (não `motivo`, mantemos inglês no código) |
 | Fechamento | `monthlyClosing`, `monthlyClosings` |
 | Upload | `upload`, `uploads` |
+| Supervisão de campo | `fieldSupervision`, `fieldSupervisions` |
+| Item de checklist | `checklistItem`, `checklistItems` |
+| Resposta do checklist | `answer`, `answers` |
 
 **No banco** os nomes são `snake_case` (`service_orders`, `lpu_rules`, etc). **No código TypeScript** são `camelCase`. **Drizzle faz a conversão automática.**
 
@@ -259,3 +312,5 @@ Ação que muda todos os payouts pendentes de um período pra `aprovado`. Apenas
 ❌ "Tabela de preços" → use **LPU**
 ❌ "Cliente" (ambíguo) → use **tenant** (cliente da plataforma) ou **usuário final** (cliente da Wave)
 ❌ "Pendente" sem contexto → especifique: `pendente_aprovacao`, `pendente_revisao`, etc.
+❌ "OS de supervisão" → use **supervisão de campo**. Supervisão **não é uma OS** e não tem `os_num` próprio (ADR-022)
+❌ "Nota" sem contexto → a nota da supervisão é de 0 a 100 e não é dinheiro; o que o técnico recebe são **pontos (`pts`)** ou **payout**

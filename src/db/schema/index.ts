@@ -20,3 +20,9 @@ export * from "./homologacao-classifications";
 export * from "./iqi-snapshots";
 export * from "./unetvale-alteracoes";
 export * from "./aprovacao";
+
+// Supervisão de campo (ADR-022). Ordem respeita a FK: items → supervisions → answers → photos.
+export * from "./supervision-checklist-items";
+export * from "./field-supervisions";
+export * from "./supervision-answers";
+export * from "./supervision-photos";

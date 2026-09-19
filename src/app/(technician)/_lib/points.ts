@@ -18,3 +18,10 @@ export function payoutValor(p: {
     ? Number(p.valor_override)
     : Number(p.valor_calculado ?? 0)
 }
+
+// Formatação dos pontos na tela do técnico. O valor é o mesmo número do payout, SEM símbolo
+// de moeda — é assim que o glossário define "pontos (pts)", e é o que distingue o portal do
+// técnico do painel do gestor, onde o mesmo número aparece em reais.
+export function fmtPts(n: number): string {
+  return `${Math.round(n).toLocaleString('pt-BR')} pts`
+}

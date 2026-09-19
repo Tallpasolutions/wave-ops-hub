@@ -414,6 +414,27 @@ atualizada. **Afetava produção**, não só o ambiente local.
 **Pendente:** verificação ponta a ponta com um supervisor real logando — a correção está
 coberta por teste unitário, mas o ambiente local não permitiu fechar o QA.
 
+### 032 — `fmtPts` duplicado em 6 arquivos do portal do técnico
+**Identificado em:** Sprint 19 (2026-09-19)
+**Onde:** `src/app/(technician)/` — `page.tsx`, `historico/page.tsx`,
+`historico/_components/HistoricoChart.tsx`, `aprovacoes/_components/AprovacaoPeriodo.tsx`,
+`visitas/page.tsx`, `visitas/_components/ContestarOs.tsx`
+
+Cada tela declara sua própria `const fmtPts = (n) => ...`. São idênticas hoje, mas é
+exatamente o padrão que já causou o vazamento de termo técnico nas telas da Wave (ver
+`src/lib/labels/` e o teste `ui-portugues.test.ts`): fórmula copiada diverge em silêncio.
+
+A `/minha-equipe` era pior — mostrava **reais** em vez de pontos, quebrando a convenção do
+glossário de que o portal do técnico não exibe símbolo de moeda. Corrigido na Sprint 19, com
+`fmtPts` movido para `src/app/(technician)/_lib/points.ts`, que já se declarava a "fórmula
+ÚNICA dos pontos".
+
+**Pendente:** trocar as 5 declarações locais restantes pelo import. Não foi feito junto para
+não misturar refactor com a entrega da sprint (CLAUDE.md §6).
+**Impacto se não resolver:** uma tela pode passar a arredondar ou rotular diferente das
+outras, e o técnico vê números que não batem entre si.
+**Esforço:** XS
+
 ## Itens resolvidos
 
 _(mover para cá quando resolvido, com link pro PR/commit)_

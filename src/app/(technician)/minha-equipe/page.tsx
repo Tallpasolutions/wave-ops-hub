@@ -4,16 +4,13 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { iqiByTecnico, teamIqi, competenciaLabel, iqiTone } from '@/lib/iqi'
 import type { IqiSnapshotInput } from '@/lib/iqi'
-import { PAID_STATUSES, payoutValor } from '../_lib/points'
+import { PAID_STATUSES, payoutValor, fmtPts } from '../_lib/points'
 
 export const metadata: Metadata = { title: 'Minha Equipe' }
 export const dynamic = 'force-dynamic'
 
 const isSuccess = (sucesso: string | null) =>
   sucesso?.trim().toLowerCase().startsWith('sim') ?? false
-
-const brl = (v: number) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 // Faixas da taxa de sucesso — maior é melhor, ao contrário do IQI.
 function corTaxa(taxa: number): string {
@@ -227,7 +224,9 @@ export default async function MinhaEquipePage() {
           ) : (
             <>
               <p className="mt-1 text-2xl font-bold text-[var(--text-3)]">—</p>
-              <p className="mt-0.5 text-[11px] text-[var(--text-3)]">Sem dados</p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-3)]">
+                Índice ainda não sincronizado
+              </p>
             </>
           )}
         </div>
@@ -236,7 +235,7 @@ export default async function MinhaEquipePage() {
           <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
             Pagamento
           </p>
-          <p className="mt-1 text-2xl font-bold text-[var(--text)]">{brl(payoutEquipe)}</p>
+          <p className="mt-1 text-2xl font-bold text-[var(--text)]">{fmtPts(payoutEquipe)}</p>
           <p className="mt-0.5 text-[11px] text-[var(--text-3)]">Total da equipe</p>
         </div>
       </div>
@@ -252,13 +251,17 @@ export default async function MinhaEquipePage() {
             >
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="font-medium text-[var(--text)]">{k.nome}</p>
-                {k.iqi !== null && (
+                {k.iqi !== null ? (
                   <span
                     className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
                     style={{ color: iqiTone(k.iqi).fg, background: iqiTone(k.iqi).bg }}
                   >
                     {iqiTone(k.iqi).label} ·{' '}
                     {k.iqi.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-[var(--text-3)]">
+                    Sem índice
                   </span>
                 )}
               </div>
@@ -290,14 +293,14 @@ export default async function MinhaEquipePage() {
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
                     Pagamento
                   </p>
-                  <p className="mt-1 text-xl font-bold text-[var(--text)]">{brl(k.totalPayout)}</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--text)]">{fmtPts(k.totalPayout)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
                     Deixado na mesa
                   </p>
                   <p className="mt-1 text-xl font-bold text-[var(--red)]">
-                    {k.deixadoNaMesa > 0 ? brl(k.deixadoNaMesa) : '—'}
+                    {k.deixadoNaMesa > 0 ? fmtPts(k.deixadoNaMesa) : '—'}
                   </p>
                 </div>
               </div>

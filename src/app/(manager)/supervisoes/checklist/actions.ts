@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isUniqueViolation } from '@/lib/supabase/errors'
 import { requireSupervisaoCampo, SUPERVISAO_ROLES_GESTOR } from '@/lib/supervisao/guard'
+import { TIPOS_RESPOSTA } from '@/lib/supervisao'
 
 // Template do checklist de supervisão de campo (ADR-022).
 //
@@ -25,6 +26,11 @@ const itemSchema = z.object({
     .number({ invalid_type_error: 'Ordem precisa ser um número' })
     .int('Ordem precisa ser um número inteiro')
     .min(0, 'Ordem não pode ser negativa'),
+  tipoResposta: z.enum(TIPOS_RESPOSTA, {
+    errorMap: () => ({ message: 'Escolha como o supervisor responde este item' }),
+  }),
+  // Checkbox ausente no FormData significa desmarcado — não é erro de validação.
+  fotoObrigatoria: z.boolean(),
 })
 
 type Estado = { error: string | null; success?: boolean }
@@ -41,6 +47,8 @@ function lerFormulario(formData: FormData) {
     categoria: formData.get('categoria'),
     peso: formData.get('peso'),
     ordem: formData.get('ordem'),
+    tipoResposta: formData.get('tipoResposta') ?? 'conformidade',
+    fotoObrigatoria: formData.get('fotoObrigatoria') === 'on',
   })
 }
 
@@ -53,7 +61,8 @@ export async function createChecklistItem(
   const result = lerFormulario(formData)
   if (!result.success) return { error: result.error.errors[0].message }
 
-  const { titulo, codigo, descricao, categoria, peso, ordem } = result.data
+  const { titulo, codigo, descricao, categoria, peso, ordem, tipoResposta, fotoObrigatoria } =
+    result.data
   const supabase = await createSupabaseServerClient()
 
   const { error } = await supabase.from('supervision_checklist_items').insert({
@@ -64,6 +73,8 @@ export async function createChecklistItem(
     categoria: vazioParaNulo(categoria),
     peso,
     ordem,
+    tipo_resposta: tipoResposta,
+    foto_obrigatoria: fotoObrigatoria,
     created_by: user.id,
   })
 
@@ -86,7 +97,8 @@ export async function updateChecklistItem(
   const result = lerFormulario(formData)
   if (!result.success) return { error: result.error.errors[0].message }
 
-  const { titulo, codigo, descricao, categoria, peso, ordem } = result.data
+  const { titulo, codigo, descricao, categoria, peso, ordem, tipoResposta, fotoObrigatoria } =
+    result.data
   const supabase = await createSupabaseServerClient()
 
   // `updated_at` NÃO é setado aqui: o trigger set_updated_at() cuida disso (CLAUDE.md §6).
@@ -99,6 +111,8 @@ export async function updateChecklistItem(
       categoria: vazioParaNulo(categoria),
       peso,
       ordem,
+      tipo_resposta: tipoResposta,
+      foto_obrigatoria: fotoObrigatoria,
     })
     .eq('id', itemId)
     .eq('tenant_id', user.tenantId!)

@@ -33,6 +33,7 @@ remover o módulo do produto.
 |---|---|---|
 | [`0042_supervisao_campo.down.sql`](./0042_supervisao_campo.down.sql) | [0042](../migrations/0042_supervisao_campo.sql) — módulo Supervisão de Campo (ADR-022) | `tenants.config.supervisao_campo_habilitada = false` |
 | [`0043_supervisor_sem_tecnico.down.sql`](./0043_supervisor_sem_tecnico.down.sql) | [0043](../migrations/0043_supervisor_sem_tecnico.sql) — supervisor sem vínculo obrigatório (ADR-023) | reverter o deploy do código: o formulário volta a exigir o vínculo |
+| [`0044_checklist_epi_foto_obrigatoria.down.sql`](./0044_checklist_epi_foto_obrigatoria.down.sql) | [0044](../migrations/0044_checklist_epi_foto_obrigatoria.sql) — foto obrigatória, escalas e seed de EPI | reverter o deploy: as colunas ficam, ninguém as lê |
 
 ## Antes de rodar qualquer coisa daqui
 

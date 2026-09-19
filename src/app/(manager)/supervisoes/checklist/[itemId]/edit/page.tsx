@@ -18,7 +18,7 @@ export default async function EditChecklistItemPage({ params }: Props) {
 
   const { data: item, error } = await supabase
     .from('supervision_checklist_items')
-    .select('id, codigo, titulo, descricao, categoria, peso, ordem, ativo')
+    .select('id, codigo, titulo, descricao, categoria, peso, ordem, ativo, foto_obrigatoria, tipo_resposta')
     .eq('id', itemId)
     .eq('tenant_id', user.tenantId!)
     .maybeSingle()
@@ -55,6 +55,8 @@ export default async function EditChecklistItemPage({ params }: Props) {
           categoria: item.categoria as string | null,
           peso: item.peso as string,
           ordem: item.ordem as number,
+          tipoResposta: item.tipo_resposta as string,
+          fotoObrigatoria: item.foto_obrigatoria as boolean,
         }}
       />
     </div>

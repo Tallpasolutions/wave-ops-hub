@@ -18,6 +18,8 @@ export type ChecklistItemRow = {
   peso: string
   ordem: number
   ativo: boolean
+  foto_obrigatoria: boolean
+  tipo_resposta: string
 }
 
 export default async function ChecklistPage() {
@@ -26,7 +28,7 @@ export default async function ChecklistPage() {
 
   const { data, error } = await supabase
     .from('supervision_checklist_items')
-    .select('id, codigo, titulo, descricao, categoria, peso, ordem, ativo')
+    .select('id, codigo, titulo, descricao, categoria, peso, ordem, ativo, foto_obrigatoria, tipo_resposta')
     .eq('tenant_id', user.tenantId!)
     .order('ativo', { ascending: false })
     .order('ordem', { ascending: true })

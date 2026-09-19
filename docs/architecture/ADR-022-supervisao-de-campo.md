@@ -177,6 +177,44 @@ O **parecer final** do supervisor é independente da nota e categórico: `aprova
 nota alta e parecer com ressalva — a nota mede o checklist, o parecer é o julgamento de
 quem esteve lá.
 
+## Adendo (2026-09-19) — a ficha de EPI que a Wave já usava
+
+Depois da Fase 4, revisamos o Google Forms que a operação usava de verdade:
+**"FICHA DE CHECKLIST DE EPI/EPC PRESENCIAL"** — 29 itens de posse de EPI, 19 de uso, mais
+fotos, nota 1–10, empresa, cluster e parecer. Três coisas dela mudaram o modelo
+([migration 0044](../../supabase/migrations/0044_checklist_epi_foto_obrigatoria.sql)).
+
+**1. Foto por item, decidida pelo gestor.** Na ficha, as fotos eram um upload solto de até 10
+arquivos no topo — ninguém sabia a qual EPI cada uma se referia, e o supervisor podia não
+anexar. Agora `supervision_checklist_items.foto_obrigatoria` marca no **template** quais itens
+exigem evidência, e a conclusão trava enquanto faltar. **A decisão é do gestor, não de quem
+está em campo:** não há o que esquecer nem o que pular.
+
+**2. Escalas de resposta por item.** A ficha usava duas, e a diferença é operacional:
+
+| Escala | Opções |
+|---|---|
+| Posse de EPI | Possui e em bom estado · Não possui · **Necessário trocar** |
+| Uso de EPI | Está usando · Não está usando · Não se aplica ao momento |
+| Conformidade (padrão) | Conforme · Não conforme · Não se aplica |
+
+`tipo_resposta` no item escolhe a escala. **Muda só os rótulos — nunca o cálculo:** a primeira
+opção sempre conta como acerto, e `calcularNota` nem recebe o tipo. Há teste travando isso.
+
+**3. Um quarto estado de resposta: `necessita_troca`.** "Não possui" e "Necessário trocar" são
+problemas distintos — um é técnico sem equipamento, o outro é equipamento gasto — e pedem
+ações diferentes do gestor. Achatar os dois em `nao_conforme` apagaria essa diferença.
+Na nota, `necessita_troca` **conta como falha**, igual a `nao_conforme` (equipamento gasto não
+protege); o contador separado é o que permite distinguir "comprar" de "repor".
+
+**Campos da supervisão que a ficha tinha e o modelo não:** `nota_qualidade_tecnica` (1–10,
+impressão do supervisor — não se confunde com `nota`, que é medida do checklist), `empresa`
+(Unifique/Unetvale) e `cluster` (texto livre: a lista é da Unetvale e muda sem aviso).
+**Posição Regular/Irregular e Reciclagem já estavam cobertos** por `parecer_final`.
+
+Os 48 itens foram semeados pela 0044, categorizados, com foto marcada nos de risco de vida
+(altura e risco elétrico) — 18 dos 48. O gestor ajusta pela tela.
+
 ## Referências
 
 - Plano de implementação e mapa de impacto completo: Sprint 19

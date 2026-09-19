@@ -88,6 +88,13 @@ export const fieldSupervisions = pgTable(
     parecerObservacao: text("parecer_observacao"),
 
     nota: numeric("nota", { precision: 5, scale: 2 }),
+    // Impressão geral do supervisor, de 1 a 10 (migration 0044, vindo da ficha de EPI).
+    // NÃO se confunde com `nota`: uma é julgamento, a outra é medida do checklist.
+    notaQualidadeTecnica: integer("nota_qualidade_tecnica"),
+    // Contratante da visita. TEXT com CHECK em vez de enum: a lista muda com contrato novo.
+    empresa: text("empresa"),
+    // Região da operação. Texto livre: a lista de clusters é da Unetvale e muda sem aviso.
+    cluster: text("cluster"),
     notaCalculadaEm: timestamp("nota_calculada_em", { withTimezone: true }),
     // Contadores denormalizados: a lista do gestor não precisa agregar as respostas.
     itensTotal: integer("itens_total"),
@@ -128,6 +135,14 @@ export const fieldSupervisions = pgTable(
     check(
       "chk_field_sup_parecer",
       sql`${table.parecerFinal} IS NULL OR ${table.parecerFinal} IN ('aprovado', 'aprovado_com_ressalvas', 'reprovado', 'reciclagem_recomendada')`,
+    ),
+    check(
+      "chk_field_sup_qualidade",
+      sql`${table.notaQualidadeTecnica} IS NULL OR (${table.notaQualidadeTecnica} >= 1 AND ${table.notaQualidadeTecnica} <= 10)`,
+    ),
+    check(
+      "chk_field_sup_empresa",
+      sql`${table.empresa} IS NULL OR ${table.empresa} IN ('unifique', 'unetvale')`,
     ),
     check(
       "chk_field_sup_nota_faixa",

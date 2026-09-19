@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ChevronUp, ChevronDown, Pencil } from 'lucide-react'
+import { ChevronUp, ChevronDown, Pencil, Camera } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { escalaDe } from '@/lib/supervisao'
 import { toggleChecklistItem, moveChecklistItem } from '../actions'
 import type { ChecklistItemRow } from '../page'
 
@@ -69,6 +70,7 @@ function Secao({
               {mostrarSetas && <TableHead className="w-[70px]">Ordem</TableHead>}
               <TableHead>Item</TableHead>
               <TableHead className="w-[130px]">Categoria</TableHead>
+              <TableHead className="w-[70px] text-center">Foto</TableHead>
               <TableHead className="w-[80px]">Peso</TableHead>
               <TableHead className="w-[190px] text-right">Ações</TableHead>
             </TableRow>
@@ -106,12 +108,30 @@ function Secao({
                     {item.descricao && (
                       <span className="text-xs text-[var(--text-3)]">{item.descricao}</span>
                     )}
+                    {/* A escala fica visível na lista: é ela que define o texto dos botões
+                        em campo, e conferir item a item na edição seria custoso. */}
+                    <span className="text-[11px] text-[var(--text-3)]">
+                      {escalaDe(item.tipo_resposta).opcoes.map((o) => o.label).join(' · ')}
+                    </span>
                   </div>
                 </TableCell>
 
                 <TableCell>
                   {item.categoria ? (
                     <Badge variant="secondary">{item.categoria}</Badge>
+                  ) : (
+                    <span className="text-xs text-[var(--text-3)]">—</span>
+                  )}
+                </TableCell>
+
+                <TableCell className="text-center">
+                  {item.foto_obrigatoria ? (
+                    <span
+                      title="O supervisor não conclui sem anexar foto neste item"
+                      className="inline-flex items-center justify-center rounded-full bg-[rgba(0,212,255,0.12)] p-1.5 text-[var(--cyan)]"
+                    >
+                      <Camera size={13} />
+                    </span>
                   ) : (
                     <span className="text-xs text-[var(--text-3)]">—</span>
                   )}

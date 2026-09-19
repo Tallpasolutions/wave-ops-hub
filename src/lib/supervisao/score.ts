@@ -9,7 +9,13 @@
 // "não avaliado" não é "reprovado". Um item que não se aplicava àquela visita não pode
 // derrubar a nota do técnico.
 
-export type RespostaChecklist = 'conforme' | 'nao_conforme' | 'nao_se_aplica'
+export type RespostaChecklist =
+  | 'conforme'
+  | 'nao_conforme'
+  // Equipamento existe mas está gasto. Conta como falha na nota, igual a `nao_conforme`, mas
+  // é contado à parte: "não possui" e "precisa trocar" pedem ações diferentes do gestor.
+  | 'necessita_troca'
+  | 'nao_se_aplica'
 
 export interface ItemAvaliado {
   peso: number
@@ -20,6 +26,7 @@ export interface ResultadoNota {
   nota: number | null // 0–100 com 2 casas. null = nenhum item avaliável (a tela mostra "—")
   conformes: number
   naoConformes: number
+  necessitamTroca: number
   naoSeAplica: number
   pendentes: number
   pesoAvaliado: number // denominador efetivo, exposto para auditoria
@@ -35,6 +42,7 @@ export function calcularNota(itens: readonly ItemAvaliado[]): ResultadoNota {
   let pesoAvaliado = 0
   let conformes = 0
   let naoConformes = 0
+  let necessitamTroca = 0
   let naoSeAplica = 0
   let pendentes = 0
 
@@ -47,6 +55,13 @@ export function calcularNota(itens: readonly ItemAvaliado[]): ResultadoNota {
         break
       case 'nao_conforme':
         naoConformes++
+        pesoAvaliado += item.peso
+        break
+      // Entra no denominador como falha, igual a `nao_conforme` — o equipamento gasto não
+      // protege o técnico. O contador separado é o que permite ao gestor distinguir
+      // "comprar equipamento" de "repor equipamento".
+      case 'necessita_troca':
+        necessitamTroca++
         pesoAvaliado += item.peso
         break
       case 'nao_se_aplica':
@@ -63,6 +78,7 @@ export function calcularNota(itens: readonly ItemAvaliado[]): ResultadoNota {
     nota: pesoAvaliado > 0 ? arredondar2((pesoConformes / pesoAvaliado) * 100) : null,
     conformes,
     naoConformes,
+    necessitamTroca,
     naoSeAplica,
     pendentes,
     pesoAvaliado: arredondar2(pesoAvaliado),

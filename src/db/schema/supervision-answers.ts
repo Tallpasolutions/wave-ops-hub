@@ -4,6 +4,7 @@ import {
   text,
   integer,
   numeric,
+  boolean,
   timestamp,
   index,
   unique,
@@ -18,6 +19,9 @@ import { supervisionChecklistItems } from "./supervision-checklist-items";
 export const SUPERVISION_RESPOSTAS = [
   "conforme",
   "nao_conforme",
+  // Equipamento existe mas está gasto (migration 0044, vindo da ficha de EPI). Conta como
+  // falha na nota, igual a nao_conforme, e é contado à parte: as ações do gestor diferem.
+  "necessita_troca",
   "nao_se_aplica",
 ] as const;
 
@@ -61,6 +65,8 @@ export const supervisionAnswers = pgTable(
     itemPeso: numeric("item_peso", { precision: 6, scale: 2 })
       .notNull()
       .default("1"),
+    itemFotoObrigatoria: boolean("item_foto_obrigatoria").notNull().default(false),
+    itemTipoResposta: text("item_tipo_resposta").notNull().default("conformidade"),
 
     resposta: text("resposta"),
     observacao: text("observacao"),
@@ -84,7 +90,11 @@ export const supervisionAnswers = pgTable(
     unique("uq_sup_answer_ordem").on(table.supervisaoId, table.ordem),
     check(
       "chk_sup_answer_resposta",
-      sql`${table.resposta} IS NULL OR ${table.resposta} IN ('conforme', 'nao_conforme', 'nao_se_aplica')`,
+      sql`${table.resposta} IS NULL OR ${table.resposta} IN ('conforme', 'nao_conforme', 'necessita_troca', 'nao_se_aplica')`,
+    ),
+    check(
+      "chk_sup_answer_tipo_resposta",
+      sql`${table.itemTipoResposta} IN ('conformidade', 'posse_epi', 'uso_epi')`,
     ),
     check("chk_sup_answer_peso_positivo", sql`${table.itemPeso} > 0`),
   ],

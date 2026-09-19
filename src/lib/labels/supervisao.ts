@@ -43,9 +43,20 @@ export function supervisaoStatusLabel(status: string): RotuloSupervisao {
 }
 
 // ── Resposta de um item do checklist ───────────────────────────────────────────────────────
+// Estes são os rótulos GENÉRICOS e as cores. O texto que o supervisor lê em cada item vem da
+// escala dele (`labelResposta` em src/lib/supervisao/tipo-resposta.ts): a mesma resposta
+// `conforme` se lê "Está usando" num item de uso de EPI e "Possui e em bom estado" num de
+// posse. Aqui fica o que é comum às três escalas.
 export const SUPERVISAO_RESPOSTA: Record<RespostaChecklist, RotuloSupervisao> = {
   conforme: { curto: 'Conforme', detalhado: 'Conforme', cls: VERDE },
   nao_conforme: { curto: 'Não conforme', detalhado: 'Não conforme', cls: VERMELHO },
+  // Falha, como `nao_conforme` — equipamento gasto não protege — mas com cor própria: a ação
+  // do gestor é repor, não comprar.
+  necessita_troca: {
+    curto: 'Trocar',
+    detalhado: 'Necessário trocar — conta como falha na nota',
+    cls: AMARELO,
+  },
   // Fica fora do cálculo da nota (ADR-022): não avaliado não é reprovado.
   nao_se_aplica: {
     curto: 'Não se aplica',

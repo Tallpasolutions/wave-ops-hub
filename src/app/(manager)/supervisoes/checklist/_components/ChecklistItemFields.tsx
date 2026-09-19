@@ -1,6 +1,7 @@
 'use client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ESCALAS, TIPOS_RESPOSTA } from '@/lib/supervisao'
 
 // Campos compartilhados entre criar e editar — para os dois formulários não divergirem em
 // rótulo, ajuda ou validação, que é como telas parecidas passam a se comportar diferente.
@@ -11,6 +12,8 @@ export type ValoresItem = {
   categoria?: string | null
   peso?: string | number
   ordem?: number
+  tipoResposta?: string
+  fotoObrigatoria?: boolean
 }
 
 const rotulo = 'mb-2 block text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--text-3)]'
@@ -75,6 +78,50 @@ export function ChecklistItemFields({ valores }: { valores?: ValoresItem }) {
           />
           <p className={ajuda}>Opcional, para referenciar em treinamento. Único no tenant.</p>
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="tipoResposta" className={rotulo}>
+          Como o supervisor responde <span className="text-[var(--red)]">*</span>
+        </Label>
+        <select
+          id="tipoResposta"
+          name="tipoResposta"
+          defaultValue={valores?.tipoResposta ?? 'conformidade'}
+          className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 text-sm text-[var(--text)] outline-none focus:border-[var(--cyan)]"
+        >
+          {TIPOS_RESPOSTA.map((t) => (
+            <option key={t} value={t}>
+              {ESCALAS[t].nome} — {ESCALAS[t].opcoes.map((o) => o.label).join(' · ')}
+            </option>
+          ))}
+        </select>
+        <p className={ajuda}>
+          Muda só o texto dos botões em campo. A nota é calculada igual nos três casos: a
+          primeira opção conta como acerto.
+        </p>
+      </div>
+
+      {/* Quem decide se o item exige foto é o GESTOR, aqui — não o supervisor em campo.
+          Sem isso, a evidência vira opcional e some justamente no item que importa. */}
+      <div className="rounded-lg border border-[var(--line)] bg-white/[0.02] p-4">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            name="fotoObrigatoria"
+            value="on"
+            defaultChecked={valores?.fotoObrigatoria ?? false}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--cyan)]"
+          />
+          <span>
+            <span className="block text-sm font-medium text-[var(--text)]">Exige foto</span>
+            <span className={ajuda + ' block'}>
+              O supervisor não consegue concluir a supervisão sem anexar foto neste item. Use
+              em itens de risco de vida e no que precisa de prova, não em tudo — exigir foto
+              demais faz o preenchimento em campo travar.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">

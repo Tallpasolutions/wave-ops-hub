@@ -42,6 +42,13 @@ export const supervisionChecklistItems = pgTable(
     categoria: text("categoria"),
     peso: numeric("peso", { precision: 6, scale: 2 }).notNull().default("1"),
     ordem: integer("ordem").notNull().default(0),
+    // Quem decide se o item exige foto é o GESTOR, aqui no template — não o supervisor em
+    // campo (migration 0044). Assim não há o que esquecer nem o que pular: a conclusão trava
+    // enquanto faltar foto num item marcado.
+    fotoObrigatoria: boolean("foto_obrigatoria").notNull().default(false),
+    // Escala que o supervisor vê neste item. Muda os rótulos, nunca o cálculo da nota —
+    // ver src/lib/supervisao/tipo-resposta.ts.
+    tipoResposta: text("tipo_resposta").notNull().default("conformidade"),
     ativo: boolean("ativo").notNull().default(true),
     createdBy: uuid("created_by").references(() => users.id, {
       onDelete: "set null",
@@ -63,6 +70,10 @@ export const supervisionChecklistItems = pgTable(
       .on(table.tenantId, table.ordem)
       .where(sql`${table.ativo}`),
     check("chk_sup_item_peso_positivo", sql`${table.peso} > 0`),
+    check(
+      "chk_sup_item_tipo_resposta",
+      sql`${table.tipoResposta} IN ('conformidade', 'posse_epi', 'uso_epi')`,
+    ),
     check(
       "chk_sup_item_titulo_nao_vazio",
       sql`length(btrim(${table.titulo})) > 0`,

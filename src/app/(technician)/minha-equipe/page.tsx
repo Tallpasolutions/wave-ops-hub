@@ -70,7 +70,8 @@ export default async function MinhaEquipePage() {
   const mesCorrente = hoje.getUTCFullYear() === yy && hoje.getUTCMonth() + 1 === mm
   const diasDecorridos = mesCorrente ? Math.max(1, hoje.getUTCDate()) : diasNoMes
 
-  const [{ data: visits }, { data: payouts }, { data: iqiRows }] = await Promise.all([
+  const [{ data: visits }, { data: payouts }, { data: iqiRows, error: iqiError }] =
+    await Promise.all([
     supabase
       .from('service_visits')
       .select('tecnico_id, sucesso')
@@ -97,6 +98,12 @@ export default async function MinhaEquipePage() {
       .eq('tenant_id', user.tenantId!)
       .in('tecnico_id', technicianIds),
   ])
+
+  // Erro do PostgREST é SILENCIOSO: devolve data null sem lançar. Sem este log, uma coluna
+  // com nome errado ou uma RLS que não casa viram simplesmente "sem índice" na tela.
+  if (iqiError) {
+    console.error('[minha-equipe] falha ao ler iqi_snapshots:', iqiError)
+  }
 
   const iqiInputs: IqiSnapshotInput[] = (iqiRows ?? []).map((r) => ({
     tecnicoId: r.tecnico_id as string,

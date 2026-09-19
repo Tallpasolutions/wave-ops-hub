@@ -4,6 +4,7 @@ import {
   iqiByTecnico,
   teamIqi,
   competenciaLabel,
+  iqiUltimoPorTecnico,
 } from '../analytics'
 import type { IqiSnapshotInput } from '../analytics'
 
@@ -54,5 +55,49 @@ describe('teamIqi', () => {
   })
   it('retorna null sem dados na competência', () => {
     expect(teamIqi(ROWS, '2020-01')).toBeNull()
+  })
+})
+
+// Regressão de produto: com competência única, técnico sem dado no mês escolhido some da
+// tela — e na equipe real isso era 7 de 12. `iqiUltimoPorTecnico` mostra o dado mais recente
+// de cada um, seja de que mês for.
+describe('iqiUltimoPorTecnico', () => {
+  const snap = (
+    tecnicoId: string,
+    competencia: string,
+    pct: number,
+  ): IqiSnapshotInput => ({
+    tecnicoId,
+    competencia,
+    totalOs: 10,
+    contratosReincidentes: 1,
+    pctReincidencia: pct,
+  })
+
+  it('pega a competência mais recente de cada técnico', () => {
+    const m = iqiUltimoPorTecnico([
+      snap('a', '2026-04', 40),
+      snap('a', '2026-09', 10),
+      snap('b', '2026-08', 20),
+    ])
+    expect(m.get('a')?.competencia).toBe('2026-09')
+    expect(m.get('a')?.pctReincidencia).toBe(10)
+    expect(m.get('b')?.competencia).toBe('2026-08')
+  })
+
+  it('não perde técnico que só tem competência antiga', () => {
+    const m = iqiUltimoPorTecnico([snap('a', '2026-09', 10), snap('b', '2026-04', 30)])
+    expect(m.size).toBe(2)
+    expect(m.get('b')?.competencia).toBe('2026-04')
+  })
+
+  it('ordem de entrada não importa', () => {
+    const crescente = iqiUltimoPorTecnico([snap('a', '2026-04', 40), snap('a', '2026-09', 10)])
+    const decrescente = iqiUltimoPorTecnico([snap('a', '2026-09', 10), snap('a', '2026-04', 40)])
+    expect(crescente.get('a')).toEqual(decrescente.get('a'))
+  })
+
+  it('lista vazia devolve mapa vazio', () => {
+    expect(iqiUltimoPorTecnico([]).size).toBe(0)
   })
 })

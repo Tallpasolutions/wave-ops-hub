@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { iqiByTecnico, teamIqi, competenciaLabel, iqiTone } from '@/lib/iqi'
+import { iqiUltimoPorTecnico, teamIqi, competenciaLabel, iqiTone } from '@/lib/iqi'
 import type { IqiSnapshotInput } from '@/lib/iqi'
 import { PAID_STATUSES, payoutValor, fmtPts } from '../_lib/points'
 
@@ -113,12 +113,16 @@ export default async function MinhaEquipePage() {
     pctReincidencia: Number(r.pct_reincidencia),
   }))
 
-  // O IQI vem da Unetvale e nem sempre acompanha o mês das visitas: usa a competência mais
-  // recente que existir, e rotula qual é, para o supervisor não achar que é do mês corrente.
+  // A coleta da Unetvale não cobre todo técnico todo mês. Na equipe real, 7 de 12 não tinham
+  // dado da competência mais recente — fixar uma só para todos fazia a maioria sumir da tela.
+  // Cada técnico mostra o dado mais recente DELE, com a competência rotulada ao lado.
+  const iqiPorTecnico = iqiUltimoPorTecnico(iqiInputs)
+
+  // O consolidado, ao contrário, fica numa competência única: somar meses diferentes daria um
+  // número que não corresponde a período nenhum.
   const competenciaIqi = iqiInputs.length
     ? [...new Set(iqiInputs.map((r) => r.competencia))].sort().at(-1)!
     : null
-  const iqiPorTecnico = competenciaIqi ? iqiByTecnico(iqiInputs, competenciaIqi) : new Map()
   const iqiEquipe = competenciaIqi ? teamIqi(iqiInputs, competenciaIqi) : null
 
   type KpiRow = {
@@ -130,6 +134,7 @@ export default async function MinhaEquipePage() {
     totalPayout: number
     deixadoNaMesa: number
     iqi: number | null
+    iqiCompetencia: string | null
   }
 
   const kpis: KpiRow[] = supervisorTeam.map((row) => {
@@ -165,6 +170,7 @@ export default async function MinhaEquipePage() {
       totalPayout,
       deixadoNaMesa,
       iqi: snap ? snap.pctReincidencia : null,
+      iqiCompetencia: snap ? snap.competencia : null,
     }
   })
 
@@ -263,8 +269,8 @@ export default async function MinhaEquipePage() {
                     className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
                     style={{ color: iqiTone(k.iqi).fg, background: iqiTone(k.iqi).bg }}
                   >
-                    {iqiTone(k.iqi).label} ·{' '}
-                    {k.iqi.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+                    {k.iqi.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% ·{' '}
+                    {competenciaLabel(k.iqiCompetencia!)}
                   </span>
                 ) : (
                   <span className="shrink-0 text-[10px] uppercase tracking-wider text-[var(--text-3)]">

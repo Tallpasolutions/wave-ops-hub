@@ -3,6 +3,7 @@ export { runIqiCollection } from './collector'
 export {
   buildIqiTrend,
   iqiByTecnico,
+  iqiUltimoPorTecnico,
   teamIqi,
   competenciaLabel,
 } from './analytics'

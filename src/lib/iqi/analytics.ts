@@ -73,6 +73,26 @@ export function iqiByTecnico(
   return out
 }
 
+/**
+ * Último snapshot de CADA técnico, seja qual for a competência.
+ *
+ * `iqiByTecnico` fixa uma competência para todos, o que esconde quem não tem dado nela — e na
+ * prática isso é a maioria: a coleta da Unetvale não cobre todo técnico todo mês. Aqui cada
+ * um aparece com o dado mais recente que tiver, e a competência vem junto para a tela rotular
+ * de quando é.
+ */
+export function iqiUltimoPorTecnico(
+  rows: IqiSnapshotInput[],
+): Map<string, IqiSnapshotInput> {
+  const out = new Map<string, IqiSnapshotInput>()
+  for (const r of rows) {
+    const atual = out.get(r.tecnicoId)
+    // Competência é "AAAA-MM", então comparação de string já ordena cronologicamente.
+    if (!atual || r.competencia > atual.competencia) out.set(r.tecnicoId, r)
+  }
+  return out
+}
+
 /** IQI consolidado da equipe numa competência (soma/soma). Null se sem dados. */
 export function teamIqi(
   rows: IqiSnapshotInput[],

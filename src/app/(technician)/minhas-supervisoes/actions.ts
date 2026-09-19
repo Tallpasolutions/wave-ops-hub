@@ -8,6 +8,7 @@ import {
   requireSupervisaoCampo,
   SUPERVISAO_ROLES_SUPERVISOR,
 } from '@/lib/supervisao/guard'
+import { notifyManagers } from '@/lib/notifications/notify'
 import {
   calcularNota,
   isChecklistCompleto,
@@ -27,7 +28,7 @@ async function carregarMinhaSupervisao(supervisaoId: string, userId: string) {
   const supabase = await createSupabaseServerClient()
   const { data } = await supabase
     .from('field_supervisions')
-    .select('id, status, tenant_id')
+    .select('id, status, tenant_id, tecnico_id')
     .eq('id', supervisaoId)
     .eq('supervisor_user_id', userId)
     .maybeSingle()
@@ -292,6 +293,23 @@ export async function concluirSupervisao(
     console.error('[supervisao] falha ao concluir:', error)
     return { error: 'Não foi possível finalizar. Tente novamente.' }
   }
+
+  // Gestores são avisados da conclusão — é o gatilho para eles olharem o resultado.
+  // notifyTechnician NÃO é chamado em lugar nenhum deste módulo: o técnico supervisionado
+  // não vê a supervisão dele nem é avisado dela (ADR-022 D5).
+  const { data: tecnico } = await supabase
+    .from('technicians')
+    .select('nome_completo')
+    .eq('id', supervisao.tecnico_id as string)
+    .maybeSingle()
+
+  const nota = resultado.nota === null ? 'sem nota' : `${resultado.nota} de 100`
+  await notifyManagers(supervisao.tenant_id as string, {
+    type: 'supervisao_concluida',
+    title: 'Supervisão de campo concluída',
+    body: `${tecnico?.nome_completo ?? 'Técnico'} · ${nota}`,
+    link: `/supervisoes/${supervisaoId}`,
+  })
 
   revalidatePath('/minhas-supervisoes')
   revalidatePath(`/minhas-supervisoes/${supervisaoId}`)

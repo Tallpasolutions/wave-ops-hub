@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { requireSupervisaoCampo, SUPERVISAO_ROLES_GESTOR } from '@/lib/supervisao/guard'
 import { buildSnapshot, podeAgendar, podeReatribuirSupervisor } from '@/lib/supervisao'
+import { notifySupervisorUser } from '@/lib/notifications/notify'
 import type { ItemDoTemplate } from '@/lib/supervisao'
 
 type Estado = { error: string | null; success?: boolean }
@@ -106,6 +107,19 @@ export async function agendarSupervisao(
     return { error: 'Não foi possível montar o checklist da supervisão. Tente novamente.' }
   }
 
+  // Antes do redirect: redirect() lança, e nada depois dele executa.
+  //
+  // notifySupervisorUser, não notifyTechnician: o técnico supervisionado NÃO é avisado da
+  // supervisão dele (ADR-022 D5). Esta é a única notificação do agendamento.
+  await notifySupervisorUser(tenantId, d.supervisorUserId, {
+    type: 'supervisao_agendada',
+    title: 'Nova supervisão de campo',
+    body: `Agendada para ${d.dataAgendada.split('-').reverse().join('/')}${
+      d.localReferencia ? ` · ${d.localReferencia}` : ''
+    }`,
+    link: `/minhas-supervisoes/${supervisao.id}`,
+  })
+
   revalidatePath('/supervisoes')
   redirect(`/supervisoes/${supervisao.id}`)
 }
@@ -153,6 +167,22 @@ export async function cancelarSupervisao(
   if (error) {
     console.error('[supervisoes] falha ao cancelar:', error)
     return { error: 'Não foi possível cancelar. Tente novamente.' }
+  }
+
+  // O supervisor pode estar a caminho: avisar é o mínimo.
+  const { data: dono } = await supabase
+    .from('field_supervisions')
+    .select('supervisor_user_id')
+    .eq('id', supervisaoId)
+    .maybeSingle()
+
+  if (dono?.supervisor_user_id) {
+    await notifySupervisorUser(user.tenantId!, dono.supervisor_user_id as string, {
+      type: 'supervisao_cancelada',
+      title: 'Supervisão cancelada',
+      body: motivo,
+      link: '/minhas-supervisoes',
+    })
   }
 
   revalidatePath('/supervisoes')

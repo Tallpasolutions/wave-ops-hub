@@ -435,6 +435,42 @@ não misturar refactor com a entrega da sprint (CLAUDE.md §6).
 outras, e o técnico vê números que não batem entre si.
 **Esforço:** XS
 
+### 033 — Server Action que redireciona às vezes derruba a sessão para o login
+**Identificado em:** Sprint 19 (2026-09-19) · **Onde:** `src/lib/supabase/server.ts`,
+`src/lib/supabase/middleware.ts`, toda action que termina em `redirect()`
+
+**Sintoma:** o gestor salva (criar supervisor, agendar supervisão), a gravação **funciona**,
+mas ele cai na tela de login. Entrando de novo, o registro está lá. Observado duas vezes, em
+fluxos diferentes, com o mesmo formato.
+
+**Hipótese com evidência:** o `middleware.ts` declara no cabeçalho que o refresh de token
+acontece **exclusivamente** nele, porque Server Component não grava cookie. Só que **Server
+Action grava** — e `requireRole()` → `getCurrentUser()` → `auth.getUser()` roda dentro da
+action. Com o access token perto de expirar, o cliente SSR rotaciona o refresh token ali. Se
+esse `Set-Cookie` não chega ao navegador antes do `redirect()`, a requisição seguinte manda o
+token antigo, o middleware casa `refresh_token_already_used`, limpa os cookies e manda para o
+login. O log do dev server mostrou `AuthApiError: Invalid Refresh Token: Refresh Token Not
+Found` repetido durante esses episódios.
+
+**Por que não é o `redirect()` dentro de try-catch** (CLAUDE.md §6): nas duas actions o
+`redirect()` está fora de qualquer try-catch. O sintoma é o mesmo, a causa é outra.
+
+**Impacto:** atinge **produção**, em qualquer action que redirecione. Não perde dado — a
+gravação acontece — mas o gestor acha que falhou e repete a operação, o que pode duplicar
+registro em fluxos sem trava de idempotência.
+
+**Como investigar:** reproduzir com o log do dev server aberto e olhar o `Set-Cookie` da
+resposta do POST da action; confirmar se o cookie `sb-*` rotacionado sai junto do 303.
+
+**Possíveis caminhos:** (a) não chamar `auth.getUser()` dentro de actions que redirecionam,
+usando os claims já validados pelo middleware; (b) forçar o flush do cookie antes do
+`redirect()`; (c) tratar `refresh_token_already_used` com uma tentativa de recuperação no
+middleware em vez de limpar tudo de imediato.
+
+**É decisão arquitetural** — mexe no fluxo de sessão de todo o sistema. Merece ADR, não
+remendo.
+**Esforço:** M
+
 ## Itens resolvidos
 
 _(mover para cá quando resolvido, com link pro PR/commit)_

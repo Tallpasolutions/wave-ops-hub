@@ -15,6 +15,9 @@ export type RotuloSupervisao = {
   // Telas de detalhe, onde cabe a explicação completa.
   detalhado: string
   cls: string
+  // Nome do ícone lucide-react. Só a situação tem — é o que a agenda do gestor mostra por
+  // slot, e precisa casar com o rótulo da lista.
+  icone?: string
 }
 
 const NEUTRO_FRACO = 'bg-white/5 text-[var(--text-3)]'
@@ -23,6 +26,7 @@ const VERDE = 'bg-[rgba(46,230,168,0.12)] text-[var(--green)]'
 const VERDE_FORTE = 'bg-[rgba(46,230,168,0.2)] text-[var(--green)]'
 const AMARELO = 'bg-[rgba(250,204,21,0.12)] text-yellow-400'
 const VERMELHO = 'bg-[rgba(239,68,68,0.12)] text-[var(--red)]'
+const CIANO = 'bg-[rgba(0,212,255,0.12)] text-[var(--cyan)]'
 
 const DESCONHECIDO: RotuloSupervisao = {
   curto: 'Desconhecido',
@@ -31,11 +35,40 @@ const DESCONHECIDO: RotuloSupervisao = {
 }
 
 // ── Situação da supervisão ─────────────────────────────────────────────────────────────────
+// `icone` é o nome de um ícone do lucide-react, resolvido pela tela. Fica aqui, junto do
+// rótulo e da cor, para o símbolo da agenda não divergir do texto da lista — que é o que
+// acontece quando cada tela escolhe o seu.
 export const SUPERVISAO_STATUS: Record<StatusSupervisao, RotuloSupervisao> = {
-  agendada: { curto: 'Agendada', detalhado: 'Agendada, aguardando o supervisor', cls: NEUTRO },
-  em_execucao: { curto: 'Em campo', detalhado: 'Em execução no campo', cls: AMARELO },
-  concluida: { curto: 'Concluída', detalhado: 'Concluída pelo supervisor', cls: VERDE },
-  cancelada: { curto: 'Cancelada', detalhado: 'Cancelada', cls: NEUTRO_FRACO },
+  agendada: {
+    curto: 'Agendada',
+    detalhado: 'Agendada, aguardando o supervisor sair',
+    cls: NEUTRO,
+    icone: 'CalendarClock',
+  },
+  em_deslocamento: {
+    curto: 'A caminho',
+    detalhado: 'Supervisor em deslocamento para o local',
+    cls: CIANO,
+    icone: 'Navigation',
+  },
+  em_execucao: {
+    curto: 'Em campo',
+    detalhado: 'Vistoria em andamento',
+    cls: AMARELO,
+    icone: 'ClipboardCheck',
+  },
+  concluida: {
+    curto: 'Concluída',
+    detalhado: 'Vistoria finalizada pelo supervisor',
+    cls: VERDE,
+    icone: 'CircleCheck',
+  },
+  cancelada: {
+    curto: 'Cancelada',
+    detalhado: 'Cancelada',
+    cls: NEUTRO_FRACO,
+    icone: 'CircleSlash',
+  },
 }
 
 export function supervisaoStatusLabel(status: string): RotuloSupervisao {

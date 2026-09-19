@@ -16,6 +16,9 @@ import { users } from "./users";
 
 export const SUPERVISION_STATUSES = [
   "agendada",
+  // O supervisor saiu para o local (migration 0045). Registrável, não obrigatório: quem já
+  // está lá precisa conseguir começar a vistoria mesmo sem marcar a saída.
+  "em_deslocamento",
   "em_execucao",
   "concluida",
   "cancelada",
@@ -79,6 +82,12 @@ export const fieldSupervisions = pgTable(
     osNumReferencia: integer("os_num_referencia"),
 
     observacoesGestor: text("observacoes_gestor"),
+    deslocamentoIniciadoEm: timestamp("deslocamento_iniciado_em", {
+      withTimezone: true,
+    }),
+    // Chegou ao local. Separado de `iniciadaEm`: a diferença entre os dois é o tempo de
+    // preparação no local.
+    chegadaEm: timestamp("chegada_em", { withTimezone: true }),
     iniciadaEm: timestamp("iniciada_em", { withTimezone: true }),
     concluidaEm: timestamp("concluida_em", { withTimezone: true }),
     canceladaEm: timestamp("cancelada_em", { withTimezone: true }),
@@ -130,7 +139,7 @@ export const fieldSupervisions = pgTable(
       .where(sql`${table.osNumReferencia} IS NOT NULL`),
     check(
       "chk_field_sup_status",
-      sql`${table.status} IN ('agendada', 'em_execucao', 'concluida', 'cancelada')`,
+      sql`${table.status} IN ('agendada', 'em_deslocamento', 'em_execucao', 'concluida', 'cancelada')`,
     ),
     check(
       "chk_field_sup_parecer",

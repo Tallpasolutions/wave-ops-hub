@@ -69,8 +69,8 @@ módulo poderia vazar para o técnico. Regra vinculante: **nenhuma chamada a
 | **1** | Banco | Migration 0042 + rollback + 4 schemas Drizzle | 🟡 escrita; **falta aplicar em ambiente de teste** |
 | **2** | Lógica pura | `score.ts`, `status.ts`, `parecer.ts` + testes | ✅ concluída — 37 testes novos, 355 no total |
 | **3** | Flag e gates | `features.ts`, `guard.ts`, `notifySupervisorUser`, props nos 5 arquivos existentes | ⬜ |
-| **4** | Gestor: checklist | CRUD do template em `/supervisoes/checklist` | ⬜ |
-| **5** | Gestor: agendar/listar/detalhar | `agendarSupervisao` com snapshot, lista, detalhe, cancelar, reatribuir | ⬜ |
+| **4** | Gestor: checklist | CRUD do template em `/supervisoes/checklist` | ✅ concluída |
+| **5** | Gestor: agendar/listar/detalhar | `agendarSupervisao` com snapshot, lista, detalhe, cancelar, reatribuir | ✅ concluída |
 | **6** | Supervisor: execução + fotos | `/minhas-supervisoes`, checklist item a item, upload com downscale, concluir | ⬜ |
 | **7** | Notificações + hardening | `notifySupervisorUser` e `notifyManagers` | ⬜ |
 | **8** | E2E + rollout | `11-supervisao.spec.ts`, extensão do `08-rls.spec.ts`, ligar a flag para `wave` | ⬜ |
@@ -249,6 +249,28 @@ ali é um acidente esperando acontecer.
 | R7 | Divergência de `supervisor_user_id` após reatribuição | Reatribuir só com `status = 'agendada'`, atualizando as 3 tabelas na mesma action |
 | R8 | Perda de sinal no campo | Sem fila offline na v1 (ADR-018). Salva item a item: perda máxima = 1 item |
 | R10 | Notificação vazando para o técnico | `grep` por `notifyTechnician` como item de DoD |
+
+---
+
+## Ideias levantadas durante a execução (fora do escopo atual)
+
+### Localização do supervisor e mapa ao vivo
+**Levantada em:** 2026-09-19, durante a Fase 5. **Decisão:** avaliar só no fim da sprint.
+
+O gestor quer ver num mapa onde estão técnicos e supervisores. Levantamento de viabilidade:
+
+| O que | Dá? | Por quê |
+|---|---|---|
+| Capturar a posição **no momento** de cada botão (saiu, chegou, iniciou, finalizou) | ✅ **Sim** | `navigator.geolocation` funciona em PWA sob HTTPS e na TWA (é Chrome por baixo). Exige permissão do usuário uma vez |
+| Mapa do gestor com a **última posição conhecida** de cada um | ✅ **Sim** | É leitura das posições carimbadas acima |
+| Rastreio **contínuo em segundo plano**, app fechado | ❌ **Não de forma confiável** | Service worker não recebe geolocalização contínua. No Android exigiria app nativo com *foreground service* — a TWA não cobre |
+
+Ou seja: **posição por evento, sim; rastreamento contínuo, não.** E a posição por evento encaixa
+exatamente nas transições que a 0045 já criou — o carimbo de hora e o de lugar sairiam juntos.
+
+Antes de implementar, tem decisão de privacidade a tomar: rastrear trabalhador tem implicações
+trabalhistas e de LGPD. Precisa de aviso claro no app, consentimento e política de retenção.
+**Não é decisão técnica.**
 
 ---
 

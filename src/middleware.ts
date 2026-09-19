@@ -44,6 +44,8 @@ export async function middleware(request: NextRequest) {
   // com aviso, em vez de deixar a renderização falhar em tela preta.
   const { response, invalidSession } = await updateSession(request, headers)
 
+  // `invalidSession` agora significa APENAS sessão irrecuperável. Corrida de refresh (duas
+  // requisições renovando o mesmo token) deixou de cair aqui — ver classificarErroSessao.
   if (invalidSession && !isPublicPath(request.nextUrl.pathname)) {
     const loginUrl = new URL('/login?expired=1', request.url)
     const redirect = NextResponse.redirect(loginUrl)

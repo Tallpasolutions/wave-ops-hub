@@ -435,70 +435,81 @@ não misturar refactor com a entrega da sprint (CLAUDE.md §6).
 outras, e o técnico vê números que não batem entre si.
 **Esforço:** XS
 
-### 033 — Server Action que redireciona às vezes derruba a sessão para o login
-**Identificado em:** Sprint 19 (2026-09-19) · **Onde:** `src/lib/supabase/server.ts`,
-`src/lib/supabase/middleware.ts`, toda action que termina em `redirect()`
+### 033 — Sessão derrubada por corrida de refresh (RESOLVIDO na Sprint 19)
+**Identificado em:** QA de 02/07/2026 como **C1 crítico** · **Reincidiu e foi corrigido em:**
+Sprint 19 (2026-09-19)
+**Onde:** `src/lib/supabase/middleware.ts`
 
-**Sintoma:** o gestor salva (criar supervisor, agendar supervisão), a gravação **funciona**,
-mas ele cai na tela de login. Entrando de novo, o registro está lá. Observado duas vezes, em
-fluxos diferentes, com o mesmo formato.
+**Sintoma:** o gestor salva algo, a gravação funciona, e ele cai na tela de login. Ou, no
+relato original do QA, é expulso no meio do trabalho e entra em loop de login. Console:
+`AuthApiError: Invalid Refresh Token: Already Used`.
 
-**Hipótese com evidência:** o `middleware.ts` declara no cabeçalho que o refresh de token
-acontece **exclusivamente** nele, porque Server Component não grava cookie. Só que **Server
-Action grava** — e `requireRole()` → `getCurrentUser()` → `auth.getUser()` roda dentro da
-action. Com o access token perto de expirar, o cliente SSR rotaciona o refresh token ali. Se
-esse `Set-Cookie` não chega ao navegador antes do `redirect()`, a requisição seguinte manda o
-token antigo, o middleware casa `refresh_token_already_used`, limpa os cookies e manda para o
-login. O log do dev server mostrou `AuthApiError: Invalid Refresh Token: Refresh Token Not
-Found` repetido durante esses episódios.
+**Causa raiz.** O access token expira; o middleware renova. Mas o router do Next dispara
+**várias requisições em paralelo** — prefetch por hover e por viewport — e cada uma executa o
+middleware. Todas tentam rotacionar o **mesmo** refresh token. Uma vence; as outras recebem
+`already used`. O middleware classificava isso como sessão irrecuperável e **limpava todos os
+cookies `sb-*`** — destruindo uma sessão que acabara de ser renovada com sucesso.
 
-**Por que não é o `redirect()` dentro de try-catch** (CLAUDE.md §6): nas duas actions o
-`redirect()` está fora de qualquer try-catch. O sintoma é o mesmo, a causa é outra.
+A correção da Sprint 11 centralizou o refresh no middleware, o que estava certo mas foi
+insuficiente: o middleware roda **uma vez por requisição**, então centralizar não elimina a
+concorrência.
 
-**Impacto:** atinge **produção**, em qualquer action que redirecione. Não perde dado — a
-gravação acontece — mas o gestor acha que falhou e repete a operação, o que pode duplicar
-registro em fluxos sem trava de idempotência.
+**Correção (duas metades):**
 
-**Como investigar:** reproduzir com o log do dev server aberto e olhar o `Set-Cookie` da
-resposta do POST da action; confirmar se o cookie `sb-*` rotacionado sai junto do 303.
+1. **`already used` deixou de ser terminal.** `classificarErroSessao` distingue `corrida` de
+   `terminal`. Em corrida, os cookies **não** são limpos: outra requisição já colocou um
+   token bom no navegador, e no pior caso só esta requisição passa sem usuário.
+   `not found` e `session not found` seguem terminais — aí limpar é o certo.
+2. **Prefetch não renova sessão.** `isPrefetchRequest` detecta `next-router-prefetch` e
+   `purpose: prefetch`, e o middleware retorna antes de tocar na sessão. Ataca a **causa** da
+   concorrência: prefetch é especulativo e não deveria mutar estado de sessão.
 
-**Possíveis caminhos:** (a) não chamar `auth.getUser()` dentro de actions que redirecionam,
-usando os claims já validados pelo middleware; (b) forçar o flush do cookie antes do
-`redirect()`; (c) tratar `refresh_token_already_used` com uma tentativa de recuperação no
-middleware em vez de limpar tudo de imediato.
+**Verificado:** rota protegida continua devolvendo 307 com e sem cabeçalho de prefetch — o
+desvio não abre buraco, porque quem guarda a rota são os layouts, que rodam depois. 9 testes
+unitários cobrem a classificação e a detecção, incluindo o caso de código e texto
+discordando (onde a ordem errada reclassificaria corrida como terminal).
 
-**É decisão arquitetural** — mexe no fluxo de sessão de todo o sistema. Merece ADR, não
-remendo.
-**Esforço:** M
+**⚠️ Diagnóstico anterior estava errado.** Este item foi registrado como "rotação de refresh
+token dentro da Server Action". Era palpite. Medindo, o login e o redirect funcionam
+perfeitamente — o que quebrava era a corrida entre requisições concorrentes, que já estava
+documentada como C1 desde julho e nunca fora de fato resolvida.
 
-### 034 — A suíte E2E não passa: todas as specs falham no login
-**Identificado em:** Sprint 19 (2026-09-19), ao escrever o spec do módulo de supervisão
-**Onde:** `tests/e2e/`, `tests/fixtures/auth.ts`
+**Pendente:** confirmar em produção que o gestor deixa de ser expulso. O sintoma aparece
+depois de a sessão passar de uma hora, então só uso real fecha o caso.
 
-`loginAs()` preenche e-mail e senha, clica em entrar, e a navegação para `/dashboard` ou
-`/profile` **nunca acontece** — timeout de 15s. Falha antes de qualquer asserção, então
-nenhuma spec chega a testar o que se propõe.
 
-**Não é regressão da Sprint 19:** `08-rls.spec.ts`, que existe desde antes, falha exatamente
-igual (4 de 4). Confirmado rodando as duas suítes lado a lado, com o dev server no ar e
-respondendo HTTP 200 em `/login`.
+### 034 — A suíte E2E não passa: a senha do usuário de teste técnico está errada
+**Identificado em:** Sprint 19 (2026-09-19) · **Onde:** `.env.local` (`PLAYWRIGHT_TECHNICIAN_*`)
 
-**Suspeita principal:** o mesmo fenômeno do item 033 — a sessão não sobrevive ao redirect
-pós-login. O sintoma bate: o login processa, mas o destino não é alcançado. Vale investigar os
-dois juntos.
+`loginAs('technician')` recebe **HTTP 400** do Supabase e a tela mostra *"E-mail ou senha
+inválidos."*. Como quase toda spec começa logando como técnico, a suíte inteira aparenta
+estar quebrada — mas é só a credencial.
 
-**Impacto:** a suíte E2E é **decorativa hoje**. `pnpm test:e2e` sai vermelho sempre, então
-ninguém roda, e nenhuma regressão de jornada é detectada. Os 431 testes unitários continuam
-válidos e são a única rede real.
+Diagnosticado com um spec temporário que capturou a resposta do endpoint de auth, a URL final
+e os cookies. Resultado lado a lado:
 
-**Como investigar:** rodar `npx playwright test tests/e2e/auth.spec.ts --headed` e observar o
-que acontece na tela depois do clique — se aparece mensagem de erro, se recarrega o login, ou
-se fica parado.
+| Papel | Auth | Onde para |
+|---|---|---|
+| `manager` | 200 | `/dashboard` ✅ |
+| `technician` | **400** | volta para `/login` com erro ❌ |
 
-**Bloqueia o DoD da Sprint 19:** a Fase 8 previa E2E verde. O spec `11-supervisao.spec.ts`
-está escrito e registra 10 casos, mas não dá para afirmar que passa enquanto o login não
-funcionar na suíte.
-**Esforço:** M — provavelmente resolve junto com o 033.
+**Correção:** acertar `PLAYWRIGHT_TECHNICIAN_EMAIL` / `PLAYWRIGHT_TECHNICIAN_PASSWORD` no
+`.env.local`, ou redefinir a senha desse usuário pelo painel do gestor
+(`/equipe/tecnicos/[id]`, que tem o diálogo de senha). `PLAYWRIGHT_SUPERVISOR_*` ainda não
+existe e precisa ser criado para os 2 testes do portal do supervisor.
+
+**⚠️ Diagnóstico anterior estava errado.** Este item primeiro registrou "a sessão não
+sobrevive ao redirect pós-login", associando ao item 033. Era palpite: o login do gestor
+funciona perfeitamente, cookie e tudo. O que confirmou foi medir, não deduzir.
+
+**Impacto real:** menor do que parecia. A suíte não roda hoje, mas por configuração — não há
+defeito de produto por trás.
+
+**Lição:** credencial de teste vencida derruba a suíte inteira com um sintoma que parece
+grave. Vale um teste que valide as credenciais e falhe com mensagem clara, em vez de 29
+timeouts.
+**Esforço:** XS para destravar.
+
 
 ## Itens resolvidos
 

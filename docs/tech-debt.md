@@ -471,6 +471,35 @@ middleware em vez de limpar tudo de imediato.
 remendo.
 **Esforço:** M
 
+### 034 — A suíte E2E não passa: todas as specs falham no login
+**Identificado em:** Sprint 19 (2026-09-19), ao escrever o spec do módulo de supervisão
+**Onde:** `tests/e2e/`, `tests/fixtures/auth.ts`
+
+`loginAs()` preenche e-mail e senha, clica em entrar, e a navegação para `/dashboard` ou
+`/profile` **nunca acontece** — timeout de 15s. Falha antes de qualquer asserção, então
+nenhuma spec chega a testar o que se propõe.
+
+**Não é regressão da Sprint 19:** `08-rls.spec.ts`, que existe desde antes, falha exatamente
+igual (4 de 4). Confirmado rodando as duas suítes lado a lado, com o dev server no ar e
+respondendo HTTP 200 em `/login`.
+
+**Suspeita principal:** o mesmo fenômeno do item 033 — a sessão não sobrevive ao redirect
+pós-login. O sintoma bate: o login processa, mas o destino não é alcançado. Vale investigar os
+dois juntos.
+
+**Impacto:** a suíte E2E é **decorativa hoje**. `pnpm test:e2e` sai vermelho sempre, então
+ninguém roda, e nenhuma regressão de jornada é detectada. Os 431 testes unitários continuam
+válidos e são a única rede real.
+
+**Como investigar:** rodar `npx playwright test tests/e2e/auth.spec.ts --headed` e observar o
+que acontece na tela depois do clique — se aparece mensagem de erro, se recarrega o login, ou
+se fica parado.
+
+**Bloqueia o DoD da Sprint 19:** a Fase 8 previa E2E verde. O spec `11-supervisao.spec.ts`
+está escrito e registra 10 casos, mas não dá para afirmar que passa enquanto o login não
+funcionar na suíte.
+**Esforço:** M — provavelmente resolve junto com o 033.
+
 ## Itens resolvidos
 
 _(mover para cá quando resolvido, com link pro PR/commit)_

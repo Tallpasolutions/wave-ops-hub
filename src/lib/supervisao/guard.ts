@@ -1,6 +1,6 @@
 import 'server-only'
-import { notFound } from 'next/navigation'
-import { requireRole } from '@/lib/auth/permissions'
+import { notFound, redirect } from 'next/navigation'
+import { getCurrentUser } from '@/lib/auth/session'
 import type { AppRole, SessionUser } from '@/lib/auth/types'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isSupervisaoCampoOn } from '@/lib/tenant/features'
@@ -17,7 +17,16 @@ import { isSupervisaoCampoOn } from '@/lib/tenant/features'
 // A flag é lida do banco a cada request, não do JWT — ligar ou desligar vale na hora, sem
 // depender do refresh do token.
 export async function requireSupervisaoCampo(roles: AppRole[]): Promise<SessionUser> {
-  const user = await requireRole(roles)
+  const user = await getCurrentUser()
+  if (!user) redirect('/login')
+
+  if (!roles.includes(user.role)) {
+    // REDIRECIONA, não lança. `requireRole` lança 'Forbidden', que o Next renderiza como tela
+    // de erro — e isso acontece de verdade aqui: o layout de (technician) aceita técnico E
+    // supervisor, então o técnico comum ALCANÇA estas rotas antes de qualquer checagem.
+    // Mandar para o painel dele é o que /minha-equipe já faz.
+    redirect(roles.includes('tenant_supervisor') ? '/' : '/login')
+  }
 
   // tallpa_owner não tem tenant_id: opera a plataforma e enxerga todos os tenants, então não
   // há flag de tenant a consultar.

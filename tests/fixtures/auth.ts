@@ -1,12 +1,14 @@
 import type { Page } from '@playwright/test'
 
-type Role = 'admin' | 'manager' | 'technician'
+type Role = 'admin' | 'manager' | 'technician' | 'supervisor'
 
 // Base URLs por role — o middleware exige subdomínios explícitos
 export const BASE_URLS: Record<Role, string> = {
   admin: 'http://admin.localhost:3000',
   manager: 'http://wave.localhost:3000',
   technician: 'http://wave.localhost:3000',
+  // Supervisor entra pelo portal do técnico — é lá que o papel dele vive (ADR-023).
+  supervisor: 'http://wave.localhost:3000',
 }
 
 const CREDENTIALS: Record<Role, { email: string; password: string }> = {
@@ -21,6 +23,10 @@ const CREDENTIALS: Record<Role, { email: string; password: string }> = {
   technician: {
     email: process.env.PLAYWRIGHT_TECHNICIAN_EMAIL ?? '',
     password: process.env.PLAYWRIGHT_TECHNICIAN_PASSWORD ?? '',
+  },
+  supervisor: {
+    email: process.env.PLAYWRIGHT_SUPERVISOR_EMAIL ?? '',
+    password: process.env.PLAYWRIGHT_SUPERVISOR_PASSWORD ?? '',
   },
 }
 

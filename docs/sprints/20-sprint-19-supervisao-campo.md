@@ -71,9 +71,9 @@ módulo poderia vazar para o técnico. Regra vinculante: **nenhuma chamada a
 | **3** | Flag e gates | `features.ts`, `guard.ts`, `notifySupervisorUser`, props nos 5 arquivos existentes | ⬜ |
 | **4** | Gestor: checklist | CRUD do template em `/supervisoes/checklist` | ✅ concluída |
 | **5** | Gestor: agendar/listar/detalhar | `agendarSupervisao` com snapshot, lista, detalhe, cancelar, reatribuir | ✅ concluída |
-| **6** | Supervisor: execução + fotos | `/minhas-supervisoes`, checklist item a item, upload com downscale, concluir | ⬜ |
-| **7** | Notificações + hardening | `notifySupervisorUser` e `notifyManagers` | ⬜ |
-| **8** | E2E + rollout | `11-supervisao.spec.ts`, extensão do `08-rls.spec.ts`, ligar a flag para `wave` | ⬜ |
+| **6** | Supervisor: execução + fotos | `/minhas-supervisoes`, checklist item a item, upload com downscale, concluir | ✅ concluída |
+| **7** | Notificações + hardening | `notifySupervisorUser` e `notifyManagers` | ✅ concluída — e a guarda de isolamento virou teste |
+| **8** | E2E + rollout | `11-supervisao.spec.ts` escrito, 10 casos | 🔴 **bloqueada** — a suíte E2E inteira falha no login, e **não é regressão da sprint** (tech-debt 034) |
 
 **Fases 1–3 são invisíveis em produção.** Fases 4–7 são desenvolvidas com a flag ligada
 apenas em ambiente de teste. Só a Fase 8 liga a flag em produção.

@@ -5,8 +5,22 @@ import { z } from 'zod'
 import { requireRole } from '@/lib/auth'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
+// ADR-023: supervisor NÃO é obrigatoriamente um técnico. `technicianId` só é preenchido
+// quando ele também executa visitas — e aí o portal dele mostra painel, visitas, IQI e
+// histórico próprios. Sem vínculo, ele é supervisor puro.
+//
+// Não confundir com `supervisedIds`, que é a equipe pela qual ele responde
+// (tabela supervisor_technicians) — essa continua sendo o coração do cadastro.
+//
+// `nomeCompleto` passa a vir do formulário: antes era copiado do técnico vinculado, o que
+// deixa de existir quando não há vínculo.
 const createSupervisorSchema = z.object({
-  technicianId: z.string().uuid('Técnico inválido'),
+  technicianId: z
+    .string()
+    .uuid('Técnico inválido')
+    .optional()
+    .or(z.literal('')),
+  nomeCompleto: z.string().trim().min(3, 'Informe o nome completo do supervisor'),
   email: z.string().email('E-mail inválido'),
   senhaInicial: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres'),
   supervisedIds: z.array(z.string().uuid()),
@@ -22,6 +36,7 @@ export async function createSupervisor(
 
   const result = createSupervisorSchema.safeParse({
     technicianId: formData.get('technicianId'),
+    nomeCompleto: formData.get('nomeCompleto'),
     email: formData.get('email'),
     senhaInicial: formData.get('senhaInicial'),
     supervisedIds,
@@ -29,18 +44,30 @@ export async function createSupervisor(
 
   if (!result.success) return { error: result.error.errors[0].message }
 
-  const { technicianId, email, senhaInicial, supervisedIds: supervised } = result.data
+  const {
+    technicianId: technicianIdRaw,
+    nomeCompleto,
+    email,
+    senhaInicial,
+    supervisedIds: supervised,
+  } = result.data
   const tenantId = currentUser.tenantId!
   const adminClient = createSupabaseAdminClient()
 
-  const { data: existingTech } = await adminClient
-    .from('technicians')
-    .select('nome_completo')
-    .eq('id', technicianId)
-    .eq('tenant_id', tenantId)
-    .single()
+  // String vazia do <select> vira null: a coluna aceita nulo para supervisor (migration 0043).
+  const technicianId = technicianIdRaw ? technicianIdRaw : null
 
-  if (!existingTech) return { error: 'Técnico não encontrado.' }
+  // Só valida o técnico quando há vínculo. Sem vínculo, nada a checar.
+  if (technicianId) {
+    const { data: existingTech } = await adminClient
+      .from('technicians')
+      .select('id')
+      .eq('id', technicianId)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (!existingTech) return { error: 'Técnico não encontrado.' }
+  }
 
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email,
@@ -63,7 +90,7 @@ export async function createSupervisor(
   const { error: dbError } = await adminClient.from('users').insert({
     id: userId,
     email,
-    nome_completo: existingTech.nome_completo,
+    nome_completo: nomeCompleto,
     role: 'tenant_supervisor',
     tenant_id: tenantId,
     technician_id: technicianId,

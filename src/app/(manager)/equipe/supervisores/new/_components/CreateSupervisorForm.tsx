@@ -18,6 +18,7 @@ type Props = {
 export function CreateSupervisorForm({ techniciansAvailable, techniciansAll }: Props) {
   const [state, formAction, isPending] = useActionState(createSupervisor, { error: null as string | null })
   const [selectedTechnicianId, setSelectedTechnicianId] = useState('')
+  const [nomeCompleto, setNomeCompleto] = useState('')
   const [supervisedIds, setSupervisedIds] = useState<string[]>([])
 
   function toggleSupervised(id: string) {
@@ -40,7 +41,7 @@ export function CreateSupervisorForm({ techniciansAvailable, techniciansAll }: P
         </Link>
         <h1 className="font-display text-2xl font-bold text-[var(--text)]">Novo Supervisor</h1>
         <p className="mt-1 text-sm text-[var(--text-3)]">
-          Vincula um técnico existente como líder de equipe.
+          Cria a conta de acesso e define por quais técnicos ele responde.
         </p>
       </div>
 
@@ -51,13 +52,35 @@ export function CreateSupervisorForm({ techniciansAvailable, techniciansAll }: P
 
         <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-5">
           <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
-            Técnico supervisor
+            Dados do supervisor
           </p>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
+              <Label
+                htmlFor="nomeCompleto"
+                className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--text-3)]"
+              >
+                Nome completo <span className="text-[var(--red)]">*</span>
+              </Label>
+              <Input
+                id="nomeCompleto"
+                name="nomeCompleto"
+                value={nomeCompleto}
+                onChange={(e) => setNomeCompleto(e.target.value)}
+                placeholder="Nome do supervisor"
+                required
+              />
+            </div>
+
+            {/* ADR-023: o vínculo com técnico é OPCIONAL. Só se preenche quando o supervisor
+                também executa visitas. Não confundir com a equipe, logo abaixo. */}
+            <div className="flex flex-col gap-2">
               <Label className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--text-3)]">
-                Técnico <span className="text-[var(--red)]">*</span>
+                Também é técnico?{' '}
+                <span className="font-normal normal-case tracking-normal text-[var(--text-3)]">
+                  (opcional)
+                </span>
               </Label>
               {techniciansAvailable.length === 0 ? (
                 <p className="text-sm text-[var(--text-3)]">
@@ -68,18 +91,26 @@ export function CreateSupervisorForm({ techniciansAvailable, techniciansAll }: P
                   name="technicianId"
                   value={selectedTechnicianId}
                   onChange={(e) => {
-                    setSelectedTechnicianId(e.target.value)
-                    setSupervisedIds((prev) => prev.filter((id) => id !== e.target.value))
+                    const id = e.target.value
+                    setSelectedTechnicianId(id)
+                    setSupervisedIds((prev) => prev.filter((x) => x !== id))
+                    // Conveniência: puxa o nome do técnico escolhido, mas segue editável.
+                    const tech = techniciansAvailable.find((t) => t.id === id)
+                    if (tech) setNomeCompleto(tech.nome_completo)
                   }}
-                  required
                   className="h-10 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 text-sm text-[var(--text)] outline-none focus:border-[var(--cyan)]"
                 >
-                  <option value="">Selecione um técnico</option>
+                  <option value="">Não executa visitas</option>
                   {techniciansAvailable.map((t) => (
                     <option key={t.id} value={t.id}>{t.nome_completo}</option>
                   ))}
                 </select>
               )}
+              <p className="text-xs text-[var(--text-3)]">
+                Preencha apenas se este supervisor também executa visitas em campo — aí ele vê
+                o próprio painel, visitas, IQI e histórico. Deixe em branco para supervisor que
+                só acompanha equipe.
+              </p>
             </div>
 
             <div className="flex flex-col gap-2">

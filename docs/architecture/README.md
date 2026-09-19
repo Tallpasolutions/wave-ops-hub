@@ -30,6 +30,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-020](./ADR-020-receita-zerada-sem-repasse.md) | Receita zerada da Unetvale não gera repasse automático | Aceito |
 | [ADR-021](./ADR-021-alteracoes-unetvale-garantia.md) | Registro e notificação de alterações de valor da Unetvale (OS de garantia) | Aceito |
 | [ADR-022](./ADR-022-supervisao-de-campo.md) | Supervisão de Campo como módulo isolado do cálculo | Aceito |
+| [ADR-023](./ADR-023-supervisor-sem-vinculo-tecnico.md) | Supervisor não é obrigatoriamente um técnico | Aceito |
 
 ### Onde cada ADR toca o cálculo de payout
 

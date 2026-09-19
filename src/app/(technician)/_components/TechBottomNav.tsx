@@ -11,13 +11,18 @@ import {
   ClipboardCheck,
 } from 'lucide-react'
 
-const BASE_NAV = [
+// Telas ancoradas nas visitas do PRÓPRIO usuário. Todas fazem
+// `if (!user.technicianId) redirect('/profile')`, então não fazem sentido para um supervisor
+// sem vínculo com técnico (ADR-023) — ele não tem visita nenhuma.
+const NAV_DE_TECNICO = [
   { href: '/', label: 'Painel', icon: LayoutDashboard },
   { href: '/visitas', label: 'Visitas', icon: ClipboardList },
   { href: '/iqi', label: 'IQI', icon: Gauge },
   { href: '/historico', label: 'Histórico', icon: BarChart3 },
-  { href: '/profile', label: 'Perfil', icon: UserCircle2 },
 ]
+
+// Vale para qualquer um que entre por este portal.
+const PERFIL_ITEM = { href: '/profile', label: 'Perfil', icon: UserCircle2 }
 
 const SUPERVISOR_ITEM = { href: '/minha-equipe', label: 'Equipe', icon: Users }
 
@@ -33,15 +38,24 @@ const SUPERVISAO_ITEM = { href: '/minhas-supervisoes', label: 'Campo', icon: Cli
 export function TechBottomNav({
   isSupervisor = false,
   showSupervisoes = false,
+  temVinculoTecnico = true,
 }: {
   isSupervisor?: boolean
   showSupervisoes?: boolean
+  // ADR-023. Default true para que qualquer chamada antiga do componente — e todo técnico,
+  // que sempre tem vínculo — continue vendo a barra exatamente como hoje.
+  temVinculoTecnico?: boolean
 }) {
   const pathname = usePathname()
-  // Sem as props, a barra é exatamente BASE_NAV — a navegação do técnico não muda em nada.
-  const nav = isSupervisor
-    ? [...BASE_NAV, SUPERVISOR_ITEM, ...(showSupervisoes ? [SUPERVISAO_ITEM] : [])]
-    : BASE_NAV
+
+  // Supervisor puro (sem vínculo) não vê as telas de visita própria: elas mostrariam zero
+  // ou redirecionariam, parecendo defeito em vez de desenho.
+  const nav = [
+    ...(temVinculoTecnico ? NAV_DE_TECNICO : []),
+    ...(isSupervisor ? [SUPERVISOR_ITEM] : []),
+    ...(isSupervisor && showSupervisoes ? [SUPERVISAO_ITEM] : []),
+    PERFIL_ITEM,
+  ]
 
   return (
     <nav className="sticky bottom-0 z-10 flex border-t border-[var(--line)] bg-[var(--bg-1)]">

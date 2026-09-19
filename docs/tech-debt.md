@@ -359,6 +359,61 @@ e o `SetPasswordDialog`, ajustando o escopo de tenant (o painel admin é cross-t
 
 ---
 
+### 029 — Ambiente local quebra em silêncio por três armadilhas conhecidas
+**Identificado em:** Sprint 19 (2026-09-18), durante o QA da Fase 3
+**Onde:** `.env.local`, `public/sw.js`, dev server
+
+Três coisas que custaram horas de diagnóstico porque **nenhuma delas dá mensagem de erro
+útil** — todas aparecem como `ChunkLoadError` ou tela que não carrega:
+
+1. **Dois dev servers ao mesmo tempo.** Rodar `pnpm dev` com um servidor já de pé faz o Next
+   desviar para a 3001 e avisar numa linha fácil de perder
+   (`Port 3000 is in use ... using 3001 instead`). Os dois passam a escrever no mesmo `.next`:
+   um apaga os chunks que o outro está servindo. Agrava porque `middleware.ts` e
+   `redirect.ts` têm a porta **3000 fixa** no código — na 3001, metade dos links joga para
+   uma porta morta.
+2. **`NEXT_PUBLIC_ROOT_DOMAIN` com o valor de produção no `.env.local`.** Os dois arquivos
+   acima decidem "estou em dev?" comparando com a string exata `localhost`. Com
+   `tallpa.com.br`, o app monta URL `https` sem porta e concatena com o host local, gerando
+   `wave.localhost.tallpa.com.br` (ERR_NAME_NOT_RESOLVED). O valor correto está em
+   `.env.example:56` e em `docs/manual-steps/dev-local-subdomains.md`.
+3. **Service worker servindo bundle antigo.** `public/sw.js` cacheia `_next/static`
+   cache-first, e variáveis `NEXT_PUBLIC_*` ficam **embutidas no bundle**. Trocar o `.env.local`
+   e reiniciar não basta: o navegador continua com o valor velho até o SW ser removido
+   (DevTools → Application → Clear site data, ou aba anônima).
+
+**Impacto se não resolver:** nenhum em produção — é fricção de desenvolvimento. Mas
+reincidente e cara: consumiu boa parte de uma sessão de QA.
+**Mitigação adotada:** `.claude/launch.json` para subir uma única instância gerenciada na
+3000. Diagnóstico confiável de duplicata: `ps -eo pid,command | grep next-server` (uma linha
+por servidor; `lsof -ti:3000` engana porque conta conexões do navegador).
+**Ideia de resolução:** aviso no boot quando `NEXT_PUBLIC_ROOT_DOMAIN !== 'localhost'` e
+`NODE_ENV === 'development'`; e registrar o SW só em produção.
+**Esforço:** S
+
+### 030 — `src/lib/auth/` estava sem nenhum teste
+**Identificado em:** Sprint 19 (2026-09-18)
+**Onde:** `src/lib/auth/`
+
+O bug 031 (abaixo) sobreviveu desde a Sprint 9 porque `buildPostLoginUrl` — a função que
+decide para onde cada papel vai depois de entrar — não tinha cobertura alguma. Criado
+`src/lib/auth/__tests__/redirect.test.ts`, mas `permissions.ts`, `session.ts` e
+`set-password.ts` seguem sem teste.
+**Impacto se não resolver:** regressão de acesso passa despercebida, e ela falha em silêncio
+(o usuário só vê o login recarregando).
+**Esforço:** S
+
+### 031 — Supervisor não conseguia logar (RESOLVIDO na Sprint 19)
+**Identificado em:** Sprint 19 (2026-09-18) · **Corrigido em:** `1956b66`
+**Onde:** `src/lib/auth/redirect.ts`
+
+`buildPostLoginUrl` só tratava `tenant_technician`; o supervisor caía no `return` genérico,
+ia para `/dashboard`, era recusado por `(manager)/layout.tsx` e voltava ao login **sem
+mensagem nenhuma**, em laço. O papel nasceu na migration 0009 e a função nunca foi
+atualizada. **Afetava produção**, não só o ambiente local.
+**Pendente:** verificação ponta a ponta com um supervisor real logando — a correção está
+coberta por teste unitário, mas o ambiente local não permitiu fechar o QA.
+
 ## Itens resolvidos
 
 _(mover para cá quando resolvido, com link pro PR/commit)_

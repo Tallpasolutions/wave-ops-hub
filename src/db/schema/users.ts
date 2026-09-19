@@ -58,9 +58,12 @@ export const users = pgTable(
       "tenant_role_consistency",
       sql`(role = 'tallpa_owner' AND tenant_id IS NULL) OR (role IN ('tenant_owner', 'tenant_manager', 'tenant_technician', 'tenant_supervisor') AND tenant_id IS NOT NULL)`,
     ),
+    // ADR-023 / migration 0043: supervisor NÃO é obrigado a ser técnico. `technician_id`
+    // nele é opcional — preenchido só quando o supervisor também executa visitas.
+    // Não confundir com `supervisor_technicians`, que é a equipe pela qual ele responde.
     check(
       "technician_role_consistency",
-      sql`(role IN ('tenant_technician', 'tenant_supervisor') AND technician_id IS NOT NULL) OR (role NOT IN ('tenant_technician', 'tenant_supervisor') AND technician_id IS NULL)`,
+      sql`(role = 'tenant_technician' AND technician_id IS NOT NULL) OR (role = 'tenant_supervisor') OR (role NOT IN ('tenant_technician', 'tenant_supervisor') AND technician_id IS NULL)`,
     ),
   ],
 );

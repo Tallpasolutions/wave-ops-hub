@@ -48,6 +48,9 @@ export default async function TechnicianLayout({ children }: { children: React.R
   const isSupervisor = user.role === 'tenant_supervisor'
   // Só decide se o item aparece na barra. O gate real é requireSupervisaoCampo().
   const showSupervisoes = isSupervisor && isSupervisaoCampoOn(tenantRow?.config)
+  // ADR-023: supervisor sem vínculo com técnico não tem visitas próprias, então as telas
+  // ancoradas nelas somem da barra. Técnico sempre tem vínculo, e nada muda para ele.
+  const temVinculoTecnico = !!user.technicianId
   const notifications: NotifItem[] = ((notifRes.data ?? []) as {
     id: string
     title: string
@@ -102,7 +105,11 @@ export default async function TechnicianLayout({ children }: { children: React.R
 
       <main className="flex-1 pb-16">{children}</main>
 
-      <TechBottomNav isSupervisor={isSupervisor} showSupervisoes={showSupervisoes} />
+      <TechBottomNav
+        isSupervisor={isSupervisor}
+        showSupervisoes={showSupervisoes}
+        temVinculoTecnico={temVinculoTecnico}
+      />
     </div>
   )
 }

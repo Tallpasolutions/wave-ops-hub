@@ -8,6 +8,8 @@ interface ManagerShellProps {
   email: string
   tenantNome: string
   improdutivasPendentes?: number
+  // Supervisão de campo (ADR-022). Default false no Sidebar: sem a prop, nada muda.
+  supervisaoCampoOn?: boolean
   topbar: React.ReactNode
   children: React.ReactNode
 }
@@ -17,6 +19,7 @@ export function ManagerShell({
   email,
   tenantNome,
   improdutivasPendentes,
+  supervisaoCampoOn,
   topbar,
   children,
 }: ManagerShellProps) {
@@ -31,6 +34,7 @@ export function ManagerShell({
           email={email}
           tenantNome={tenantNome}
           improdutivasPendentes={improdutivasPendentes}
+          supervisaoCampoOn={supervisaoCampoOn}
         />
       </div>
 
@@ -47,6 +51,7 @@ export function ManagerShell({
               email={email}
               tenantNome={tenantNome}
               improdutivasPendentes={improdutivasPendentes}
+              supervisaoCampoOn={supervisaoCampoOn}
               onClose={() => setMobileOpen(false)}
             />
           </div>

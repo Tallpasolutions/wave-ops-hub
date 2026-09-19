@@ -77,3 +77,30 @@ export async function notifyTechnician(
   })
   await pushSafely([u.id as string], n)
 }
+
+// Notifica um usuário pelo users.id direto — usado pelo módulo de Supervisão de Campo
+// (ADR-022), onde field_supervisions.supervisor_user_id JÁ É o users.id.
+//
+// Por que não reusar notifyTechnician: ela resolve users a partir de technician_id com
+// .maybeSingle(), que devolve erro (e a notificação some em silêncio) se houver mais de uma
+// linha de users com o mesmo technician_id. Como aqui já temos o users.id em mãos, resolver
+// de novo só adicionaria esse modo de falha.
+//
+// ⚠️ O módulo de supervisão NÃO chama notifyTechnician em lugar nenhum: o técnico
+// supervisionado não vê a supervisão dele nem é avisado sobre ela.
+export async function notifySupervisorUser(
+  tenantId: string,
+  userId: string,
+  n: Notif,
+): Promise<void> {
+  const admin = createSupabaseAdminClient()
+  await admin.from('notifications').insert({
+    tenant_id: tenantId,
+    user_id: userId,
+    type: n.type,
+    title: n.title,
+    body: n.body ?? null,
+    link: n.link ?? null,
+  })
+  await pushSafely([userId], n)
+}

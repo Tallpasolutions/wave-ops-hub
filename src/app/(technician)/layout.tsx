@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: { template: '%s | Wave Ops Hub', default: 'Portal do Técnico' },
 }
 import { signOut } from '@/lib/auth/logout'
-import { resolveTenantFromSlug } from '@/lib/tenant'
+import { resolveTenantFromSlug, isSupervisaoCampoOn } from '@/lib/tenant'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { TenantLogo } from '@/components/ui/TenantLogo'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -33,7 +33,7 @@ export default async function TechnicianLayout({ children }: { children: React.R
 
   const [tenantRes, notifRes] = await Promise.all([
     user.tenantId
-      ? supabase.from('tenants').select('nome').eq('id', user.tenantId).single()
+      ? supabase.from('tenants').select('nome, config').eq('id', user.tenantId).single()
       : Promise.resolve({ data: null }),
     supabase
       .from('notifications')
@@ -43,7 +43,11 @@ export default async function TechnicianLayout({ children }: { children: React.R
       .limit(20),
   ])
 
-  const tenantNome = (tenantRes.data as { nome?: string } | null)?.nome ?? ''
+  const tenantRow = tenantRes.data as { nome?: string; config?: unknown } | null
+  const tenantNome = tenantRow?.nome ?? ''
+  const isSupervisor = user.role === 'tenant_supervisor'
+  // Só decide se o item aparece na barra. O gate real é requireSupervisaoCampo().
+  const showSupervisoes = isSupervisor && isSupervisaoCampoOn(tenantRow?.config)
   const notifications: NotifItem[] = ((notifRes.data ?? []) as {
     id: string
     title: string
@@ -98,7 +102,7 @@ export default async function TechnicianLayout({ children }: { children: React.R
 
       <main className="flex-1 pb-16">{children}</main>
 
-      <TechBottomNav isSupervisor={user.role === 'tenant_supervisor'} />
+      <TechBottomNav isSupervisor={isSupervisor} showSupervisoes={showSupervisoes} />
     </div>
   )
 }

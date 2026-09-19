@@ -1,7 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ClipboardList, Gauge, BarChart3, UserCircle2, Users } from 'lucide-react'
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Gauge,
+  BarChart3,
+  UserCircle2,
+  Users,
+  ClipboardCheck,
+} from 'lucide-react'
 
 const BASE_NAV = [
   { href: '/', label: 'Painel', icon: LayoutDashboard },
@@ -13,9 +21,27 @@ const BASE_NAV = [
 
 const SUPERVISOR_ITEM = { href: '/minha-equipe', label: 'Equipe', icon: Users }
 
-export function TechBottomNav({ isSupervisor = false }: { isSupervisor?: boolean }) {
+// Supervisão de campo (ADR-022): só aparece para supervisor E com a feature flag do tenant
+// ligada. O técnico comum nunca vê — ele não tem acesso às supervisões nem à própria.
+//
+// O rótulo é "Campo", não "Supervisão", por medição a 360px: a célula é flex-1, e o texto
+// "Supervisão" (73px) rouba espaço das outras, derrubando-as de 58px para 30px e fazendo os
+// rótulos encostarem. Com "Campo" a menor célula fica em 48px e a barra continua legível.
+// Nenhum rótulo existente foi encurtado — com a flag desligada a barra é idêntica à de hoje.
+const SUPERVISAO_ITEM = { href: '/minhas-supervisoes', label: 'Campo', icon: ClipboardCheck }
+
+export function TechBottomNav({
+  isSupervisor = false,
+  showSupervisoes = false,
+}: {
+  isSupervisor?: boolean
+  showSupervisoes?: boolean
+}) {
   const pathname = usePathname()
-  const nav = isSupervisor ? [...BASE_NAV, SUPERVISOR_ITEM] : BASE_NAV
+  // Sem as props, a barra é exatamente BASE_NAV — a navegação do técnico não muda em nada.
+  const nav = isSupervisor
+    ? [...BASE_NAV, SUPERVISOR_ITEM, ...(showSupervisoes ? [SUPERVISAO_ITEM] : [])]
+    : BASE_NAV
 
   return (
     <nav className="sticky bottom-0 z-10 flex border-t border-[var(--line)] bg-[var(--bg-1)]">

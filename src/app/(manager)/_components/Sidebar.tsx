@@ -8,6 +8,7 @@ import {
   Users,
   FileUp,
   ClipboardList,
+  ClipboardCheck,
   DollarSign,
   SlidersHorizontal,
   HelpCircle,
@@ -56,6 +57,18 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
 
+// Supervisão de campo (ADR-022): item condicional à feature flag do tenant, declarado fora
+// de NAV_ITEMS para deixar explícito que não é navegação fixa.
+//
+// Deliberadamente FORA de PERIOD_NAV e SEM badge: a data relevante da supervisão é
+// `data_agendada`, não `data_execucao`, então o seletor global de mês não se aplica — e um
+// badge faria o layout do gestor rodar uma query a mais em TODA tela.
+const SUPERVISAO_ITEM: NavItem = {
+  href: '/supervisoes',
+  label: 'Supervisões',
+  icon: ClipboardCheck,
+}
+
 function isActive(item: NavItem, pathname: string): boolean {
   const paths = [item.href, ...(item.match ?? [])]
   return paths.some((p) => pathname === p || pathname.startsWith(p + '/'))
@@ -66,6 +79,7 @@ interface ManagerSidebarProps {
   email: string
   tenantNome: string
   improdutivasPendentes?: number
+  supervisaoCampoOn?: boolean
   onClose?: () => void
 }
 
@@ -74,6 +88,7 @@ export function ManagerSidebar({
   email,
   tenantNome,
   improdutivasPendentes,
+  supervisaoCampoOn = false,
   onClose,
 }: ManagerSidebarProps) {
   const pathname = usePathname()
@@ -84,6 +99,12 @@ export function ManagerSidebar({
   // (último mês com dados / cookie).
   const spMes = searchParams.get('mes')
   const currentMes = isValidMes(spMes) ? spMes : undefined
+
+  // Com a flag desligada esta é literalmente a mesma referência de NAV_ITEMS — a navegação
+  // do gestor não muda em nada.
+  const navItems = supervisaoCampoOn
+    ? NAV_ITEMS.flatMap((item) => (item.href === '/oss' ? [item, SUPERVISAO_ITEM] : [item]))
+    : NAV_ITEMS
 
   return (
     <aside className="flex w-[220px] shrink-0 flex-col border-r border-[var(--line)] bg-[var(--bg-1)]">
@@ -100,7 +121,7 @@ export function ManagerSidebar({
       </div>
 
       <nav className="flex-1 px-3 py-4">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const { href, label, icon: Icon, disabled } = item
           if (disabled) {
             return (

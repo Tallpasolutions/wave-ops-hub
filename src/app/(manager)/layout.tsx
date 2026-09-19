@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getCurrentUser } from '@/lib/auth'
-import { resolveTenantFromSlug } from '@/lib/tenant'
+import { resolveTenantFromSlug, isSupervisaoCampoOn } from '@/lib/tenant'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ManagerShell } from './_components/ManagerShell'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -36,7 +36,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
 
   const [tenantRes, notifRes, improdutivasRes] = await Promise.all([
     user.tenantId
-      ? supabase.from('tenants').select('nome').eq('id', user.tenantId).single()
+      ? supabase.from('tenants').select('nome, config').eq('id', user.tenantId).single()
       : Promise.resolve({ data: null }),
     supabase
       .from('notifications')
@@ -54,7 +54,11 @@ export default async function ManagerLayout({ children }: { children: React.Reac
       : Promise.resolve({ count: 0 }),
   ])
 
-  const tenantNome = (tenantRes.data as { nome?: string } | null)?.nome ?? 'Manager'
+  const tenantRow = tenantRes.data as { nome?: string; config?: unknown } | null
+  const tenantNome = tenantRow?.nome ?? 'Manager'
+  // Supervisão de campo (ADR-022): só decide se o item aparece no menu. O gate real das
+  // rotas e das actions é o requireSupervisaoCampo(), em src/lib/supervisao/guard.ts.
+  const supervisaoCampoOn = isSupervisaoCampoOn(tenantRow?.config)
   const notifications: NotifItem[] = ((notifRes.data ?? []) as {
     id: string
     title: string
@@ -87,6 +91,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
       email={user.email}
       tenantNome={tenantNome}
       improdutivasPendentes={improdutivasPendentes}
+      supervisaoCampoOn={supervisaoCampoOn}
       topbar={
         <>
           <Suspense fallback={<div className="flex-1" />}>

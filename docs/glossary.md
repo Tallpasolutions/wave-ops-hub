@@ -183,6 +183,13 @@ não é serviço de campo remunerado pela LPU do técnico. É marcada na ingest�
 `tenants.config.finalidades_infra` e **não gera payout** nem entra nos indicadores operacionais.
 Ver [ADR-008](./architecture/ADR-008-exclusao-finalidades-infra.md).
 
+### Empresa (prefixo do técnico)
+A Unetvale atende por várias empresas, e a planilha identifica cada uma só pelo prefixo da coluna
+Técnico (`WAVE - Fulano`, `JVM - Fulano`). Ficam as linhas de `tenants.config.prefixos_empresa`; as
+demais são descartadas na ingestão e nunca entram no sistema. Diferente de **fora de escopo**, que é
+dado da própria empresa que não conta nos indicadores. Ver
+[ADR-024](./architecture/ADR-024-filtro-outras-empresas.md).
+
 ### Notificação
 Aviso in-app na sineta, por usuário (`notifications`, RLS `notif_own`). Entregue **em tempo real**
 via Supabase Realtime (com o app aberto) e por **Web Push** (com o app fechado). Notificações que

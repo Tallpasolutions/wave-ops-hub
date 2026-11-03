@@ -19,25 +19,30 @@
 --
 -- ── COMO RODAR ───────────────────────────────────────────────────────────────────────────
 -- Rodar cada statement separado (ver 0036). O primeiro apaga 1.000 visitas por vez, porque o
--- trigger roda linha a linha e um único DELETE arrisca estourar o tempo do SQL Editor. Repetir
--- até responder 0 linhas e só então rodar o segundo. Rodar de novo não faz nada.
+-- trigger roda linha a linha e um único DELETE arrisca estourar o tempo do SQL Editor. Ele
+-- responde quantas apagou, porque o SQL Editor não mostra a contagem de um DELETE simples.
+-- Repetir até `apagadas` = 0 e só então rodar o segundo. Rodar de novo não faz nada.
 -- =============================================================================
 
-DELETE FROM service_visits
-WHERE id IN (
-  SELECT v.id
-  FROM service_visits v
-  JOIN tenants t ON t.id = v.tenant_id AND t.config ? 'prefixos_empresa'
-  LEFT JOIN payouts p ON p.visit_id = v.id
-  CROSS JOIN LATERAL (
-    SELECT upper(regexp_replace(btrim(substring(btrim(v.tecnico_raw) FROM '^(.+?)(\s+-\s*|\s*-\s+)')), '\s+', ' ', 'g')) AS empresa
-  ) e
-  WHERE e.empresa IS NOT NULL
-    AND NOT (t.config -> 'prefixos_empresa') ? e.empresa
-    AND v.tecnico_id IS NULL
-    AND NOT COALESCE(p.status IN ('approved', 'paid', 'contestado') OR p.override_by IS NOT NULL, false)
-  LIMIT 1000
-);
+WITH apagadas AS (
+  DELETE FROM service_visits
+  WHERE id IN (
+    SELECT v.id
+    FROM service_visits v
+    JOIN tenants t ON t.id = v.tenant_id AND t.config ? 'prefixos_empresa'
+    LEFT JOIN payouts p ON p.visit_id = v.id
+    CROSS JOIN LATERAL (
+      SELECT upper(regexp_replace(btrim(substring(btrim(v.tecnico_raw) FROM '^(.+?)(\s+-\s*|\s*-\s+)')), '\s+', ' ', 'g')) AS empresa
+    ) e
+    WHERE e.empresa IS NOT NULL
+      AND NOT (t.config -> 'prefixos_empresa') ? e.empresa
+      AND v.tecnico_id IS NULL
+      AND NOT COALESCE(p.status IN ('approved', 'paid', 'contestado') OR p.override_by IS NOT NULL, false)
+    LIMIT 1000
+  )
+  RETURNING 1
+)
+SELECT COUNT(*) AS apagadas FROM apagadas;
 
 -- Motivos auto-criados por essas linhas ficariam na fila de classificação sem nenhuma visita.
 -- Se a Wave tiver o motivo de novo, a ingestão recria.

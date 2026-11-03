@@ -30,6 +30,7 @@ Esta pasta contém todas as decisões arquiteturais tomadas no projeto. Cada ADR
 | [ADR-020](./ADR-020-receita-zerada-sem-repasse.md) | Receita zerada da Unetvale não gera repasse automático | Aceito |
 | [ADR-021](./ADR-021-alteracoes-unetvale-garantia.md) | Registro e notificação de alterações de valor da Unetvale (OS de garantia) | Aceito |
 | [ADR-024](./ADR-024-filtro-outras-empresas.md) | Planilha com outras empresas: filtro por lista de permissão na ingestão | Aceito |
+| [ADR-025](./ADR-025-node-24.md) | Runtime Node.js 24 | Aceito |
 
 ### Onde cada ADR toca o cálculo de payout
 

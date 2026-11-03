@@ -31,7 +31,7 @@ Sempre, em ordem:
 
 | Camada | Tecnologia | Versão |
 |---|---|---|
-| Runtime | Node.js | 20.x LTS |
+| Runtime | Node.js | 24.x LTS |
 | Package manager | pnpm | 9.x |
 | Framework | Next.js | 15.x (App Router) |
 | Linguagem | TypeScript | 5.x estrito |

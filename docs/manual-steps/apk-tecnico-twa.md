@@ -58,7 +58,7 @@ O resultado das duas é o mesmo: um `.apk` assinado + o `assetlinks.json` para p
 ### B.1 Instalar pré-requisitos (uma vez)
 
 ```bash
-# Node 20 (já usado no projeto). JDK 17 e Android SDK:
+# Node 24 (já usado no projeto). JDK 17 e Android SDK:
 brew install --cask temurin@17
 npm install -g @bubblewrap/cli
 ```

@@ -3,9 +3,11 @@ import { parseXlsx } from './parser'
 import { normalize } from './normalizer'
 import { matchTechnician, matchReason } from './matchers'
 import { computeContentHash } from './content-hash'
+import { empresaDeFora, lerEmpresasDoTenant } from './empresa'
 import { fetchAllPages } from '@/lib/supabase/fetch-all'
 import { isUniqueViolation } from '@/lib/supabase/errors'
 import type { TechnicianRef, ReasonRef } from './matchers'
+import type { RawRow } from './schemas'
 import type { IngestResult, IngestCounts, IngestError, NormalizedRow } from './types'
 
 async function markFailed(
@@ -108,13 +110,8 @@ export async function run(
       }
     }
 
-    // 2. Detecta período
-    const timestamps = rows.map((r) => r.Data.getTime())
-    const periodoInicio = new Date(Math.min(...timestamps)).toISOString().split('T')[0]!
-    const periodoFim = new Date(Math.max(...timestamps)).toISOString().split('T')[0]!
-
-    // 3. Carrega referências do banco em paralelo (uma única rodada de queries)
-    const [techRes, reasonRes, existingRes, tenantRes] = await Promise.all([
+    // 2. Carrega referências do banco em paralelo (uma única rodada de queries)
+    const [techRes, reasonRes, tenantRes] = await Promise.all([
       supabase
         .from('technicians')
         .select('id, nome_completo')
@@ -124,29 +121,65 @@ export async function run(
         .from('reasons')
         .select('id, motivo_original')
         .eq('tenant_id', tenantId),
-      // Carrega TODAS as visitas do período — PAGINADO. Sem paginação o PostgREST corta
-      // silenciosamente em 1000 linhas: num mês com >1000 visitas, as excedentes ficam de
-      // fora do mapa de dedup, o re-upload as trata como novas e o INSERT viola a unique
-      // (tenant_id, os_num, data_execucao, tecnico_id). Por isso re-uploads davam "duplicate key".
-      fetchAllPages<{
-        id: string
-        content_hash: string
-        os_num: number
-        data_execucao: string
-        tecnico_id: string | null
-        tecnico_raw: string | null
-      }>((from, to) =>
-        supabase
-          .from('service_visits')
-          .select('id, content_hash, os_num, data_execucao, tecnico_id, tecnico_raw')
-          .eq('tenant_id', tenantId)
-          .gte('data_execucao', periodoInicio)
-          .lte('data_execucao', periodoFim + 'T23:59:59.999Z')
-          .order('id')
-          .range(from, to),
-      ),
       supabase.from('tenants').select('config').eq('id', tenantId).single(),
     ])
+
+    // Sem a config não há como saber quais empresas ficam: seguir gravaria as outras empresas.
+    if (tenantRes.error) {
+      const msg = `Falha ao carregar a configuração da empresa: ${tenantRes.error.message}`
+      await markFailed(uploadId, msg, parseErrors, supabase)
+      return { status: 'failed', error: msg, errors: parseErrors }
+    }
+
+    const techList: TechnicianRef[] = techRes.data ?? []
+    const reasonList: ReasonRef[] = reasonRes.data ?? []
+
+    // 3. Descarta as linhas de outras empresas (ADR-024). Vem antes do período e dos motivos
+    // para que nenhum dado delas alcance o banco, nem como motivo auto-criado.
+    const empresas = lerEmpresasDoTenant(tenantRes.data?.config)
+    const outrasEmpresas: Record<string, number> = {}
+    const linhasDoTenant: Array<{ rawRow: RawRow; row: number }> = []
+    rows.forEach((rawRow, i) => {
+      const empresa = empresaDeFora(rawRow.Tecnico, empresas, techList)
+      if (empresa) {
+        outrasEmpresas[empresa] = (outrasEmpresas[empresa] ?? 0) + 1
+      } else {
+        linhasDoTenant.push({ rawRow, row: i + 2 })
+      }
+    })
+
+    if (linhasDoTenant.length === 0) {
+      const msg = `Nenhuma linha desta planilha é da empresa. Empresas encontradas: ${Object.keys(outrasEmpresas).join(', ')}`
+      await markFailed(uploadId, msg, parseErrors, supabase)
+      return { status: 'failed', error: msg, errors: parseErrors }
+    }
+
+    // 4. Detecta período
+    const timestamps = linhasDoTenant.map(({ rawRow }) => rawRow.Data.getTime())
+    const periodoInicio = new Date(Math.min(...timestamps)).toISOString().split('T')[0]!
+    const periodoFim = new Date(Math.max(...timestamps)).toISOString().split('T')[0]!
+
+    // Carrega TODAS as visitas do período — PAGINADO. Sem paginação o PostgREST corta
+    // silenciosamente em 1000 linhas: num mês com >1000 visitas, as excedentes ficam de
+    // fora do mapa de dedup, o re-upload as trata como novas e o INSERT viola a unique
+    // (tenant_id, os_num, data_execucao, tecnico_id). Por isso re-uploads davam "duplicate key".
+    const existingRes = await fetchAllPages<{
+      id: string
+      content_hash: string
+      os_num: number
+      data_execucao: string
+      tecnico_id: string | null
+      tecnico_raw: string | null
+    }>((from, to) =>
+      supabase
+        .from('service_visits')
+        .select('id, content_hash, os_num, data_execucao, tecnico_id, tecnico_raw')
+        .eq('tenant_id', tenantId)
+        .gte('data_execucao', periodoInicio)
+        .lte('data_execucao', periodoFim + 'T23:59:59.999Z')
+        .order('id')
+        .range(from, to),
+    )
 
     // Falha explícita se a carga de existentes deu erro — inserir sem o mapa de dedup
     // completo geraria "duplicate key" em massa (o bug que este fix corrige).
@@ -155,9 +188,6 @@ export async function run(
       await markFailed(uploadId, msg, parseErrors, supabase)
       return { status: 'failed', error: msg, errors: parseErrors }
     }
-
-    const techList: TechnicianRef[] = techRes.data ?? []
-    const reasonList: ReasonRef[] = reasonRes.data ?? []
 
     // Finalidades de infra do tenant (ADR-008) — normalizadas para match tolerante
     const tenantConfig = (tenantRes.data?.config ?? {}) as { finalidades_infra?: unknown }
@@ -180,7 +210,7 @@ export async function run(
       existingMap.set(k, { id: v.id, content_hash: v.content_hash })
     }
 
-    // 4. Processa cada linha — apenas lógica de matching (sem IO por linha)
+    // 5. Processa cada linha — apenas lógica de matching (sem IO por linha)
     const counts: IngestCounts = {
       inseridas: 0,
       atualizadas: 0,
@@ -196,8 +226,7 @@ export async function run(
     const toInsert: Array<{ row: number; data: DbRow }> = []
     const toUpdate: Array<{ id: string; data: DbRow }> = []
 
-    for (let i = 0; i < rows.length; i++) {
-      const rawRow = rows[i]!
+    for (const { rawRow, row } of linhasDoTenant) {
       try {
         // Match técnico (em memória)
         const tecnico = matchTechnician(rawRow.Tecnico, techList)
@@ -244,7 +273,7 @@ export async function run(
         const existing = existingMap.get(key)
 
         if (!existing) {
-          toInsert.push({ row: i + 2, data: dbRow })
+          toInsert.push({ row, data: dbRow })
           counts.inseridas++
         } else if (existing.content_hash !== contentHash) {
           toUpdate.push({ id: existing.id, data: dbRow })
@@ -255,13 +284,13 @@ export async function run(
       } catch (err) {
         counts.erros++
         rowErrors.push({
-          row: i + 2,
+          row,
           message: err instanceof Error ? err.message : String(err),
         })
       }
     }
 
-    // 5. Persiste em batch — INSERT em lotes, UPDATE em paralelo
+    // 6. Persiste em batch — INSERT em lotes, UPDATE em paralelo
 
     // INSERTs em lotes de BATCH_INSERT_SIZE. Um único conflito de unique derruba o lote
     // inteiro no PostgREST — então no erro caímos para insert linha-a-linha: as linhas
@@ -298,7 +327,7 @@ export async function run(
       )
     }
 
-    // 6. Atualiza registro de upload com resultado
+    // 7. Atualiza registro de upload com resultado
     await supabase
       .from('uploads')
       .update({
@@ -311,6 +340,7 @@ export async function run(
         ignoradas: counts.ignoradas,
         erros: counts.erros,
         error_log: rowErrors.length > 0 ? rowErrors : null,
+        outras_empresas: Object.keys(outrasEmpresas).length > 0 ? outrasEmpresas : null,
         processed_at: new Date().toISOString(),
       })
       .eq('id', uploadId)
@@ -321,6 +351,7 @@ export async function run(
       warnings: {
         unmatchedTechnicians: Array.from(unmatchedTechnicians),
         newReasons,
+        outrasEmpresas,
       },
     }
   } catch (err) {

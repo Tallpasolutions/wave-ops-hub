@@ -36,6 +36,7 @@ export const uploads = pgTable(
     ignoradas: integer("ignoradas").notNull().default(0),
     erros: integer("erros").notNull().default(0),
     errorLog: jsonb("error_log"),
+    outrasEmpresas: jsonb("outras_empresas").$type<Record<string, number>>(),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

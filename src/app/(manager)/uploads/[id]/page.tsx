@@ -25,6 +25,7 @@ type UploadDetail = {
   ignoradas: number
   erros: number
   error_log: unknown
+  outras_empresas: Record<string, number> | null
   uploaded_at: string
   processed_at: string | null
 }
@@ -97,7 +98,7 @@ export default async function UploadDetailPage({
   const { data: upload } = await supabase
     .from('uploads')
     .select(
-      'id, file_name, status, periodo_inicio, periodo_fim, total_linhas, inseridas, atualizadas, ignoradas, erros, error_log, uploaded_at, processed_at',
+      'id, file_name, status, periodo_inicio, periodo_fim, total_linhas, inseridas, atualizadas, ignoradas, erros, error_log, outras_empresas, uploaded_at, processed_at',
     )
     .eq('id', id)
     .maybeSingle()
@@ -108,6 +109,9 @@ export default async function UploadDetailPage({
   if ((upload as { tenant_id?: string }).tenant_id && (upload as { tenant_id?: string }).tenant_id !== user.tenantId) {
     notFound()
   }
+
+  const outrasEmpresas = Object.entries(u.outras_empresas ?? {}).sort((a, b) => b[1] - a[1])
+  const linhasOutrasEmpresas = outrasEmpresas.reduce((total, [, linhas]) => total + linhas, 0)
 
   const errorEntries = Array.isArray(u.error_log)
     ? (u.error_log as unknown[])
@@ -249,6 +253,15 @@ export default async function UploadDetailPage({
         <CountCard label="Ignoradas" value={u.ignoradas} />
         <CountCard label="Erros" value={u.erros} highlight />
       </div>
+
+      {linhasOutrasEmpresas > 0 && (
+        <div className="mb-6 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-3 text-sm text-[var(--text-2)]">
+          {linhasOutrasEmpresas === 1
+            ? '1 linha de outra empresa foi descartada e não entrou no sistema: '
+            : `${linhasOutrasEmpresas} linhas de outras empresas foram descartadas e não entraram no sistema: `}
+          {outrasEmpresas.map(([empresa, linhas]) => `${empresa} (${linhas})`).join(', ')}.
+        </div>
+      )}
 
       {u.status === 'success' && u.inseridas === 0 && u.ignoradas > 0 && (
         <div className="mb-6 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-3 text-sm text-[var(--text-2)]">

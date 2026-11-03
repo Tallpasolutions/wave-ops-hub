@@ -56,8 +56,20 @@ function makeMockFrom({
   existingVisits = [] as unknown[],
   newReasonData = null as unknown,
   insertError = null as { code?: string; message?: string } | null,
+  tenantConfig = null as unknown,
+  tenantError = null as { message: string } | null,
+  uploadsUpdate = null as ReturnType<typeof vi.fn> | null,
 } = {}) {
   return vi.fn().mockImplementation((table: string) => {
+    if (table === 'tenants') {
+      return makeFluentMock({ data: tenantConfig ? { config: tenantConfig } : null, error: tenantError })
+    }
+    if (table === 'uploads' && uploadsUpdate) {
+      const fluent = makeFluentMock({ data: null, error: null })
+      uploadsUpdate.mockReturnValue(fluent)
+      fluent.update = uploadsUpdate
+      return fluent
+    }
     switch (table) {
       case 'technicians':
         return makeFluentMock({ data: technicians, error: null })
@@ -255,5 +267,88 @@ describe('ingestor.run', () => {
     } as unknown as SupabaseClient
 
     await expect(run('upload-1', buf, 'tenant-1', 'user-1', supabase)).resolves.toMatchObject({ status: 'failed' })
+  })
+})
+
+describe('ingestor.run — planilha com outras empresas (ADR-024)', () => {
+  const CONFIG = { prefixos_empresa: ['WAVE', 'INFRA WAVE'] }
+  const PLANILHA_MISTA: SheetRow[] = [
+    BASE_ROW,
+    { ...BASE_ROW, OS: 2, Técnico: 'INFRA WAVE - Joao Revair Dill' },
+    { ...BASE_ROW, OS: 3, Técnico: 'JVM - Jorge Luiz Silva', Data: '2026-03-01', Sucesso: 'Não - Motivo de fora' },
+    { ...BASE_ROW, OS: 4, Técnico: 'JVM -GABRIEL DE OLIVEIRA BRANDAO' },
+    { ...BASE_ROW, OS: 5, Técnico: 'INFRA UNET -  Mauricio Capitanio' },
+  ]
+
+  it('grava só as linhas do tenant e informa o que descartou', async () => {
+    const from = makeMockFrom({ tenantConfig: CONFIG })
+    const supabase = { from } as unknown as SupabaseClient
+    const result = await run('upload-1', makeXlsxBuffer(PLANILHA_MISTA), 'tenant-1', 'user-1', supabase)
+
+    expect(result.status).toBe('success')
+    if (result.status === 'success') {
+      expect(result.counts.inseridas).toBe(2)
+      expect(result.warnings.outrasEmpresas).toEqual({ JVM: 2, 'INFRA UNET': 1 })
+      expect(result.warnings.unmatchedTechnicians).not.toContain('JVM - Jorge Luiz Silva')
+    }
+  })
+
+  it('o período e o registro do upload ignoram as linhas descartadas', async () => {
+    const uploadsUpdate = vi.fn()
+    const supabase = {
+      from: makeMockFrom({ tenantConfig: CONFIG, uploadsUpdate }),
+    } as unknown as SupabaseClient
+    await run('upload-1', makeXlsxBuffer(PLANILHA_MISTA), 'tenant-1', 'user-1', supabase)
+
+    expect(uploadsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        periodo_inicio: '2026-04-01',
+        total_linhas: 5,
+        inseridas: 2,
+        outras_empresas: { JVM: 2, 'INFRA UNET': 1 },
+      }),
+    )
+  })
+
+  it('motivo de linha descartada não é auto-criado', async () => {
+    const supabase = {
+      from: makeMockFrom({
+        tenantConfig: CONFIG,
+        newReasonData: { id: 'new-r', motivo_original: 'Não - Motivo de fora' },
+      }),
+    } as unknown as SupabaseClient
+    const result = await run('upload-1', makeXlsxBuffer(PLANILHA_MISTA), 'tenant-1', 'user-1', supabase)
+
+    expect(result.status).toBe('success')
+    if (result.status === 'success') expect(result.warnings.newReasons).toEqual([])
+  })
+
+  it('planilha só com outras empresas falha com mensagem clara', async () => {
+    const buf = makeXlsxBuffer([{ ...BASE_ROW, Técnico: 'JVM - Jorge Luiz Silva' }])
+    const supabase = { from: makeMockFrom({ tenantConfig: CONFIG }) } as unknown as SupabaseClient
+    const result = await run('upload-1', buf, 'tenant-1', 'user-1', supabase)
+
+    expect(result).toMatchObject({ status: 'failed' })
+    if (result.status === 'failed') expect(result.error).toContain('JVM')
+  })
+
+  it('tenant sem lista de empresas não filtra nada', async () => {
+    const supabase = { from: makeMockFrom() } as unknown as SupabaseClient
+    const result = await run('upload-1', makeXlsxBuffer(PLANILHA_MISTA), 'tenant-1', 'user-1', supabase)
+
+    expect(result.status).toBe('success')
+    if (result.status === 'success') {
+      expect(result.counts.inseridas).toBe(5)
+      expect(result.warnings.outrasEmpresas).toEqual({})
+    }
+  })
+
+  it('falha ao ler a config do tenant não grava nada', async () => {
+    const supabase = {
+      from: makeMockFrom({ tenantError: { message: 'permission denied' } }),
+    } as unknown as SupabaseClient
+    const result = await run('upload-1', makeXlsxBuffer(PLANILHA_MISTA), 'tenant-1', 'user-1', supabase)
+
+    expect(result).toMatchObject({ status: 'failed' })
   })
 })

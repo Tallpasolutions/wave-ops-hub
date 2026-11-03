@@ -8,6 +8,7 @@ export type IngestCounts = {
 export type IngestWarning = {
   unmatchedTechnicians: string[]
   newReasons: string[]
+  outrasEmpresas: Record<string, number>
 }
 
 export type IngestError = {

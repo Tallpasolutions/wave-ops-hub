@@ -352,6 +352,7 @@ e o `SetPasswordDialog`, ajustando o escopo de tenant (o painel admin é cross-t
 **Impacto se não resolver:** a porcentagem sai maior que a real em todos os meses. Em outubro a tela mostra 42% (72/171) e o real é 36,7% (72/196); em junho, 64,0% contra 57,2%.
 **Esforço estimado pra resolver:** XS — expor o total de não-conclusões com motivo no agregado e usar como base.
 **Quando idealmente resolver:** antes do próximo material comparado com a Unetvale.
+**Status:** correção aplicada em `fix/dashboard-base-motivo-principal`, com a base em todas as não-conclusões do período. Mover para "Itens resolvidos" quando verificado em produção.
 
 ### 030 — UPDATE de visita no ingestor não verifica `error`
 **Identificado em:** 2026-11-04, ao corrigir a recópia de visita vinculada

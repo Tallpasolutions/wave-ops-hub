@@ -54,6 +54,44 @@ describe('aggregate — OSs distintas × visitas', () => {
   })
 })
 
+describe('aggregate — porcentagem do motivo principal', () => {
+  const naoConcluida = (reasonId: string | null) =>
+    visit({ sucesso: 'Não - Motivo', reason_id: reasonId })
+  const reasons = Array.from({ length: 9 }, (_, i) => ({
+    id: `r${i + 1}`,
+    motivo_normalizado: `motivo ${i + 1}`,
+    categoria: 'falha_cliente',
+  }))
+
+  it('divide por todas as não-conclusões, não só pelos 8 motivos exibidos', () => {
+    // r1 tem 3 visitas e r2 a r9 têm 1 cada: 11 não-conclusões, das quais 10 ficam no top 8.
+    const visits = [
+      naoConcluida('r1'),
+      naoConcluida('r1'),
+      naoConcluida('r1'),
+      ...reasons.slice(1).map((r) => naoConcluida(r.id)),
+    ]
+    const { porMotivo, motivoPrincipalPct } = aggregate(visits, [], reasons, 30)
+
+    expect(porMotivo).toHaveLength(8)
+    expect(motivoPrincipalPct).toBeCloseTo((3 / 11) * 100)
+  })
+
+  it('não-conclusão sem motivo entra na base e visita com sucesso não entra', () => {
+    const visits = [naoConcluida('r1'), naoConcluida(null), visit({ sucesso: 'Sim Instalado' })]
+    const { motivoPrincipalPct } = aggregate(visits, [], reasons, 30)
+
+    expect(motivoPrincipalPct).toBe(50)
+  })
+
+  it('sem não-conclusões a porcentagem é zero', () => {
+    const { porMotivo, motivoPrincipalPct } = aggregate([visit({})], [], reasons, 30)
+
+    expect(porMotivo).toEqual([])
+    expect(motivoPrincipalPct).toBe(0)
+  })
+})
+
 describe('aggregate — volume diário (S3: eixo X sem buracos)', () => {
   it('com periodStart, preenche todos os dias do mês (zeros nos vazios)', () => {
     const visits = [

@@ -2,6 +2,7 @@ import type { MotivoRow } from '../_lib/aggregate'
 
 interface Props {
   rows: MotivoRow[]
+  principalPct: number
 }
 
 const CAT_COLORS: Record<string, string> = {
@@ -12,9 +13,8 @@ const CAT_COLORS: Record<string, string> = {
   pendente_classificacao: 'text-[var(--text-3)] bg-white/5',
 }
 
-export function ReasonsFailure({ rows }: Props) {
+export function ReasonsFailure({ rows, principalPct }: Props) {
   const max = Math.max(...rows.map((r) => r.qtd), 1)
-  const total = rows.reduce((a, b) => a + b.qtd, 0)
   const topMotivo = rows[0]
 
   return (
@@ -46,7 +46,7 @@ export function ReasonsFailure({ rows }: Props) {
         ))}
       </div>
 
-      {topMotivo && total > 0 && (
+      {topMotivo && (
         <div
           className="mt-4 flex items-start gap-3 rounded-xl border p-3.5 text-[12px] leading-relaxed text-[var(--text-2)]"
           style={{
@@ -57,7 +57,7 @@ export function ReasonsFailure({ rows }: Props) {
           <span className="font-bold text-[var(--red)]">●</span>
           <div>
             <strong className="text-[var(--text)]">
-              {((topMotivo.qtd / total) * 100).toFixed(0)}% das não-conclusões são &ldquo;
+              {principalPct.toFixed(0)}% das não-conclusões são &ldquo;
               {topMotivo.nome}&rdquo;
             </strong>{' '}
             — principal causa operacional do período.

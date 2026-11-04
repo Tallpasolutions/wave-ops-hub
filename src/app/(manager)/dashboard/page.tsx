@@ -100,7 +100,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const daysInPeriod = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
   const agg = aggregate(visits, techs, reasons, daysInPeriod, start)
-  const { kpis, volumeDiario, porFinalidade, porTipoAtendimento, porTecnico, porCidade, porMotivo } = agg
+  const {
+    kpis,
+    volumeDiario,
+    porFinalidade,
+    porTipoAtendimento,
+    porTecnico,
+    porCidade,
+    porMotivo,
+    motivoPrincipalPct,
+  } = agg
 
   const isEmpty = kpis.totalVisitas === 0
 
@@ -247,7 +256,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </Card>
             <Card title="Motivos de Não-Conclusão" sub="Top causas operacionais">
               {porMotivo.length > 0 ? (
-                <ReasonsFailure rows={porMotivo} />
+                <ReasonsFailure rows={porMotivo} principalPct={motivoPrincipalPct} />
               ) : (
                 <p className="py-6 text-center text-sm text-[var(--text-3)]">
                   Nenhum motivo registrado no período.

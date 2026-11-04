@@ -72,6 +72,7 @@ export type DashboardAgg = {
   porTecnico: TecnicoRow[]
   porCidade: CidadeRow[]
   porMotivo: MotivoRow[]
+  motivoPrincipalPct: number
 }
 
 function sum(arr: (number | null | undefined)[]): number {
@@ -238,5 +239,19 @@ export function aggregate(
     .sort((a, b) => b.qtd - a.qtd)
     .slice(0, 8)
 
-  return { kpis, volumeDiario, porFinalidade, porTipoAtendimento, porTecnico, porCidade, porMotivo }
+  // A base é o total de não-conclusões: somar só o top 8 exibido inflaria a porcentagem.
+  const totalNaoConclusoes = totalVisitas - finalizadas.length
+  const motivoPrincipalPct =
+    porMotivo[0] && totalNaoConclusoes > 0 ? (porMotivo[0].qtd / totalNaoConclusoes) * 100 : 0
+
+  return {
+    kpis,
+    volumeDiario,
+    porFinalidade,
+    porTipoAtendimento,
+    porTecnico,
+    porCidade,
+    porMotivo,
+    motivoPrincipalPct,
+  }
 }

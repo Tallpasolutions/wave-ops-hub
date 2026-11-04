@@ -345,6 +345,30 @@ funciona — e não tem como devolver acesso a um gestor travado sem ir ao paine
 e o `SetPasswordDialog`, ajustando o escopo de tenant (o painel admin é cross-tenant).
 **Quando idealmente resolver:** na próxima passada pelo painel Tallpa.
 
+### 029 — "Motivo principal" do dashboard calcula a porcentagem só sobre o top 8
+**Identificado em:** 2026-11-04, conferindo outubro/2026 com o material do gestor
+**Onde:** `src/app/(manager)/dashboard/_components/ReasonsFailure.tsx` (`total` soma só as linhas recebidas) + `aggregate.ts` (`slice(0, 8)`)
+**Por quê:** o texto diz "X% das não-conclusões", mas a base são os 8 motivos exibidos, não todas as não-conclusões.
+**Impacto se não resolver:** a porcentagem sai maior que a real em todos os meses. Em outubro a tela mostra 42% (72/171) e o real é 36,7% (72/196); em junho, 64,0% contra 57,2%.
+**Esforço estimado pra resolver:** XS — expor o total de não-conclusões com motivo no agregado e usar como base.
+**Quando idealmente resolver:** antes do próximo material comparado com a Unetvale.
+
+### 030 — UPDATE de visita no ingestor não verifica `error`
+**Identificado em:** 2026-11-04, ao corrigir a recópia de visita vinculada
+**Onde:** `src/lib/etl/ingestor.ts`, passo de UPDATEs em paralelo
+**Por quê:** o `Promise.all` descarta o retorno, contra a regra R2.3. Ficou fora da correção por não ser a causa do bug.
+**Impacto se não resolver:** a linha que falhar conta como "atualizada" e o upload termina como sucesso, sem o dado novo.
+**Esforço estimado pra resolver:** XS — conferir `error` e somar em `counts.erros`/`rowErrors`, como o INSERT já faz.
+**Quando idealmente resolver:** na próxima mudança do ingestor.
+
+### 031 — Telas ainda não removem os prefixos "INFRA WAVE" e "WAVE SUPERVISOR" do nome
+**Identificado em:** 2026-11-04, na varredura do prefixo (R3.1)
+**Onde:** `src/lib/format/tecnico.ts` (`WAVE_PREFIX`) e `src/app/(manager)/uploads/[id]/audit/page.tsx`
+**Por quê:** cada um tem regex própria, só com "WAVE - ". A correção ficou em `matchers.ts`, que é a comparação que grava o vínculo; aqui o efeito é só visual.
+**Impacto se não resolver:** técnico não vinculado aparece com o prefixo na tela, como "WAVE SUPERVISOR - Carlos... (não vinculado)".
+**Esforço estimado pra resolver:** XS — reaproveitar um único prefixo nos três lugares.
+**Quando idealmente resolver:** junto da próxima passada de exibição de técnico.
+
 ### Template
 
 ```

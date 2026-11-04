@@ -130,6 +130,8 @@ CREATE UNIQUE INDEX idx_visit_unique_no_match
   WHERE tecnico_id IS NULL;
 ```
 
+⚠️ **Re-upload de visita vinculada à mão:** as duas constraints acima não se enxergam. Uma linha vinculada e a mesma linha sem técnico convivem no banco sem violar nenhuma delas, e isso gerou 15 cópias em outubro/2026 (nome da planilha sem match no cadastro, re-upload com período sobreposto). Por isso, depois da chave natural, o ingestor procura a mesma execução por `(os_num, data_execucao, tecnico_raw)`. Se encontrar, atualiza ou ignora em vez de inserir, e o vínculo já gravado prevalece. Revisita em outro horário ou outro técnico na mesma OS continuam sendo visitas novas. Isso não cobre a reemissão com horário trocado ([dívida 025](../tech-debt.md)).
+
 ### Relação com OS
 
 Não há FK formal para `service_orders` — a relação é por `(tenant_id, os_num)`. Isso porque uma visita pode ser inserida antes da consolidação criar o registro em `service_orders` (a consolidação roda no trigger AFTER INSERT). A integridade é garantida por código + trigger.

@@ -13,8 +13,9 @@ function normalizeStr(s: string): string {
     .trim()
 }
 
-// Prefixo de organização que aparece na planilha da Unetvale ("WAVE - ", "INFRA WAVE - ").
-const ORG_PREFIX = /^\s*(?:INFRA\s+)?WAVE\s*-\s*/i
+// Prefixo de organização que aparece na planilha da Unetvale ("WAVE - ", "INFRA WAVE - ",
+// "WAVE SUPERVISOR - ").
+const ORG_PREFIX = /^\s*(?:INFRA\s+)?WAVE(?:\s+SUPERVISOR)?\s*-\s*/i
 
 export function matchTechnician(
   rawName: string,

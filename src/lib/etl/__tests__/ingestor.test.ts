@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import * as XLSX from 'xlsx'
 import { run } from '../ingestor'
+import { computeContentHash } from '../content-hash'
+import { parseXlsx } from '../parser'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type SheetRow = Record<string, unknown>
@@ -59,6 +61,8 @@ function makeMockFrom({
   tenantConfig = null as unknown,
   tenantError = null as { message: string } | null,
   uploadsUpdate = null as ReturnType<typeof vi.fn> | null,
+  visitsInsert = null as ReturnType<typeof vi.fn> | null,
+  visitsUpdate = null as ReturnType<typeof vi.fn> | null,
 } = {}) {
   return vi.fn().mockImplementation((table: string) => {
     if (table === 'tenants') {
@@ -78,8 +82,18 @@ function makeMockFrom({
           return makeReasonsWithInsert(reasons, newReasonData)
         }
         return makeFluentMock({ data: reasons, error: null })
-      case 'service_visits':
-        return makeServiceVisitsMock(existingVisits, insertError)
+      case 'service_visits': {
+        const visits = makeServiceVisitsMock(existingVisits, insertError)
+        if (visitsInsert) {
+          visitsInsert.mockImplementation(visits.insert as (...args: unknown[]) => unknown)
+          visits.insert = visitsInsert
+        }
+        if (visitsUpdate) {
+          visitsUpdate.mockImplementation(visits.update as (...args: unknown[]) => unknown)
+          visits.update = visitsUpdate
+        }
+        return visits
+      }
       case 'uploads':
         return makeFluentMock({ data: null, error: null })
       default:
@@ -267,6 +281,96 @@ describe('ingestor.run', () => {
     } as unknown as SupabaseClient
 
     await expect(run('upload-1', buf, 'tenant-1', 'user-1', supabase)).resolves.toMatchObject({ status: 'failed' })
+  })
+})
+
+describe('ingestor.run — re-upload de visita vinculada à mão', () => {
+  const DATA_EXECUCAO = '2026-04-01T00:00:00.000Z'
+  const RAW = 'WAVE - João Silva'
+  const hashDaLinha = (linha: SheetRow): string => {
+    const { rows } = parseXlsx(makeXlsxBuffer([linha]))
+    return computeContentHash(rows[0]!)
+  }
+  const visitaExistente = (tecnicoId: string | null, contentHash: string) => ({
+    id: 'v-1',
+    content_hash: contentHash,
+    os_num: 12345,
+    data_execucao: DATA_EXECUCAO,
+    tecnico_id: tecnicoId,
+    tecnico_raw: RAW,
+  })
+  const executar = async (
+    linhas: SheetRow[],
+    opcoes: { existingVisits: unknown[]; technicians?: unknown[] },
+  ) => {
+    const visitsInsert = vi.fn()
+    const visitsUpdate = vi.fn()
+    const supabase = {
+      from: makeMockFrom({ ...opcoes, visitsInsert, visitsUpdate }),
+    } as unknown as SupabaseClient
+    const result = await run('upload-1', makeXlsxBuffer(linhas), 'tenant-1', 'user-1', supabase)
+    if (result.status !== 'success') throw new Error('upload deveria ter sucesso')
+    return { counts: result.counts, visitsInsert, visitsUpdate }
+  }
+
+  it('nome não reconhecido e conteúdo igual: não recria a visita', async () => {
+    const { counts, visitsInsert } = await executar([BASE_ROW], {
+      existingVisits: [visitaExistente('tech-1', hashDaLinha(BASE_ROW))],
+    })
+
+    expect(counts).toMatchObject({ inseridas: 0, atualizadas: 0, ignoradas: 1 })
+    expect(visitsInsert).not.toHaveBeenCalled()
+  })
+
+  it('nome não reconhecido e conteúdo novo: atualiza e mantém o técnico vinculado', async () => {
+    const { counts, visitsInsert, visitsUpdate } = await executar([BASE_ROW], {
+      existingVisits: [visitaExistente('tech-1', 'hash-antigo')],
+    })
+
+    expect(counts).toMatchObject({ inseridas: 0, atualizadas: 1 })
+    expect(visitsInsert).not.toHaveBeenCalled()
+    expect(visitsUpdate).toHaveBeenCalledWith(expect.objectContaining({ tecnico_id: 'tech-1' }))
+  })
+
+  it('nome passou a ser reconhecido: vincula a linha existente em vez de criar outra', async () => {
+    const { counts, visitsInsert, visitsUpdate } = await executar([BASE_ROW], {
+      existingVisits: [visitaExistente(null, hashDaLinha(BASE_ROW))],
+      technicians: [{ id: 'tech-1', nome_completo: 'João Silva' }],
+    })
+
+    expect(counts).toMatchObject({ inseridas: 0, atualizadas: 1 })
+    expect(visitsInsert).not.toHaveBeenCalled()
+    expect(visitsUpdate).toHaveBeenCalledWith(expect.objectContaining({ tecnico_id: 'tech-1' }))
+  })
+
+  it('cópia sem técnico já existente: usa a linha vinculada e não cria outra', async () => {
+    const hash = hashDaLinha(BASE_ROW)
+    const { counts, visitsInsert, visitsUpdate } = await executar([BASE_ROW], {
+      existingVisits: [{ ...visitaExistente(null, hash), id: 'v-nula' }, visitaExistente('tech-1', hash)],
+      technicians: [{ id: 'tech-1', nome_completo: 'João Silva' }],
+    })
+
+    expect(counts).toMatchObject({ inseridas: 0, atualizadas: 0, ignoradas: 1 })
+    expect(visitsInsert).not.toHaveBeenCalled()
+    expect(visitsUpdate).not.toHaveBeenCalled()
+  })
+
+  it('revisita do mesmo técnico em outro horário continua sendo uma visita nova', async () => {
+    const revisita = { ...BASE_ROW, Data: '2026-04-02' }
+    const { counts } = await executar([revisita], {
+      existingVisits: [visitaExistente('tech-1', hashDaLinha(BASE_ROW))],
+    })
+
+    expect(counts).toMatchObject({ inseridas: 1, ignoradas: 0 })
+  })
+
+  it('outro técnico na mesma OS e no mesmo horário continua sendo uma visita nova', async () => {
+    const outroTecnico = { ...BASE_ROW, Técnico: 'WAVE - Maria Souza' }
+    const { counts } = await executar([outroTecnico], {
+      existingVisits: [visitaExistente('tech-1', hashDaLinha(BASE_ROW))],
+    })
+
+    expect(counts).toMatchObject({ inseridas: 1, ignoradas: 0 })
   })
 })
 

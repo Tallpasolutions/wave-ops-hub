@@ -43,6 +43,20 @@ describe('matchTechnician', () => {
     expect(matchTechnician('INFRA WAVE - João Silva', TECH_LIST)?.id).toBe('tech-1')
   })
 
+  it('remove o prefixo "WAVE SUPERVISOR - "', () => {
+    expect(matchTechnician('WAVE SUPERVISOR - Douglas Ribeiro', TECH_LIST)?.id).toBe('tech-3')
+    expect(matchTechnician('wave  supervisor -  João Silva', TECH_LIST)?.id).toBe('tech-1')
+  })
+
+  it('não confunde outra empresa com o prefixo de supervisor', () => {
+    expect(matchTechnician('JVM SUPERVISOR - Douglas Ribeiro', TECH_LIST)).toBeNull()
+  })
+
+  it('não aproxima grafia diferente do nome', () => {
+    const lista: TechnicianRef[] = [{ id: 'j-1', nome_completo: 'INFRA WAVE - Jeferson Luiz' }]
+    expect(matchTechnician('WAVE - Jefferson Luiz', lista)).toBeNull()
+  })
+
   it('colapsa espaço interno duplo (nome que exibe idêntico)', () => {
     expect(matchTechnician('Douglas  Ribeiro', TECH_LIST)?.id).toBe('tech-3')
   })

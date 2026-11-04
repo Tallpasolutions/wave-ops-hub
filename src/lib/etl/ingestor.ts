@@ -40,6 +40,13 @@ function visitKey(
     : `${osNum}:${d}:null:${tecnicoRaw ?? ''}`
 }
 
+// Identifica a execução pelo que a planilha traz, sem depender do vínculo. Visita vinculada à
+// mão tem tecnico_id, mas a mesma linha no re-upload volta sem ele quando o nome não casa com
+// o cadastro; só pela visitKey as duas chaves diferem e a visita seria gravada de novo.
+function executionKey(osNum: number, dataExecucao: string, tecnicoRaw: string | null): string {
+  return `${osNum}:${new Date(dataExecucao).toISOString()}:${tecnicoRaw ?? ''}`
+}
+
 function buildDbRow(row: NormalizedRow) {
   return {
     tenant_id: row.tenantId,
@@ -197,17 +204,21 @@ export async function run(
         .map((f) => f.trim().toLowerCase()),
     )
 
-    // Mapa em memória: chave → { id, content_hash }
-    type ExistingVisit = { id: string; content_hash: string }
+    // Mapas em memória: chave → { id, content_hash, tecnico_id }
+    type ExistingVisit = { id: string; content_hash: string; tecnico_id: string | null }
     const existingMap = new Map<string, ExistingVisit>()
+    const existingByExecution = new Map<string, ExistingVisit>()
     for (const v of existingRes.rows) {
-      const k = visitKey(
-        v.os_num,
-        v.data_execucao,
-        v.tecnico_id,
-        v.tecnico_raw,
-      )
-      existingMap.set(k, { id: v.id, content_hash: v.content_hash })
+      const visit: ExistingVisit = {
+        id: v.id,
+        content_hash: v.content_hash,
+        tecnico_id: v.tecnico_id,
+      }
+      existingMap.set(visitKey(v.os_num, v.data_execucao, v.tecnico_id, v.tecnico_raw), visit)
+
+      // Havendo cópia sem técnico da mesma execução, a linha vinculada é a que vale.
+      const execKey = executionKey(v.os_num, v.data_execucao, v.tecnico_raw)
+      if (!existingByExecution.get(execKey)?.tecnico_id) existingByExecution.set(execKey, visit)
     }
 
     // 5. Processa cada linha — apenas lógica de matching (sem IO por linha)
@@ -264,19 +275,21 @@ export async function run(
         const normalized = normalize(rawRow, tenantId, uploadId, tecnico?.id ?? null, reasonId, contentHash, infraSet)
         const dbRow = buildDbRow(normalized)
 
-        const key = visitKey(
-          normalized.osNum,
-          normalized.dataExecucao.toISOString(),
-          normalized.tecnicoId,
-          normalized.tecnicoRaw,
-        )
-        const existing = existingMap.get(key)
+        const dataExecucao = normalized.dataExecucao.toISOString()
+        const existing =
+          existingMap.get(
+            visitKey(normalized.osNum, dataExecucao, normalized.tecnicoId, normalized.tecnicoRaw),
+          ) ?? existingByExecution.get(executionKey(normalized.osNum, dataExecucao, normalized.tecnicoRaw))
 
         if (!existing) {
           toInsert.push({ row, data: dbRow })
           counts.inseridas++
-        } else if (existing.content_hash !== contentHash) {
-          toUpdate.push({ id: existing.id, data: dbRow })
+        } else if (existing.content_hash !== contentHash || (!existing.tecnico_id && normalized.tecnicoId)) {
+          // O vínculo já gravado prevalece: a linha sem match não pode desfazer um vínculo manual.
+          toUpdate.push({
+            id: existing.id,
+            data: { ...dbRow, tecnico_id: existing.tecnico_id ?? normalized.tecnicoId },
+          })
           counts.atualizadas++
         } else {
           counts.ignoradas++
